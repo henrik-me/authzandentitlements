@@ -1,57 +1,57 @@
-# {{project_name}}
+# AuthZ & Entitlements Lab
 
-<!-- Optional: add status badges here, e.g. CI, coverage, version -->
-<!-- ![CI](https://github.com/your-org/{{project_name}}/actions/workflows/ci.yml/badge.svg) -->
+A **.NET Aspire** lab for evaluating **fine-grained authorization** and **entitlements**
+side by side — and a reusable reference architecture. It models a four-layer authorization
+stack and demonstrates it through a **fintech / banking back-office** product (accounts,
+approvals, segregation-of-duties, maker-checker) with full observability and a tamper-evident
+audit log.
 
-A short description of what {{project_name}} does and why it exists. Replace
-this paragraph with a one-liner pitch that answers "What does this project do?"
-in a single breath.
+## What''s inside
 
-## Quickstart
+Four-layer authorization stack (see [ARCHITECTURE.md](ARCHITECTURE.md)):
 
-### Prerequisites
+0. **AuthN** — OIDC/OAuth2 identity (Keycloak; Microsoft Entra ID as the real-world option).
+1. **Coarse-grained authz** — token scopes/claims enforced at a YARP edge gateway (cheap, stateless first gate).
+2. **Fine-grained authz (FGA)** — a unified, AuthZEN-aligned PDP with pluggable engines: ASP.NET Core native + Casbin.NET, OpenFGA (ReBAC), OPA/Rego, Cedar (expansion: SpiceDB, Cerbos, Ory Keto, Oso, Topaz).
+3. **Entitlements** — commercial (plans/seats/features/quotas) and access-governance (access packages, JIT elevation, access reviews).
 
-- List any runtime or toolchain prerequisites here (e.g. Node.js ≥ 20, Python 3.11+).
+Plus: an evaluation **comparison matrix + market survey + benchmarks + ADRs**, an interactive
+authorization **playground**, observability via Aspire + OpenTelemetry to Grafana/Prometheus/
+Loki/Tempo, and a hash-chained **audit explorer**.
 
-### Installation
+## Prerequisites
+
+- **.NET 10 SDK** (`dotnet --version` >= 10.0.100)
+- **Node.js >= 20** (the process harness runs via `npx`)
+- **Docker** (Desktop or engine) running — for the container-based engines and infrastructure
+- **`aspire` CLI** — `dotnet tool install -g Aspire.Cli` (see https://aspire.dev)
+- **GitHub CLI (`gh`)** — for the pull-request / review-gate workflow
+
+## Getting started
 
 ```sh
-# Clone the repository
-git clone https://github.com/your-org/{{project_name}}.git
-cd {{project_name}}
-
-# Install dependencies
-npm install        # or: pip install -r requirements.txt, cargo build, etc.
+git clone https://github.com/henrik-me/authzandentitlements.git
+cd authzandentitlements
 ```
 
-### Basic usage
+This project is built with the **[agent-harness](https://github.com/henrik-me/agent-harness)**
+process (clickstops, review gates, CI). To start a working session, open an agent at the repo
+root, follow [INSTRUCTIONS.md](INSTRUCTIONS.md) (Session Start checklist), then claim the next
+ready clickstop. Session sanity check + queue listing:
 
 ```sh
-# Replace with the real "hello world" command for this project
-npm start
+npx -y github:henrik-me/agent-harness#v0.12.0 startup
 ```
 
-For a full list of commands and options, see the docs or run `--help`.
-
-## Architecture
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for an overview of the system design,
-key components, and dependency relationships.
+- **What to build and in what order:** [CONTEXT.md](CONTEXT.md) — the clickstop dependency + lane map and parallelization waves. The queue lives in `project/clickstops/planned/` (27 clickstops; **CS01** first).
+- **How the process works:** [INSTRUCTIONS.md](INSTRUCTIONS.md), [OPERATIONS.md](OPERATIONS.md), [REVIEWS.md](REVIEWS.md).
+- **Architecture and decisions:** [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Status
 
-See [CONTEXT.md](CONTEXT.md) for current project status, active work, and
-known limitations.
-
-## Contributing
-
-1. Fork the repository and create a feature branch.
-2. Make your changes and add tests.
-3. Open a pull request against `main`.
-
-Refer to the project's CONVENTIONS and OPERATIONS docs for style and process
-guidelines.
+See [CONTEXT.md](CONTEXT.md) for current state, the active clickstop, and blockers. Nothing is
+implemented yet — **CS01 (Aspire foundations)** is the first claimable clickstop.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+To be determined.
