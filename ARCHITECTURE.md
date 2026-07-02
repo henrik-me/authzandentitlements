@@ -98,3 +98,41 @@ access-review campaigns recertify standing access.
 - **Context:** The lab must teach the difference and show the two are complementary.
 - **Decision:** Enforce coarse-grained (token scopes/claims) at a YARP edge; fine-grained (contextual) at the PDP.
 - **Consequences:** Defense in depth; a clear handoff; both layers emit audit + telemetry.
+
+## Project goals & evaluation framework
+
+**Objective:** both (a) an **evaluation lab** comparing fine-grained authorization engines and
+entitlement approaches, and (b) a **reusable reference architecture**. The fintech back-office
+demo exercises every layer.
+
+**What we evaluate**
+- **FGA engines** behind the unified AuthZEN-aligned PDP: ASP.NET Core native + Casbin.NET,
+  OpenFGA (ReBAC), OPA/Rego, Cedar; expansion: SpiceDB, Cerbos, Ory Keto, Oso, Topaz.
+- **Entitlements** in both senses: commercial (plans/seats/features/quotas) and access-governance
+  (access packages, JIT elevation, access reviews).
+
+**Comparison-matrix dimensions** (produced in CS23): supported models (RBAC/ReBAC/ABAC/PBAC),
+consistency, decision latency, reverse-index / "list objects", policy language and expressiveness,
+testability, auditability, operational burden, .NET support, AuthZEN alignment, licensing / maturity,
+hosting (self vs managed), and managed-vs-self-host TCO (CS25).
+
+**Cross-cutting evaluation dimensions** (each a clickstop): explainability "why allowed / why denied"
+(CS16), policy lifecycle + validation/testing (CS17), performance benchmarking (CS24), security
+hardening + threat model (CS18), agent / non-human access + on-behalf-of (CS19), migration /
+portability (CS20), compliance mapping SOX/PCI-DSS/GDPR (CS22), break-glass + delegation (CS21).
+
+## Phase roadmap
+
+The 27-clickstop arc (authoritative dependency map + parallelization waves in
+[CONTEXT.md](CONTEXT.md); per-CS detail in `project/clickstops/planned/`):
+
+0. **Foundations** — Aspire solution + fintech domain (CS01-CS02).
+1. **AuthN + coarse-grained edge** — Keycloak + YARP gateway (CS03-CS04).
+2. **Fine-grained AuthZ + unified PDP** — AuthZEN abstraction + engine adapters (CS05-CS09).
+3. **Entitlements** — commercial + access-governance (CS10-CS11).
+4. **Observability + audit** — OTel/Grafana stack + hash-chained audit (CS12-CS13).
+5. **Product + playground** — Blazor app + engine playground + audit explorer (CS14-CS15).
+6. **Evaluation lab** — comparison matrix, survey, benchmarks, ADRs (CS23-CS25).
+7. **Expansion + Azure** — more engines, full OpenMeter, azd deploy (CS26-CS27).
+
+Cross-cutting CS16-CS22 land alongside as their prerequisites complete.

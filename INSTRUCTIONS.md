@@ -610,7 +610,23 @@ above are managed by the harness and will be overwritten on the next
 `harness.config.json` under `composed.overrides["INSTRUCTIONS.md"].local_blocks`.
 
 <!-- harness:local-start id=instructions.harness -->
-_(Project-local orchestration notes — repository-specific claiming phases,
-model choices, cross-repo procedures, and institutional citations. Empty by
-default.)_
+**This repo has no local Node dependencies.** The agent-harness runs via
+`npx -y github:henrik-me/agent-harness#v0.12.0 <cmd>` — there is **no `package.json`**,
+so **skip the Session-Start `npm ci` step** (it does not apply here; `node --test`
+reports 0/0, which is expected).
+
+**Machine prerequisites** (install once per machine): **.NET 10 SDK**, **Node >= 20**,
+**Docker** (running), the **`aspire` CLI** (`dotnet tool install -g Aspire.Cli`), and
+**`gh`** (GitHub CLI).
+
+**New-agent start here (from a fresh clone):**
+1. `git pull`; derive your agent ID (`<machine>-ae`).
+2. Run `npx -y github:henrik-me/agent-harness#v0.12.0 startup` (session sanity + queue).
+3. Read [CONTEXT.md](CONTEXT.md) — the **CS dependency map + parallelization waves** and current state.
+4. Read [ARCHITECTURE.md](ARCHITECTURE.md) — goals, the four-layer authz model, decisions, and the phase roadmap.
+5. Claim the first ready clickstop — **CS01 (aspire-foundations)** — and follow the Per-CS loop.
+
+The full plan is repo-resident: strategy/arc in `project/clickstops/**`, the dependency
+map + waves in CONTEXT.md, and architecture/goals/roadmap in ARCHITECTURE.md. Session-state
+`plan.md` is scratch only (per Planning-locality).
 <!-- harness:local-end id=instructions.harness -->
