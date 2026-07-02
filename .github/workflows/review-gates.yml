@@ -1,0 +1,166 @@
+# review-gates.yml — PR-side REVIEWS.md enforcement gates (CS51 / issue #140).
+# Managed by the harness; copied to consumers when reviews.enforce_gates is true.
+
+name: review-gates
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+jobs:
+  validate-workboard-only-scope:
+    name: validate-workboard-only-scope
+    # CS63 C63-7: the four gates below skip on the `workboard-only` label. This
+    # job is the guard that the bypass is legitimate — it runs ONLY when the
+    # label is present and FAILS if the PR diff touches any file outside the
+    # workboard path allowlist, so the label cannot bypass review on content.
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'workboard-only')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Enforce workboard-only path allowlist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # CS63 R8: rename/copy-source aware — check BOTH the current path and the
+          # previous (rename/copy source) path so a PR cannot rename a non-allowlisted
+          # file into an allowlisted path to dodge the workboard-only skip.
+          # Fail CLOSED on a gh api error (auth/rate-limit/network): capture the file
+          # list first so a failure is not masked by the grep's `|| true` below.
+          files=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUM}/files" --jq '.[] | .filename, (.previous_filename // empty)') || { echo "::error ::workboard-only scope check: gh api failed; refusing to confirm bypass."; exit 1; }
+          outside=$(printf '%s\n' "$files" | grep -Ev '^(WORKBOARD\.md|CONTEXT\.md|LEARNINGS\.md)$|^project/clickstops/(planned|active|done)/' || true)
+          if [ -n "$outside" ]; then
+            echo "::error ::workboard-only label present but the PR changes files OUTSIDE the workboard allowlist (WORKBOARD.md / CONTEXT.md / LEARNINGS.md / project/clickstops/). Remove the label or split the PR."
+            printf '%s\n' "$outside" | sed 's/^/::error ::  outside-allowlist: /'
+            exit 1
+          fi
+          echo "workboard-only scope OK: all changed files are within the allowlist."
+
+  review-log-evidence:
+    name: review-log-evidence
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'workboard-only')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '20'
+      - name: Prepare harness CLI and PR body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          mkdir -p .harness-ci
+          version=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version || '')")
+          if [ -n "$version" ] && [ "$version" != "0.0.0-pre" ]; then ref="$version"; elif [ "$GH_REPO" = "henrik-me/agent-harness" ]; then ref="$GH_SHA"; else echo "ERROR: harness.config.json version is empty or 0.0.0-pre" >&2; exit 1; fi
+          if ! printf '%s' "$ref" | grep -Eq '^[a-zA-Z0-9._/-]+$'; then echo "ERROR: invalid harness ref" >&2; exit 1; fi
+          git clone --quiet --no-checkout https://github.com/henrik-me/agent-harness.git .harness-ci/agent-harness
+          git -C .harness-ci/agent-harness checkout --quiet "$ref"
+          gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.body // ""' > .harness-ci/pr-body.md
+      - name: Run review-log-evidence
+        run: node .harness-ci/agent-harness/scripts/checks/check-review-log-evidence.mjs --pr-body .harness-ci/pr-body.md
+
+  copilot-review-attached:
+    name: copilot-review-attached
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'workboard-only')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '20'
+      - name: Prepare harness CLI
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .harness-ci
+          version=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version || '')")
+          if [ -n "$version" ] && [ "$version" != "0.0.0-pre" ]; then ref="$version"; elif [ "$GH_REPO" = "henrik-me/agent-harness" ]; then ref="$GH_SHA"; else echo "ERROR: harness.config.json version is empty or 0.0.0-pre" >&2; exit 1; fi
+          if ! printf '%s' "$ref" | grep -Eq '^[a-zA-Z0-9._/-]+$'; then echo "ERROR: invalid harness ref" >&2; exit 1; fi
+          git clone --quiet --no-checkout https://github.com/henrik-me/agent-harness.git .harness-ci/agent-harness
+          git -C .harness-ci/agent-harness checkout --quiet "$ref"
+      - name: Run copilot-review-attached
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node .harness-ci/agent-harness/scripts/checks/check-copilot-review-attached.mjs --repo "$GH_REPO" --pr "$PR_NUMBER" --config harness.config.json
+
+  independence-invariant:
+    name: independence-invariant
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'workboard-only')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '20'
+      - name: Prepare harness CLI and PR body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          mkdir -p .harness-ci
+          version=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version || '')")
+          if [ -n "$version" ] && [ "$version" != "0.0.0-pre" ]; then ref="$version"; elif [ "$GH_REPO" = "henrik-me/agent-harness" ]; then ref="$GH_SHA"; else echo "ERROR: harness.config.json version is empty or 0.0.0-pre" >&2; exit 1; fi
+          if ! printf '%s' "$ref" | grep -Eq '^[a-zA-Z0-9._/-]+$'; then echo "ERROR: invalid harness ref" >&2; exit 1; fi
+          git clone --quiet --no-checkout https://github.com/henrik-me/agent-harness.git .harness-ci/agent-harness
+          git -C .harness-ci/agent-harness checkout --quiet "$ref"
+          gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.body // ""' > .harness-ci/pr-body.md
+      - name: Run independence-invariant
+        run: node .harness-ci/agent-harness/scripts/checks/check-independence-invariant.mjs --pr-body .harness-ci/pr-body.md --config harness.config.json
+
+  review-threads-resolved:
+    name: review-threads-resolved
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'workboard-only')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '20'
+      - name: Prepare harness CLI
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .harness-ci
+          version=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version || '')")
+          if [ -n "$version" ] && [ "$version" != "0.0.0-pre" ]; then ref="$version"; elif [ "$GH_REPO" = "henrik-me/agent-harness" ]; then ref="$GH_SHA"; else echo "ERROR: harness.config.json version is empty or 0.0.0-pre" >&2; exit 1; fi
+          if ! printf '%s' "$ref" | grep -Eq '^[a-zA-Z0-9._/-]+$'; then echo "ERROR: invalid harness ref" >&2; exit 1; fi
+          git clone --quiet --no-checkout https://github.com/henrik-me/agent-harness.git .harness-ci/agent-harness
+          git -C .harness-ci/agent-harness checkout --quiet "$ref"
+      - name: Run review-threads-resolved
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node .harness-ci/agent-harness/scripts/checks/check-review-threads-resolved.mjs --repo "$GH_REPO" --pr "$PR_NUMBER"

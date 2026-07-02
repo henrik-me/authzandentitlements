@@ -1,0 +1,318 @@
+# .github/workflows/workboard-auto-approve.yml — CS15a § precondition #8.
+#
+# Bot workflow that auto-approves + auto-merges WORKBOARD-only PRs now that the
+# Ruleset (authored and applied during CS15a) makes ≥1 approving review
+# mandatory on every PR by default. The bot supplies the approval ONLY for PRs that
+# pass a strict pre-check enforcing:
+#
+#   1. PR has the `workboard-only` label.
+#   2. PR branch name matches `workboard/cs<NN>-(claim|close)` OR
+#      `cs<NN>(/|-)(claim|close-out|close)` regex.
+#   3. PR author is in an explicit allowlist (orchestrator agent IDs).
+#   4. PR's changed file list is exclusively a subset of:
+#        - WORKBOARD.md
+#        - CONTEXT.md
+#        - LEARNINGS.md
+#        - project/clickstops/{planned,active,done}/**
+#      ANY file outside this set fails the check; bot does NOT approve.
+#
+# Primary merge path: the bot uses a GitHub App (per Q1) configured in
+# docs/cs15a-app-install.md. Credentials must be stored as repo secrets:
+#   - WORKBOARD_BOT_APP_ID
+#   - WORKBOARD_BOT_PRIVATE_KEY
+#
+# Fallback merge path (CS50 / issue #138): repos without the App may configure
+# a fine-grained PAT as WORKBOARD_MERGE_TOKEN. The PAT is used only after the
+# same label/branch/actor/path gates pass and only when the App secrets are not
+# configured. If neither credential set is present, the workflow validates and
+# logs that the owner/admin must merge manually.
+#
+# Bot threat model (per cs-plan §CS15a #6):
+#   - App has Contents:Read&write + Pull-requests:Read&write only; no
+#     admin / workflow / secrets permissions. Contents write is required for
+#     `gh pr merge --squash --auto` and the token is minted only after the
+#     validation gate passes.
+#   - The main Ruleset requires an approving review but not CODEOWNER review:
+#     GitHub Apps cannot satisfy a human CODEOWNER requirement. Non-WORKBOARD
+#     paths are protected by this workflow's path allowlist during this
+#     workflow run: the workflow does not mint or use the App token unless
+#     validation passes for the current PR head.
+#   - Path-restriction enforcement happens IN this workflow before this
+#     workflow mints and uses the App token. It is not a general protection
+#     against direct misuse of a compromised App private key.
+
+name: workboard-auto-approve
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  validate-and-approve:
+    runs-on: ubuntu-latest
+    # Skip immediately if the workboard-only label is absent — saves CI cycles.
+    if: contains(github.event.pull_request.labels.*.name, 'workboard-only')
+    env:
+      WORKBOARD_APP_CONFIGURED: ${{ secrets.WORKBOARD_BOT_APP_ID != '' && secrets.WORKBOARD_BOT_PRIVATE_KEY != '' }}
+      WORKBOARD_MERGE_TOKEN_CONFIGURED: ${{ secrets.WORKBOARD_MERGE_TOKEN != '' }}
+    steps:
+      - name: Validate PR shape (label + branch name + author + paths)
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          # Allowlist of orchestrator GitHub usernames + the bot itself once it's
+          # installed. Update this list whenever a new orchestrator agent comes
+          # online.
+          ALLOWED_AUTHORS: 'henrik-me'
+        run: |
+          set -euo pipefail
+          fail() { echo "::error ::workboard-auto-approve: $*"; exit 1; }
+
+          # Branch-name regex per cs-plan + observed conventions:
+          #   workboard/cs<NN>-(claim|close|close-out)
+          #   cs<NN>/(claim|close-out|close)
+          #   docs/file-planned-cs<NN>(-...)?
+          if ! printf '%s' "$PR_BRANCH" | grep -Eq '^(workboard/cs[0-9]+[a-z]?-(claim|close|close-out)|cs[0-9]+[a-z]?/(claim|close|close-out)|docs/file-planned-cs[0-9]+[a-z]?(-.+)?)$'; then
+            fail "branch name '$PR_BRANCH' does not match the workboard-only branch pattern."
+          fi
+
+          # Actor allowlist.
+          allowed=0
+          for a in $ALLOWED_AUTHORS; do
+            if [ "$PR_AUTHOR" = "$a" ]; then allowed=1; break; fi
+          done
+          if [ "$allowed" -ne 1 ]; then
+            fail "author '$PR_AUTHOR' is not in the orchestrator allowlist [$ALLOWED_AUTHORS]."
+          fi
+
+          echo "Branch + author checks: OK."
+
+      - name: Checkout base repository (never PR head)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 1
+
+      - name: Fetch PR metadata
+        id: files
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error ::workboard-auto-approve: $*"; exit 1; }
+          if ! printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'; then
+            fail "invalid PR number."
+          fi
+          if ! printf '%s' "$REPO" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
+            fail "invalid repository slug."
+          fi
+          pr_meta="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '[.base.sha, .head.sha, .head.repo.full_name, .changed_files] | @tsv')"
+          IFS=$'\t' read -r base_sha head_sha head_repo changed_files <<< "$pr_meta"
+          if ! printf '%s' "$base_sha" | grep -Eq '^[0-9a-f]{40}$'; then
+            fail "invalid PR base SHA."
+          fi
+          if ! printf '%s' "$head_sha" | grep -Eq '^[0-9a-f]{40}$'; then
+            fail "invalid PR head SHA."
+          fi
+          if [ "$head_repo" != "$REPO" ]; then
+            fail "workboard bot only supports same-repository PRs; got head repo '$head_repo'."
+          fi
+          if ! printf '%s' "$changed_files" | grep -Eq '^[0-9]+$'; then
+            fail "invalid changed_files count."
+          fi
+          echo "Validated PR base: $base_sha"
+          echo "Validated PR head: $head_sha"
+          echo "Expected changed files: $changed_files"
+          echo "base-sha=$base_sha" >> "$GITHUB_OUTPUT"
+          echo "head-sha=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "changed-files=$changed_files" >> "$GITHUB_OUTPUT"
+
+          git fetch --no-tags --depth=1 origin "$base_sha" "$head_sha"
+          git diff --name-status -M "$base_sha" "$head_sha" > pr-files.tsv
+          echo "Files in PR from immutable git diff (status/path[/previous path]):"
+          cat pr-files.tsv
+          files_count="$(wc -l < pr-files.tsv | tr -d ' ')"
+          if [ "$files_count" -ne "$changed_files" ]; then
+            fail "immutable git diff returned $files_count files but PR reports $changed_files changed files; refusing inconsistent validation."
+          fi
+          echo "files-count=$files_count" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce path-allowlist (NO files outside WORKBOARD/CONTEXT/LEARNINGS/clickstops)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error ::workboard-auto-approve: $*"; exit 1; }
+          comment_validation_failure() {
+            local msg="$1"
+            gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+              -f body="workboard-auto-approve validation failed: ${msg}" \
+              >/dev/null || echo "::warning ::failed to post validation failure comment"
+          }
+          # Allowed paths (exact OR prefix). Each line either an exact filename
+          # or a path-prefix ending in `/`.
+          cat > allowed-paths.txt <<'EOF'
+          WORKBOARD.md
+          CONTEXT.md
+          LEARNINGS.md
+          project/clickstops/planned/
+          project/clickstops/active/
+          project/clickstops/done/
+          EOF
+
+          is_allowed() {
+            local f="$1"
+            [ -z "$f" ] && return 0
+            local ok=0
+            while IFS= read -r p; do
+              [ -z "$p" ] && continue
+              if [ "${p%/}" != "$p" ]; then
+                # Prefix match
+                case "$f" in
+                  "${p}"*) ok=1; break ;;
+                esac
+              else
+                # Exact match
+                if [ "$f" = "$p" ]; then ok=1; break; fi
+              fi
+            done < allowed-paths.txt
+            if [ "$ok" -ne 1 ]; then
+              echo "::error ::file '$f' is OUTSIDE the workboard-only allowlist."
+              return 1
+            fi
+            return 0
+          }
+
+          violations=0
+          while IFS=$'\t' read -r status path1 path2; do
+            [ -z "$status" ] && continue
+            if [[ "$status" == R* || "$status" == C* ]]; then
+              if [ -z "$path1" ] || [ -z "$path2" ]; then
+                echo "::error ::rename/copy entry '$status' is missing source or destination path."
+                violations=$((violations + 1))
+              else
+                is_allowed "$path1" || violations=$((violations + 1))
+                is_allowed "$path2" || violations=$((violations + 1))
+              fi
+            else
+              [ -z "$path1" ] && continue
+              is_allowed "$path1" || violations=$((violations + 1))
+            fi
+          done < pr-files.tsv
+
+          if [ "$violations" -gt 0 ]; then
+            comment_validation_failure "$violations file path(s) outside allowlist; bot will NOT approve or merge. See workflow annotations for the offending path(s)."
+            fail "$violations file path(s) outside allowlist; bot will NOT approve."
+          fi
+          echo "Path-allowlist check: OK ($(wc -l < pr-files.tsv | tr -d ' ') file(s) all in allowlist, including rename/copy sources)."
+
+      - name: Report selected merge path
+        run: |
+          set -euo pipefail
+          echo "Validation complete: workboard-only label, branch pattern, actor allowlist, same-repo metadata, immutable head, and path allowlist all passed."
+          if [ "$WORKBOARD_APP_CONFIGURED" = "true" ]; then
+            echo "Merge path: GitHub App credentials are configured; using the existing G3 approval + auto-merge path."
+          elif [ "$WORKBOARD_MERGE_TOKEN_CONFIGURED" = "true" ]; then
+            echo "Merge path: WORKBOARD_MERGE_TOKEN is configured and App credentials are absent; admin-bypass PAT fallback will merge after non-workboard status checks are green."
+          else
+            echo "::notice ::Merge path: validation-only. WORKBOARD_MERGE_TOKEN is unset and GitHub App credentials are absent; owner/admin must merge this workboard-only PR manually."
+          fi
+
+      - name: Admin-merge PR with WORKBOARD_MERGE_TOKEN
+        id: admin-merge
+        if: ${{ env.WORKBOARD_APP_CONFIGURED != 'true' && env.WORKBOARD_MERGE_TOKEN_CONFIGURED == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.WORKBOARD_MERGE_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          VALIDATED_HEAD_SHA: ${{ steps.files.outputs.head-sha }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error ::workboard-auto-approve: $*"; exit 1; }
+          current_head="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          if [ "$current_head" != "$VALIDATED_HEAD_SHA" ]; then
+            fail "PR head changed after validation ($VALIDATED_HEAD_SHA -> $current_head); refusing WORKBOARD_MERGE_TOKEN admin merge."
+          fi
+
+          echo "Re-checking status checks before admin merge so --admin bypasses only the missing approval, not failing/pending CI."
+          status_filter='[.statusCheckRollup[] | select((.workflowName // "") != "workboard-auto-approve" and (.name // "") != "validate-and-approve" and (.context // "") != "validate-and-approve") ]'
+          for attempt in $(seq 1 30); do
+            reported_count="$(gh pr view "$PR_NUMBER" --repo "$REPO" --json statusCheckRollup --jq "$status_filter | length")"
+            not_green="$(gh pr view "$PR_NUMBER" --repo "$REPO" --json statusCheckRollup --jq "$status_filter | map(select(((.state // .conclusion // .status // \"\") != \"SUCCESS\") and ((.state // .conclusion // .status // \"\") != \"SKIPPED\") and ((.state // .conclusion // .status // \"\") != \"NEUTRAL\"))) | map((.name // .context // \"unknown\") + \":\" + (.state // .conclusion // .status // \"unknown\")) | join(\"\\n\")")"
+            if [ "$reported_count" -gt 0 ] && [ -z "$not_green" ]; then
+              echo "Status-check re-check: OK ($reported_count non-workboard check(s) reported green, skipped, or neutral)."
+              break
+            fi
+            if [ "$reported_count" -eq 0 ]; then
+              not_green="no non-workboard status checks reported yet"
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              echo "::notice ::WORKBOARD_MERGE_TOKEN admin merge skipped: non-workboard status checks are absent or not green after waiting. Re-run this workflow after checks finish or merge manually. Remaining:"
+              printf '%s\n' "$not_green"
+              exit 0
+            fi
+            echo "Status-check re-check: waiting for non-workboard checks to finish (attempt $attempt/30):"
+            printf '%s\n' "$not_green"
+            sleep 20
+          done
+
+          echo "Admin-merging workboard-only PR via WORKBOARD_MERGE_TOKEN after actor/path allowlists and status-check re-check passed."
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --admin --delete-branch --match-head-commit "$VALIDATED_HEAD_SHA"
+
+      - name: Mint App installation token
+        id: app-token
+        if: ${{ env.WORKBOARD_APP_CONFIGURED == 'true' }}
+        # Pin to a specific SHA per LRN-075 (third-party action).
+        # SHA = head of actions/create-github-app-token@v3.2.0 at refresh
+        # time (2026-05-27). Refresh via:
+        #   gh api repos/actions/create-github-app-token/git/refs/tags/v3.2.0
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          app-id: ${{ secrets.WORKBOARD_BOT_APP_ID }}
+          private-key: ${{ secrets.WORKBOARD_BOT_PRIVATE_KEY }}
+
+      - name: Approve PR (as bot)
+        if: ${{ env.WORKBOARD_APP_CONFIGURED == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          VALIDATED_HEAD_SHA: ${{ steps.files.outputs.head-sha }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error ::workboard-auto-approve: $*"; exit 1; }
+          current_head="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          if [ "$current_head" != "$VALIDATED_HEAD_SHA" ]; then
+            fail "PR head changed after validation ($VALIDATED_HEAD_SHA -> $current_head); refusing approval."
+          fi
+          gh api -X POST "repos/${REPO}/pulls/${PR_NUMBER}/reviews" \
+            -f commit_id="$VALIDATED_HEAD_SHA" \
+            -f event='APPROVE' \
+            -f body='workboard-auto-approve: validated path/label/branch/actor allowlists for this commit and approved per CS15a bot wiring.'
+
+      - name: Enable auto-merge (squash)
+        if: ${{ env.WORKBOARD_APP_CONFIGURED == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          VALIDATED_HEAD_SHA: ${{ steps.files.outputs.head-sha }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error ::workboard-auto-approve: $*"; exit 1; }
+          current_head="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          if [ "$current_head" != "$VALIDATED_HEAD_SHA" ]; then
+            fail "PR head changed after bot approval ($VALIDATED_HEAD_SHA -> $current_head); refusing auto-merge."
+          fi
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --auto --match-head-commit "$VALIDATED_HEAD_SHA"

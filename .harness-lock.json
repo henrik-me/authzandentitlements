@@ -1,0 +1,193 @@
+{
+  "harness_ref": "0.12.0",
+  "resolved_sha": "3e66461519af7ff314a72097dcea0f06940a67c9",
+  "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
+  "synced_at": "2026-07-02T18:47:47.177Z",
+  "files": [
+    {
+      "target": "TRACKING.md",
+      "source_template": "template/managed/TRACKING.md",
+      "class": "managed",
+      "rendered_hash": "a662b44266507516ca6d6b672b4c76123ab33721c30f48ebc63cdb7c91e1f642",
+      "action": "updated"
+    },
+    {
+      "target": "RETROSPECTIVES.md",
+      "source_template": "template/managed/RETROSPECTIVES.md",
+      "class": "managed",
+      "rendered_hash": "dd71a3e5c05888806787a582ea8c22ef4158581014872db480696fb0f8d72210",
+      "action": "skipped"
+    },
+    {
+      "target": "READMEGUIDE.md",
+      "source_template": "template/managed/READMEGUIDE.md",
+      "class": "managed",
+      "rendered_hash": "16b23f70e10aff5b5968116b022ffb8a9017f09d2a40e00648dd65e94cd0a5fd",
+      "action": "skipped"
+    },
+    {
+      "target": ".github/workflows/pr-evidence-lint.yml",
+      "source_template": "template/managed/.github/workflows/pr-evidence-lint.yml",
+      "class": "managed",
+      "rendered_hash": "7ec3e619969cf1915794bd14df99cb1359dd1fca508049e0251d15249020dad4",
+      "action": "skipped"
+    },
+    {
+      "target": ".github/workflows/review-gates.yml",
+      "source_template": "template/managed/.github/workflows/review-gates.yml",
+      "class": "managed",
+      "rendered_hash": "c2b55b6b2cc356fa517d7ae9cc12b69b04208c02d4745dfcc0dcec61defa956e",
+      "action": "skipped"
+    },
+    {
+      "target": ".github/workflows/workboard-auto-approve.yml",
+      "source_template": "template/managed/.github/workflows/workboard-auto-approve.yml",
+      "class": "managed",
+      "rendered_hash": "120485c706a3671cdcd733d98087db14156549d4469c0e67c5fa9958461ef9a3",
+      "action": "skipped"
+    },
+    {
+      "target": ".github/workflows/harness-pr-check.yml",
+      "source_template": "template/managed/.github/workflows/harness-pr-check.yml",
+      "class": "managed",
+      "rendered_hash": "8abca6674a91c09a830e43024da43dadfe60add62e343fb4e4f5589431bddc89",
+      "action": "skipped"
+    },
+    {
+      "target": ".github/CODEOWNERS",
+      "source_template": "template/managed/.github/CODEOWNERS",
+      "class": "managed",
+      "rendered_hash": "d7346f9cccccdb0338f4568575b9d058c212405804f6bc377a7dd889dbf3187e",
+      "action": "created"
+    },
+    {
+      "target": ".github/workflows/harness-drift.yml",
+      "source_template": "template/managed/.github/workflows/harness-drift.yml",
+      "class": "managed",
+      "rendered_hash": "5b8d4b9c01bb471bd63840cc1e10f7046b64828d89889934e52c5dafde67eab6",
+      "action": "created"
+    },
+    {
+      "target": "INSTRUCTIONS.md",
+      "source_template": "template/composed/INSTRUCTIONS.md",
+      "class": "composed",
+      "rendered_hash": "f2d511aeb514b58c84e17bd8c4e160474151e5819776ac933b304fd40ec88386",
+      "action": "updated",
+      "blocks": [
+        {
+          "id": "instructions.harness",
+          "source_line_range": {
+            "start": 612,
+            "end": 616
+          },
+          "body_hash": "eae33c440132e43bd68d9c7e220956c21f919f618e6b451a121900ed151bc873",
+          "template_marker_hash": "a1d7aa0bc8405304204b5543d04415b6a9536f8bdc156ff1afba8eb5ca3ef444",
+          "provenance": "seeded-empty"
+        }
+      ],
+      "template_prose_hash": "126610a989368f49b76be34461457a6c54315de112a8f03bb8a370075bc7652e"
+    },
+    {
+      "target": "CONVENTIONS.md",
+      "source_template": "template/composed/CONVENTIONS.md",
+      "class": "composed",
+      "rendered_hash": "02b36709cf97e0a79f0afbf660eaeea8e219d238c2fe9330ed831f0ecc97b503",
+      "action": "skipped",
+      "blocks": [
+        {
+          "id": "conventions.project",
+          "source_line_range": {
+            "start": 160,
+            "end": 163
+          },
+          "body_hash": "6b83cfcb83b017bc39299353cebea5097efeb5f6d442690ad7a03ccdc1a0a534",
+          "template_marker_hash": "d6d8dcea1d31794b2b9a755a199b5c0b76cc2c34e513164718e917c4945f1b92",
+          "provenance": "seeded-empty"
+        }
+      ],
+      "template_prose_hash": "a71d81cf7c8a72261e9fafd0f1ee380373d06c4e50b831694ebaf2c770b363c9"
+    },
+    {
+      "target": "OPERATIONS.md",
+      "source_template": "template/composed/OPERATIONS.md",
+      "class": "composed",
+      "rendered_hash": "e4bd383e32b617de9c14723b38c3b8c671f1fc731568ebe84fecff6cb8e0b821",
+      "action": "updated",
+      "blocks": [
+        {
+          "id": "operations.project-deploy",
+          "source_line_range": {
+            "start": 2742,
+            "end": 2744
+          },
+          "body_hash": "35a13a15deb994c17bb4db02b4b9870c0de1f5192f68f996c3835465549f4093",
+          "template_marker_hash": "c538812699662e1747082864f419826b433df6e5164cdd28e870df72fcc559e5",
+          "provenance": "seeded-empty"
+        }
+      ],
+      "template_prose_hash": "309b47f70b958ed650ac60a6186488d28ca21ca05bd3059a1f4f143e27101432"
+    },
+    {
+      "target": "REVIEWS.md",
+      "source_template": "template/composed/REVIEWS.md",
+      "class": "composed",
+      "rendered_hash": "8614a84d9c88e829bb128a0c33635994d499b86285f5f842e3c05b490d62de80",
+      "action": "skipped",
+      "blocks": [
+        {
+          "id": "reviews.project-gates",
+          "source_line_range": {
+            "start": 737,
+            "end": 754
+          },
+          "body_hash": "e568d66dbdd339b8ff7aa737d65b44bf7ad0d30ebc7fa28975f87c5b69a303cc",
+          "template_marker_hash": "5e1b41d3287a93df32706fff5619c8aa4fd7cfacd0f601fd1d23489010a4319e",
+          "provenance": "seeded-empty"
+        }
+      ],
+      "template_prose_hash": "73a8bd6998ebd2558232be39d20ff06a3aeb31559abaf3112971494795d6272d"
+    },
+    {
+      "target": ".github/copilot-instructions.md",
+      "source_template": "template/composed/.github/copilot-instructions.md",
+      "class": "composed",
+      "rendered_hash": "426b811893dcdc5b894a9c6f45f57a5e4eeeb42903fc04dfb3ba3414b0ace7c2",
+      "action": "skipped",
+      "blocks": [
+        {
+          "id": "copilot-instructions.harness",
+          "source_line_range": {
+            "start": 243,
+            "end": 246
+          },
+          "body_hash": "06ba16e7804bd0fbe18412571250d38fcd2e364406baa9f1692ae9d6383c32b1",
+          "template_marker_hash": "42a32b7dec3ef51074bab594f4f872f7d4a96b032495723a45e5c5a83dd1b3e6",
+          "provenance": "seeded-empty"
+        }
+      ],
+      "template_prose_hash": "591045db1d7c99848184c0fdad35ceb42798c44a438bccc5ec9afc51de99f33a"
+    },
+    {
+      "target": ".github/pull_request_template.md",
+      "source_template": "template/composed/.github/pull_request_template.md",
+      "class": "composed",
+      "rendered_hash": "8a9cca2469973f618cdb7d460d4309fdab00219a9e784149aadbf2637b86884a",
+      "action": "skipped",
+      "blocks": [
+        {
+          "id": "pull-request.review-evidence",
+          "source_line_range": {
+            "start": 32,
+            "end": 48
+          },
+          "body_hash": "3a1e7a6c6be1964e19506e2d16fbd95629727430f9c8238739b436528cb5b07d",
+          "template_marker_hash": "7bc8e1a9783218f020ccc4bf2ec9b8543449c05f0216c9ac0a129190ff9d4994",
+          "provenance": "seeded-empty"
+        }
+      ],
+      "template_prose_hash": "95006e14f9fde5c1acd69cbc6572e38575f01c02dc5187db18a2a3df1e43fed4"
+    }
+  ],
+  "scaffolds": [],
+  "excluded": []
+}

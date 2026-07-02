@@ -1,0 +1,133 @@
+# harness-pr-check.yml — consumer PR-time structural gate (CS63a / decision C63-2).
+#
+# Ships the harness's core value as an actual consumer MERGE GATE: on every PR
+# to the default branch it runs `harness lint` + a file-class drift classifier,
+# FAILING the PR when a `managed`/`composed` template file has been diverged
+# (the protection consumers otherwise only got from a weekly drift cron).
+#
+# Default-on for fresh `init` (confirmed G-gate-default). Opt out by setting
+# `pr_check.enabled: false` in harness.config.json.
+#
+# Security (CS63 C63-2 / R13): least-privilege permissions, no secrets, the
+# harness ref is read from the BASE-branch config (never the untrusted PR head,
+# which a fork could point at a malicious ref), and the ref is validated against
+# an allowlist regex before any shell interpolation.
+#
+# Managed-edit escape valve (CS63 C63-3): a PR labelled `harness-managed-edit-ack`
+# AND carrying a `Harness-managed-edit:` justification line in its body downgrades
+# a managed-drift failure to a surfaced warning — never a silent skip.
+#
+# Managed by the harness; regenerate via `harness sync` when a new harness
+# version is pinned.
+
+name: harness-pr-check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  structural-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Need the base commit too so we can read the BASE-branch harness ref.
+          fetch-depth: 0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '20'
+
+      - id: derive-ref
+        name: Derive + validate harness ref from BASE-branch config
+        # CS63 R13: read the version from the BASE tree, NEVER the PR head — a
+        # fork PR controls its head and could point the gate at a malicious ref.
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          base_config=$(git show "${PR_BASE_SHA}:harness.config.json" 2>/dev/null || echo '')
+          if [ -z "$base_config" ]; then
+            echo "ERROR: harness.config.json not found at the PR base commit." >&2
+            exit 2
+          fi
+          version=$(printf '%s' "$base_config" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).version||'')}catch{console.log('')}})")
+          if [ -n "$version" ] && [ "$version" != "0.0.0-pre" ]; then
+            ref="$version"
+          elif [ "$GH_REPO" = "henrik-me/agent-harness" ]; then
+            ref="$GH_SHA"  # self-host fallback
+          else
+            echo "ERROR: harness.config.json 'version' is empty/'0.0.0-pre' and this is not the harness repo. Pin a semver tag." >&2
+            exit 2
+          fi
+          # Allowlist: alphanumeric, dot, underscore, slash, hyphen. Rejects shell metacharacters.
+          if ! printf '%s' "$ref" | grep -Eq '^[a-zA-Z0-9._/-]+$'; then
+            echo "ERROR: ref \"$ref\" contains characters outside the allowlist [a-zA-Z0-9._/-]." >&2
+            exit 2
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - id: optout
+        name: Check pr_check opt-out (BASE config, never PR head)
+        # CS63 R13: read pr_check.enabled from the BASE tree, NEVER the PR head —
+        # otherwise a PR could set pr_check.enabled=false in its own diff to
+        # disable the structural gate on itself.
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base_config=$(git show "${PR_BASE_SHA}:harness.config.json" 2>/dev/null || echo '')
+          enabled=$(printf '%s' "$base_config" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).pr_check?.enabled!==false))}catch{process.stdout.write('true')}})")
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+          if [ "$enabled" != "true" ]; then echo "harness-pr-check disabled via pr_check.enabled=false (base config); skipping."; fi
+
+      - id: ack
+        name: Detect managed-edit-ack valve
+        if: steps.optout.outputs.enabled == 'true'
+        # CS63 C63-3: label + a `Harness-managed-edit:` justification line are
+        # BOTH required to downgrade a managed-drift failure to a warning.
+        env:
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          has_label=$(printf '%s' "$PR_LABELS" | grep -Fq '"harness-managed-edit-ack"' && echo true || echo false)
+          has_just=$(printf '%s' "$PR_BODY" | grep -qiE '^Harness-managed-edit:[[:space:]]*[^[:space:]]' && echo true || echo false)
+          if [ "$has_label" = "true" ] && [ "$has_just" = "true" ]; then ack=true; else ack=false; fi
+          echo "ack=$ack" >> "$GITHUB_OUTPUT"
+          echo "managed-edit-ack: label=$has_label justification=$has_just => downgrade=$ack"
+
+      - name: Run structural gate (lint + managed/composed drift)
+        if: steps.optout.outputs.enabled == 'true'
+        env:
+          CLI_REF: ${{ steps.derive-ref.outputs.ref }}
+          ACK: ${{ steps.ack.outputs.ack }}
+        run: |
+          set -euo pipefail
+          consumer="$GITHUB_WORKSPACE"
+          tmp="$(mktemp -d)"
+          git clone --quiet --no-checkout https://github.com/henrik-me/agent-harness.git "$tmp"
+          ( cd "$tmp" && git checkout --quiet "$CLI_REF" && npm ci --omit=optional --no-audit --no-fund )
+          set +e
+          node "$tmp/bin/harness.mjs" lint --quiet --cwd "$consumer"
+          lint_rc=$?
+          node "$tmp/scripts/check-managed-drift.mjs" --cwd "$consumer" --harness-repo "$tmp"
+          drift_rc=$?
+          set -e
+          if [ "$lint_rc" -ne 0 ]; then
+            echo "::error::harness lint failed (rc=$lint_rc)."
+            exit 1
+          fi
+          if [ "$drift_rc" -ne 0 ]; then
+            if [ "$ACK" = "true" ]; then
+              echo "::warning::managed/composed drift present but downgraded by harness-managed-edit-ack (label + justification)."
+              exit 0
+            fi
+            echo "::error::managed/composed template drift detected. Revert the edit, run 'harness sync --mode=apply', or add the 'harness-managed-edit-ack' label + a 'Harness-managed-edit:' justification line."
+            exit 1
+          fi
+          echo "harness-pr-check: structural gate passed."

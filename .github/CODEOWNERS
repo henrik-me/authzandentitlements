@@ -1,0 +1,24 @@
+# CODEOWNERS — managed by the harness.
+# Regenerate via `harness sync` when a new harness version is pinned.
+#
+# Syntax reference:
+#   <pattern>  <@owner> [<@owner> ...]
+#
+#   Patterns follow .gitignore rules. Lines starting with # are comments.
+#   The last matching rule takes precedence.
+#   Owner tokens must be @username, @org/team, or user@example.com.
+#
+# Template placeholders (flat keys in `templating` map of `harness.config.json`):
+#   henrik-me        — GitHub username or org that owns the repo
+#   henrik-me — default reviewer for all files
+#   henrik-me     — designated reviewer for lib/ changes
+#
+# Provide values for these keys in the `templating` map in `harness.config.json`
+# BEFORE running `harness sync`. Required keys: repo_owner, default_codeowner,
+# lib_codeowner. Manual post-sync edits will be overwritten on the next sync.
+
+# Default: all files require review from the default codeowner.
+* @henrik-me
+
+# lib/ changes require a dedicated reviewer.
+/lib/ @henrik-me

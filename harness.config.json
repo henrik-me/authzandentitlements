@@ -1,0 +1,107 @@
+{
+  "$schema": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
+  "_comment": "Replace REPLACE_ME placeholders with your project's values before running harness sync",
+  "version": "v0.1.0",
+  "project": {
+    "name": "authzandentitlements",
+    "agent_suffix": "ae",
+    "repo": "henrik-me/authzandentitlements"
+  },
+  "managed": {
+    "files": [
+      "TRACKING.md",
+      "RETROSPECTIVES.md",
+      "READMEGUIDE.md",
+      ".github/workflows/pr-evidence-lint.yml",
+      ".github/workflows/review-gates.yml",
+      ".github/workflows/workboard-auto-approve.yml",
+      ".github/workflows/harness-pr-check.yml",
+      ".github/CODEOWNERS",
+      ".github/workflows/harness-drift.yml"
+    ]
+  },
+  "composed": {
+    "files": [
+      "INSTRUCTIONS.md",
+      "CONVENTIONS.md",
+      "OPERATIONS.md",
+      "REVIEWS.md",
+      ".github/copilot-instructions.md",
+      ".github/pull_request_template.md"
+    ],
+    "overrides": {
+      "INSTRUCTIONS.md": {
+        "local_blocks": [
+          "instructions.harness"
+        ]
+      },
+      "CONVENTIONS.md": {
+        "local_blocks": [
+          "conventions.project"
+        ]
+      },
+      "OPERATIONS.md": {
+        "local_blocks": [
+          "operations.project-deploy"
+        ]
+      },
+      "REVIEWS.md": {
+        "local_blocks": [
+          "reviews.project-gates"
+        ]
+      },
+      ".github/copilot-instructions.md": {
+        "local_blocks": [
+          "copilot-instructions.harness"
+        ]
+      },
+      ".github/pull_request_template.md": {
+        "local_blocks": [
+          "pull-request.review-evidence"
+        ]
+      }
+    }
+  },
+  "templating": {
+    "project_name": "authzandentitlements",
+    "agent_suffix": "ae",
+    "agent_suffix_upper": "AE",
+    "repo_owner": "henrik-me",
+    "repo_slug": "henrik-me/authzandentitlements",
+    "default_codeowner": "henrik-me",
+    "lib_codeowner": "henrik-me",
+    "repo_short": "ae"
+  },
+  "reviews": {
+    "enforce_gates": true,
+    "require_copilot_review": true,
+    "copilot_reviewer_slug": "copilot-pull-request-reviewer[bot]",
+    "high_risk_clickstops": [
+      "CS05",
+      "CS04",
+      "CS13",
+      "CS18",
+      "CS21"
+    ]
+  },
+  "review_gates": {
+    "enabled": true,
+    "copilot_required": true,
+    "gate_set": [
+      "B1",
+      "A3",
+      "A4",
+      "A5",
+      "A16"
+    ]
+  },
+  "pr_check": {
+    "enabled": true
+  },
+  "constraints": {
+    "tier": "unknown",
+    "detected_at": "2026-07-02T18:34:27.975Z",
+    "owner": "henrik-me",
+    "repo": "authzandentitlements"
+  }
+}

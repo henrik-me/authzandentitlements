@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+*.user
+.vs/
+artifacts/
+publish/
+*.binlog
+
+# Aspire / secrets
+**/appsettings.*.local.json
+*.dev.env
+.env
+.env.*
+!.env.example
+
+# Node (agent-harness tooling runs via npx; node_modules is per-checkout)
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp

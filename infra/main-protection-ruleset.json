@@ -1,0 +1,28 @@
+{
+  "name": "main-protection",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": [
+        "refs/heads/main"
+      ],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "required_checks": [
+          "review-log-evidence",
+          "copilot-review-attached",
+          "independence-invariant",
+          "review-threads-resolved"
+        ]
+      }
+    }
+  ],
+  "bypass_actors": []
+}

