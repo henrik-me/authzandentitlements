@@ -9,7 +9,7 @@ Bootstrap in progress (2026-07-02). Git initialized on `main`; remote `origin` p
 v0.12.0 adopted** (process docs, review gates, linters, CI workflow). The full **27-CS plan**
 is authored in `project/clickstops/planned/` with explicit Phase / Lane / Depends-on. No
 product code yet - **CS01 (Aspire foundations)** is the first claimable clickstop. `harness
-lint` is green except the claim-time `## Plan review` attestation (added per CS at claim).
+lint` is fully green (21 passed, 0 failed); all 27 CSs carry an independent GPT-5.5 `## Plan review` attestation (hash-pinned).
 
 ## Constraints
 
@@ -27,7 +27,7 @@ if it helps orient a reader skimming this file.)_
 
 - **GitHub repo not created yet.** `origin` is set to `github.com/henrik-me/authzandentitlements`; run `gh repo create` + push when ready (nothing pushed yet).
 - **Docker daemon must be running** for the container-based engines/infra (Docker Desktop is installed).
-- **Claim-time plan review pending** per planned CS (`## Plan review`, independent reviewer) before moving a CS to `active/`.
+- **Plan review: complete** — all 27 CSs independently reviewed (GPT-5.5) and attested (Go / Go-with-amendments); 13 CSs were amended to fix dependency/scope gaps found in review. No plan-review blocker remains.
 - **Open decision:** whether to promote SpiceDB from the Phase-7 expansion (CS26) into the Phase-2 core for a direct OpenFGA head-to-head.
 
 ## CS plan
@@ -53,27 +53,28 @@ carries **Phase**, **Lane**, and **Depends on** fields. A claim-time `## Plan re
 | CS11 | Governance entitlements | Entitlements | CS02, CS08 |
 | CS12 | Observability stack | Observability | CS02 |
 | CS13 | Audit log pipeline | Observability | CS05 |
-| CS14 | Blazor product UI | Product | CS03, CS06, CS10, CS11 |
+| CS14 | Blazor product UI | Product | CS03, CS04, CS06, CS10, CS11 |
 | CS15 | AuthZ playground + audit explorer | Product | CS06, CS07, CS08, CS09, CS13 |
-| CS16 | Explainability (why allowed/denied) | Cross-cutting | CS05 |
-| CS17 | Policy lifecycle + testing | Cross-cutting | CS05 |
+| CS16 | Explainability (why allowed/denied) | Cross-cutting | CS05, CS06, CS07, CS08, CS09 |
+| CS17 | Policy lifecycle + testing | Cross-cutting | CS05, CS06, CS07, CS08, CS09 |
 | CS18 | Security hardening + threat model | Cross-cutting | CS04, CS05 |
-| CS19 | Agent + non-agent access | Cross-cutting | CS03, CS05 |
-| CS20 | Migration & portability | Cross-cutting | CS05, CS07, CS08 |
-| CS21 | Break-glass, delegation & OBO | Cross-cutting | CS11, CS05 |
-| CS22 | Compliance mapping | Cross-cutting | CS13, CS11 |
-| CS23 | Comparison matrix + survey | Eval | CS15 |
+| CS19 | Agent + non-agent access | Cross-cutting | CS03, CS05, CS13, CS14 |
+| CS20 | Migration & portability | Cross-cutting | CS05, CS06, CS07, CS08 |
+| CS21 | Break-glass, delegation & OBO | Cross-cutting | CS05, CS11, CS13, CS14, CS19 |
+| CS22 | Compliance mapping | Cross-cutting | CS11, CS12, CS13 |
+| CS23 | Comparison matrix + survey | Eval | CS15, CS24 |
 | CS24 | Performance benchmark + tracking | Eval | CS06, CS07, CS08, CS09, CS12 |
-| CS25 | Managed-vs-self-host TCO | Eval | CS23 |
+| CS25 | Managed-vs-self-host TCO | Eval | CS23, CS24 |
 | CS26 | Expansion engines | Expansion | CS05, CS15 |
-| CS27 | Full OpenMeter + Azure deploy | Expansion | CS10, CS12 |
+| CS27 | Full OpenMeter + Azure deploy | Expansion | CS10, CS12, CS14, CS15, CS25 |
 
 ### Parallelization (waves)
 
 - **Wave 1 (serial foundation):** CS01 -> CS02.
-- **Wave 2 (4 lanes open in parallel after CS02):** CS03 (Identity), CS05 (PDP hub), CS10 (Entitlements), CS12 (Observability).
-- **Wave 3 (after CS05, 4 engine adapters in parallel):** CS06, CS07, CS08, CS09; plus CS13, CS16, CS17; CS04 after CS03; CS11 after CS02+CS08.
-- **Wave 4:** cross-cutting CS18/CS19/CS20/CS21/CS22 as deps land; product CS14/CS15.
-- **Wave 5 (eval + expansion):** CS23, CS24, CS25, CS26, CS27.
+- **Wave 2 (parallel after CS02):** CS03 (Identity), CS05 (PDP hub), CS10 (Entitlements), CS12 (Observability).
+- **Wave 3 (after CS05):** engine adapters CS06, CS07, CS08, CS09 (parallel); CS04 (after CS03); CS13 audit (after CS05); CS11 (after CS02 + CS08).
+- **Wave 4 (after engines):** CS16, CS17, CS20 (need engine behavior); CS24 (engines + CS12); CS22 (CS11+CS12+CS13); CS14 product (CS03+CS04+CS06+CS10+CS11); CS15 playground (engines + CS13); CS18 (CS04+CS05).
+- **Wave 5:** CS19 (CS13+CS14), CS23 (CS15+CS24), CS26 (CS05+CS15).
+- **Wave 6:** CS21 (CS19+CS13+CS14), CS25 (CS23+CS24), CS27 (CS14+CS15+CS25).
 
 A fleet of orchestrators can each `harness claim` an independent, dependency-satisfied CS.

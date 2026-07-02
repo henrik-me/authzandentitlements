@@ -13,6 +13,12 @@
 
 Define the unified, AuthZEN-aligned PDP abstraction + scenario catalog so every engine answers the same question.
 
+## Plan review
+
+| Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
+|---|---|---|---|---|---|---|---|
+| R1 | GPT-5.5 | Claude Opus 4.8 | omni-ae (rubber-duck) | 058c4149dd2c | 2026-07-02T19:47:54Z | Go-with-amendments | Sound hub dependency on CS02; clarify audit and OTel work as contracts/hooks only to avoid stealing CS12/CS13 scope. |
+
 ## Deliverables
 
 - IAuthorizationDecisionProvider: subject/action/resource/context -> decision + reasons/obligations (AuthZEN-aligned).

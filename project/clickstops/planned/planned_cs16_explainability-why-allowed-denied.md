@@ -7,11 +7,17 @@
 **Closed:** —
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
-**Depends on:** CS05
+**Depends on:** CS05, CS06, CS07, CS08, CS09
 
 ## Goal
 
 Make "why allowed / why denied" a first-class, normalized output for every decision (critical).
+
+## Plan review
+
+| Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
+|---|---|---|---|---|---|---|---|
+| R1 | GPT-5.5 | Claude Opus 4.8 | omni-ae (rubber-duck) | 79296c98c8a7 | 2026-07-02T19:47:54Z | Go-with-amendments | Engine deps resolve extraction; clarify CS15 owns UI rendering or add CS15 if CS16 must deliver display. |
 
 ## Deliverables
 

@@ -33,6 +33,33 @@ tags: [example]
 
 ## Applied
 
+### LRN-002
+
+```yaml
+id: LRN-002
+date: 2026-07-02
+category: process
+source_cs: CS01
+status: applied
+tags: [reviews, sub-agents, parallelism, worktrees, plan-review]
+claim_area: orchestration
+```
+
+**Problem:** The first plan-review of the 27-CS queue was dispatched as a single
+sub-agent reviewing all clickstops serially — slow, shallower per CS, and it does
+not scale as review/implementation work grows.
+
+**Finding:** Parallelize reviews (and implementation) via a **fan-out of background
+sub-agents** across batches rather than one item at a time; each agent may use a
+**git worktree** for isolation when it must modify files. Keep the reviewer model
+independent of the plan-author model (GPT-5.5 reviewing Claude-authored plans).
+
+**Disposition:** Applied during the bootstrap plan-review pass — six parallel
+GPT-5.5 batch reviewers plus two verification rounds reviewed all 27 CSs, surfaced
+13 blocking dependency/scope fixes, and attested each `## Plan review` row.
+
+---
+
 ### LRN-127
 
 ```yaml

@@ -13,6 +13,12 @@
 
 Integrate OPA/Rego for maker-checker, segregation-of-duties, and conditional policy scenarios.
 
+## Plan review
+
+| Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
+|---|---|---|---|---|---|---|---|
+| R1 | GPT-5.5 | Claude Opus 4.8 | omni-ae (rubber-duck) | 3de3961da0b7 | 2026-07-02T19:47:54Z | Go | Sound as-is: CS05 dependency, Rego maker-checker, SoD, threshold, and condition scenarios are coherent. |
+
 ## Deliverables
 
 - OPA Aspire container (REST decision API).

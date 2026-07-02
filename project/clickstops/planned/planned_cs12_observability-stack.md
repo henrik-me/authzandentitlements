@@ -13,6 +13,12 @@
 
 Provide persistent observability beyond the dev-time Aspire dashboard.
 
+## Plan review
+
+| Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
+|---|---|---|---|---|---|---|---|
+| R1 | GPT-5.5 | Claude Opus 4.8 | omni-ae (rubber-duck) | 277890a23397 | 2026-07-02T19:47:54Z | Go | Sound as-is: CS02 gives services to instrument; stack can land early and future services can adopt it. |
+
 ## Deliverables
 
 - OTel Collector + Prometheus + Loki + Tempo + Grafana in the AppHost.
