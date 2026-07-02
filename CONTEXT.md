@@ -4,8 +4,8 @@
 
 ## Codebase state
 
-Bootstrap in progress (2026-07-02). Git initialized on `main`; remote `origin` points to
-`github.com/henrik-me/authzandentitlements` (repo not yet created on GitHub). **agent-harness
+Bootstrap + pre-flight complete (2026-07-02). Git initialized on `main`; remote `origin` points to
+`github.com/henrik-me/authzandentitlements` (pushed to GitHub, private). **agent-harness
 v0.12.0 adopted** (process docs, review gates, linters, CI workflow). The full **27-CS plan**
 is authored in `project/clickstops/planned/` with explicit Phase / Lane / Depends-on. No
 product code yet - **CS01 (Aspire foundations)** is the first claimable clickstop. `harness
@@ -25,7 +25,7 @@ if it helps orient a reader skimming this file.)_
 
 ## Blockers / open questions
 
-- **GitHub repo not created yet.** `origin` is set to `github.com/henrik-me/authzandentitlements`; run `gh repo create` + push when ready (nothing pushed yet).
+- **Branch-protection ruleset not applied.** `infra/main-protection-ruleset.json` requires a public repo or GitHub Pro (private repo returns HTTP 403); by decision the repo stays **private**, so the review-gate workflows run on PRs as **CI only (not required-to-merge)**. Apply the ruleset later if the repo goes public or the plan upgrades.
 - **Docker daemon must be running** for the container-based engines/infra (Docker Desktop is installed).
 - **Plan review: complete** — all 27 CSs independently reviewed (GPT-5.5) and attested (Go / Go-with-amendments); 13 CSs were amended to fix dependency/scope gaps found in review. No plan-review blocker remains.
 - **Open decision:** whether to promote SpiceDB from the Phase-7 expansion (CS26) into the Phase-2 core for a direct OpenFGA head-to-head.
