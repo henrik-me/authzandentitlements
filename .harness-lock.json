@@ -2,28 +2,28 @@
   "harness_ref": "0.12.0",
   "resolved_sha": "3e66461519af7ff314a72097dcea0f06940a67c9",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-07-02T18:47:47.177Z",
+  "synced_at": "2026-07-02T21:46:13.862Z",
   "files": [
     {
       "target": "TRACKING.md",
       "source_template": "template/managed/TRACKING.md",
       "class": "managed",
       "rendered_hash": "a662b44266507516ca6d6b672b4c76123ab33721c30f48ebc63cdb7c91e1f642",
-      "action": "updated"
+      "action": "skipped"
     },
     {
       "target": "RETROSPECTIVES.md",
       "source_template": "template/managed/RETROSPECTIVES.md",
       "class": "managed",
-      "rendered_hash": "dd71a3e5c05888806787a582ea8c22ef4158581014872db480696fb0f8d72210",
-      "action": "skipped"
+      "rendered_hash": "b51847e6f7721ff87785cfca22ae18a8c707d408ed280efff2fb38480337d00f",
+      "action": "updated"
     },
     {
       "target": "READMEGUIDE.md",
       "source_template": "template/managed/READMEGUIDE.md",
       "class": "managed",
-      "rendered_hash": "16b23f70e10aff5b5968116b022ffb8a9017f09d2a40e00648dd65e94cd0a5fd",
-      "action": "skipped"
+      "rendered_hash": "25daab0f17eaa8e6c42c2624cbc800210be84d442e345df428f2f09a1e58d16c",
+      "action": "updated"
     },
     {
       "target": ".github/workflows/pr-evidence-lint.yml",
@@ -58,34 +58,34 @@
       "source_template": "template/managed/.github/CODEOWNERS",
       "class": "managed",
       "rendered_hash": "d7346f9cccccdb0338f4568575b9d058c212405804f6bc377a7dd889dbf3187e",
-      "action": "created"
+      "action": "skipped"
     },
     {
       "target": ".github/workflows/harness-drift.yml",
       "source_template": "template/managed/.github/workflows/harness-drift.yml",
       "class": "managed",
       "rendered_hash": "5b8d4b9c01bb471bd63840cc1e10f7046b64828d89889934e52c5dafde67eab6",
-      "action": "created"
+      "action": "skipped"
     },
     {
       "target": "INSTRUCTIONS.md",
       "source_template": "template/composed/INSTRUCTIONS.md",
       "class": "composed",
-      "rendered_hash": "f2d511aeb514b58c84e17bd8c4e160474151e5819776ac933b304fd40ec88386",
+      "rendered_hash": "463fc4b929448598544b2658d775936d1da83c8491ee729e406b0e0062f8245f",
       "action": "updated",
       "blocks": [
         {
           "id": "instructions.harness",
           "source_line_range": {
             "start": 612,
-            "end": 616
+            "end": 632
           },
-          "body_hash": "eae33c440132e43bd68d9c7e220956c21f919f618e6b451a121900ed151bc873",
+          "body_hash": "efa023d354be6f043b91249f23b0ade81413ffcf6fd5eab57422edc162eb940e",
           "template_marker_hash": "a1d7aa0bc8405304204b5543d04415b6a9536f8bdc156ff1afba8eb5ca3ef444",
-          "provenance": "seeded-empty"
+          "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "126610a989368f49b76be34461457a6c54315de112a8f03bb8a370075bc7652e"
+      "template_prose_hash": "7d05dd52a958f583b141fbe6810c06e30975cfdf770a36a48eea1275848ab505"
     },
     {
       "target": "CONVENTIONS.md",
@@ -111,7 +111,7 @@
       "target": "OPERATIONS.md",
       "source_template": "template/composed/OPERATIONS.md",
       "class": "composed",
-      "rendered_hash": "e4bd383e32b617de9c14723b38c3b8c671f1fc731568ebe84fecff6cb8e0b821",
+      "rendered_hash": "2e3d97ec3f726c6dde762c21a357e835a22ba379b0b07802be681a53ea3443ec",
       "action": "updated",
       "blocks": [
         {
@@ -125,7 +125,7 @@
           "provenance": "seeded-empty"
         }
       ],
-      "template_prose_hash": "309b47f70b958ed650ac60a6186488d28ca21ca05bd3059a1f4f143e27101432"
+      "template_prose_hash": "02b874faedb709f9d25e0fced9679711e3b9e21bb56ac26a837534075a89f61a"
     },
     {
       "target": "REVIEWS.md",
@@ -151,8 +151,8 @@
       "target": ".github/copilot-instructions.md",
       "source_template": "template/composed/.github/copilot-instructions.md",
       "class": "composed",
-      "rendered_hash": "426b811893dcdc5b894a9c6f45f57a5e4eeeb42903fc04dfb3ba3414b0ace7c2",
-      "action": "skipped",
+      "rendered_hash": "c61e35d4a670e4432b25e6d60071669412fba6af7a77033497784a32c0020e50",
+      "action": "updated",
       "blocks": [
         {
           "id": "copilot-instructions.harness",
@@ -165,7 +165,7 @@
           "provenance": "seeded-empty"
         }
       ],
-      "template_prose_hash": "591045db1d7c99848184c0fdad35ceb42798c44a438bccc5ec9afc51de99f33a"
+      "template_prose_hash": "35d9c677dc8d5f3e79eb4f5a1f2b75b3285ca3245ce81f89b3fc3ea491f58bab"
     },
     {
       "target": ".github/pull_request_template.md",

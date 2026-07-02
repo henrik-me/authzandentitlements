@@ -221,7 +221,7 @@ before the workboard-claim PR lands.
 Before claiming any CS, verify no strategic planning content lives outside
 the canonical `project/clickstops/{planned,active,done}/**` arc:
 
-1. Run `npx -y github:henrik-me/agent-harness#v0.1.0 lint` — must exit 0 (it includes the
+1. Run `npx -y github:henrik-me/agent-harness#v0.12.0 lint` — must exit 0 (it includes the
    planning-locality check).
 2. If the orchestrator's session-state plan file (`~/.copilot/session-state/<id>/plan.md`)
    contains anything beyond (a) which CS this session is currently executing
@@ -689,7 +689,7 @@ the `sub-invaders-bootstrap-summary.md` misrouting
    - **Acceptance criteria:** how the consumer agent will know the
      work is complete.
    - **Verification steps:** which harness checks / lint commands to
-     run on the consumer side (e.g. `npx -y github:henrik-me/agent-harness#v0.1.0 lint`).
+     run on the consumer side (e.g. `npx -y github:henrik-me/agent-harness#v0.12.0 lint`).
    - **Relevant LRNs / docs:** links to applicable `LEARNINGS.md`
      entries and the harness `OPERATIONS.md` / `INSTRUCTIONS.md`
      sections that govern the handoff.
@@ -1214,7 +1214,7 @@ Run all of the following and include each result in SELF-CHECKS RUN:
 1. `git status --short` — only owned files appear; nothing staged.
 2. `git log --oneline -1` — must match preflight SHA.
 3. Text-encoding + line-ending validation (BOM + line endings; LRN-065,
-   LRN-074): `npx -y github:henrik-me/agent-harness#v0.1.0 lint` must exit 0. The encoding check
+   LRN-074): `npx -y github:henrik-me/agent-harness#v0.12.0 lint` must exit 0. The encoding check
    runs as part of the lint aggregate over the whole cwd (not just
    modified files); it catches CRLF/bare-\r line endings introduced by
    Windows core.autocrlf or stale editor settings.
@@ -1222,7 +1222,7 @@ Run all of the following and include each result in SELF-CHECKS RUN:
    (e.g. "23 → 27 tests; all pass").
 5. For any .mjs files authored: `node -c <file>` exits 0.
 6. If template files were modified (anything under `template/`),
-   `npx -y github:henrik-me/agent-harness#v0.1.0 lint` must exit 0 — the lint aggregate includes the
+   `npx -y github:henrik-me/agent-harness#v0.12.0 lint` must exit 0 — the lint aggregate includes the
    templates linter (LRN-049/050/051: no dot-notation placeholders, no
    relative-up paths, no self-referencing TODO/FIXME tokens in PR-template
    files).
@@ -1707,7 +1707,7 @@ two scripts would double the API spend without adding signal (per ADR4-3).
 ```sh
 PR_BODY=$(mktemp)
 gh pr view <num> --json body --jq .body > "$PR_BODY"
-npx -y github:henrik-me/agent-harness#v0.1.0 pr-evidence \
+npx -y github:henrik-me/agent-harness#v0.12.0 pr-evidence \
   --base "$(gh pr view <num> --json baseRefOid --jq .baseRefOid)" \
   --head "$(gh pr view <num> --json headRefOid --jq .headRefOid)" \
   --pr-body "$PR_BODY"
@@ -2381,7 +2381,7 @@ All file edits land on the `cs<NN>/content` branch:
 4. **Validate.** From the repo root:
 
    ```bash
-   npx -y github:henrik-me/agent-harness#v0.1.0 lint --quiet     # expect: 0 failed
+   npx -y github:henrik-me/agent-harness#v0.12.0 lint --quiet     # expect: 0 failed
    node --test tests/*.test.mjs        # expect: 0 failed
    ```
 
@@ -2518,7 +2518,7 @@ npm version <x.y.z> --no-git-tag-version
 #   then: sweep README pins v<prev> → v<x.y.z>
 
 # 4. Validate
-npx -y github:henrik-me/agent-harness#v0.1.0 lint --quiet
+npx -y github:henrik-me/agent-harness#v0.12.0 lint --quiet
 node --test tests/*.test.mjs
 
 # 5-7. Review + engage Copilot + merge

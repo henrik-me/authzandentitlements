@@ -21,11 +21,21 @@ Loki/Tempo, and a hash-chained **audit explorer**.
 
 ## Prerequisites
 
-- **.NET 10 SDK** (`dotnet --version` >= 10.0.100)
-- **Node.js >= 20** (the process harness runs via `npx`)
-- **Docker** (Desktop or engine) running — for the container-based engines and infrastructure
-- **`aspire` CLI** — `dotnet tool install -g Aspire.Cli` (see https://aspire.dev)
-- **GitHub CLI (`gh`)** — for the pull-request / review-gate workflow
+Per machine, one time. Everything below is standard tooling; the agent-harness itself
+needs **no install** — it runs via `npx` (see Getting started). This repo has **no
+`package.json`**, so there is **no `npm ci`** step.
+
+| Tool | Why | Install (Windows / winget) |
+|---|---|---|
+| **.NET 10 SDK** (>= 10.0.100) | build/run the Aspire app | `winget install Microsoft.DotNet.SDK.10` |
+| **Node.js >= 20** | runs the harness CLI via `npx` | `winget install OpenJS.NodeJS.LTS` |
+| **Docker** (running) | container engines + infra (Postgres, OpenFGA, OPA, Keycloak, Grafana) | `winget install Docker.DockerDesktop` then start it |
+| **`aspire` CLI** | orchestrates the app | `dotnet tool install -g Aspire.Cli` |
+| **GitHub CLI (`gh`)** | PR / review-gate workflow + private-repo clone | `winget install GitHub.cli` then `gh auth login` |
+
+macOS/Linux: install the [.NET 10 SDK](https://dotnet.microsoft.com/download),
+[Node >= 20](https://nodejs.org), [Docker](https://docs.docker.com/get-docker/), and
+[`gh`](https://cli.github.com); then `dotnet tool install -g Aspire.Cli`.
 
 ## Getting started
 
