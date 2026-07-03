@@ -1,10 +1,10 @@
 # CS04 — Coarse-grained edge gateway (YARP)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs04/content
 **Started:** 2026-07-03
-**Closed:** —
+**Closed:** 2026-07-03
 **Phase:** 1 — AuthN + coarse-grained
 **Lane:** Identity
 **Depends on:** CS03
@@ -87,4 +87,23 @@ follow-up (triage the OTLP/instrumentation vs .NET 10 RC1 interaction).
 
 ## Plan-vs-implementation review
 
-_Pending — completed at close-out per OPERATIONS.md § Plan-vs-implementation review (close-out gate). The GO/NEEDS-FIX outcome is recorded here before the active → done rename._
+**Reviewer:** GPT-5.5 (independent — sub-agent `cs04-plan-vs-impl-2`)
+**Date:** 2026-07-03T18:55:00Z
+**Outcome:** GO
+
+Plan vs. merged `main` (HEAD `665ba06`; content PRs #17 edge gateway + #19 fine-gate audit). Round 1 (HEAD `7e02fca`) returned **NEEDS-FIX** — only the edge gate emitted audit-decision events; addressed by PR #19 (the fine gate now emits a structured, audit-ready authorization-decision event). Re-review = GO.
+
+| Planned item | Outcome | Evidence |
+|---|---|---|
+| Goal: enforce coarse authz on token scopes/claims at a YARP edge before fine checks | match | `Edge.Gateway/Program.cs`, `Auth/CoarseAuthorization.cs`, `appsettings.json` |
+| Edge.Gateway (YARP) routing to services | match | `Edge.Gateway/Program.cs` (Add/MapReverseProxy); `AppHost.cs` (edge-gateway) |
+| Coarse policies on scope/claim/audience/tenant | match | `Auth/GatewayAuthenticationSetup.cs`, `CoarseAuthorization.cs`, `GatewayScopeRequirement.cs`, `TenantPresenceRequirement.cs` |
+| Documented coarse-vs-fine boundary | match | `docs/architecture/coarse-vs-fine-boundary.md` |
+| Both gates emit audit + telemetry | match | Edge: `GatewayAuditMiddleware`, `GatewayMetrics`, OTel. Fine: `Bank.Api/Auth/BankAuthorizationAuditMiddleware` + `BankAuditEvent` + ServiceDefaults OTel |
+| Exit: requests lacking scope/audience/tenant rejected at edge | match | `GatewayAuthenticationSetup`, `CoarseAuthorization`; gateway tests |
+| Exit: allowed requests are routed | match | `Program.cs` MapReverseProxy; `GatewayAuditTests` |
+| Exit: gateway decisions emit structured audit-ready events + OTel | match | `GatewayAuditEvent`, `GatewayAuditMiddleware`, `GatewayMetrics` |
+
+**Test coverage:** sufficient — Edge.Gateway.Tests 47/47, Bank.Api.Tests 37/37 (`dotnet test AuthzEntitlements.sln`).
+
+**Non-blocking follow-ups (LRN-013/014):** enrich edge-denial events with RouteId/RequiredScope; skip auditing non-authz-decision requests (unmatched 404 / method-mismatch 405) uniformly across both gates; triage the Aspire/OTLP `Bank.Api` runtime-500 (CS12).
