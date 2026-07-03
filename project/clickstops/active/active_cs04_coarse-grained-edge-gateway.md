@@ -1,9 +1,9 @@
 # CS04 — Coarse-grained edge gateway (YARP)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c3
+**Branch:** cs04/content
+**Started:** 2026-07-03
 **Closed:** —
 **Phase:** 1 — AuthN + coarse-grained
 **Lane:** Identity
@@ -38,7 +38,22 @@ Enforce coarse-grained authorization on token scopes/claims at a YARP edge befor
 | Define coarse-grained policies | pending | — | |
 | Wire audit + telemetry | pending | — | |
 | Document the boundary | pending | — | |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c3 |
+| Reviewer agent | copilot |
+
+## Plan-vs-implementation review
+
+_Pending — completed at close-out per OPERATIONS.md § Plan-vs-implementation review (close-out gate). The GO/NEEDS-FIX outcome is recorded here before the active → done rename._

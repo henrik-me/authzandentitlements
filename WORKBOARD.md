@@ -34,5 +34,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
 | CS03 | CS03 — AuthN via Keycloak OIDC | 🟢 Active | yoga-ae-c2 | cs03/content | 2026-07-03 | — |
+| CS04 | CS04 — Coarse-grained edge gateway (YARP) | 🟢 Active | yoga-ae-c3 | cs04/content | 2026-07-03 | — |
 
 > **Note:** WORKBOARD shows live coordination state only — active orchestrators and their active work. The queue lives in `project/clickstops/planned/` (priority order via filename + per-file `**Depends on:**`); historical record lives in `project/clickstops/done/`. Do not duplicate either here.
