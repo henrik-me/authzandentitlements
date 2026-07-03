@@ -19,9 +19,37 @@ public sealed class AuthorizationDecisionProviderFactory
         IOptions<PdpOptions> options)
     {
         _providers = providers.ToList();
+        ValidateProviderNames(_providers);
         _configuredProvider = string.IsNullOrWhiteSpace(options.Value.Provider)
             ? PdpOptions.DefaultProvider
             : options.Value.Provider;
+    }
+
+    // Fail fast at construction if any registered provider has a blank name or two share a name
+    // (case-insensitively). Selection matches on Name and returns the first match, so a blank or
+    // duplicate name would make selection silently ambiguous — a real footgun once CS06-CS09
+    // register adapters alongside the reference engine. Rejecting it here surfaces the
+    // misconfiguration at startup rather than as a wrong-engine decision at runtime.
+    private static void ValidateProviderNames(IReadOnlyList<IAuthorizationDecisionProvider> providers)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var provider in providers)
+        {
+            if (string.IsNullOrWhiteSpace(provider.Name))
+            {
+                throw new InvalidOperationException(
+                    $"An IAuthorizationDecisionProvider of type '{provider.GetType().Name}' has a " +
+                    "blank Name. Every provider must expose a stable, non-blank name for " +
+                    "config-driven selection.");
+            }
+
+            if (!seen.Add(provider.Name))
+            {
+                throw new InvalidOperationException(
+                    $"Duplicate IAuthorizationDecisionProvider name '{provider.Name}' " +
+                    "(case-insensitive). Provider names must be unique so selection is unambiguous.");
+            }
+        }
     }
 
     public IAuthorizationDecisionProvider GetActiveProvider()

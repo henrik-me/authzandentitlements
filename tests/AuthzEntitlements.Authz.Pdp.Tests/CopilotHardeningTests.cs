@@ -120,6 +120,48 @@ public sealed class CopilotHardeningTests
         Assert.DoesNotContain("bank.account.delete", actionTags);
     }
 
+    // ---- Factory fails fast on blank or duplicate provider names ----
+
+    [Fact]
+    public void Factory_DuplicateProviderNames_ThrowsAtConstruction()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            new AuthorizationDecisionProviderFactory(
+                [new NamedProvider("dup"), new NamedProvider("DUP")],
+                Options.Create(new PdpOptions { Provider = "dup" })));
+
+        Assert.Contains("Duplicate", ex.Message);
+    }
+
+    [Fact]
+    public void Factory_BlankProviderName_ThrowsAtConstruction()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            new AuthorizationDecisionProviderFactory(
+                [new NamedProvider("   ")],
+                Options.Create(new PdpOptions { Provider = "reference" })));
+
+        Assert.Contains("blank Name", ex.Message);
+    }
+
+    [Fact]
+    public void Factory_DistinctProviderNames_Constructs()
+    {
+        var factory = new AuthorizationDecisionProviderFactory(
+            [new ReferenceDecisionProvider(), new NamedProvider("casbin")],
+            Options.Create(new PdpOptions { Provider = "casbin" }));
+
+        Assert.Equal("casbin", factory.GetActiveProvider().Name);
+    }
+
+    private sealed class NamedProvider(string name) : IAuthorizationDecisionProvider
+    {
+        public string Name => name;
+
+        public AccessDecision Evaluate(AccessRequest request) =>
+            AccessDecision.Deny(new Reason(ReasonCodes.UnknownAction, "named stub"));
+    }
+
     private sealed class ReasonlessDenyProvider : IAuthorizationDecisionProvider
     {
         public string Name => "reasonless";
