@@ -81,8 +81,10 @@ durable across runs:
 Open Grafana by clicking the `observability` resource's `grafana` endpoint in the Aspire
 dashboard. Grafana **anonymous access is enabled** (`GF_AUTH_ANONYMOUS_ENABLED=true`, with
 the anonymous org role set to `Editor`) so no login is needed in the lab — the endpoint opens
-straight into the dashboards and Explore. This frictionless access is a lab convenience, not
-a production posture.
+straight into the dashboards and Explore. The **admin login form is disabled**
+(`GF_AUTH_DISABLE_LOGIN_FORM=true`) so nobody can sign in as the image's default `admin/admin`
+to escalate past the capped anonymous Editor role. This frictionless access is a lab
+convenience, not a production posture.
 
 ## How services are wired
 
