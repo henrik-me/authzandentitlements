@@ -10,10 +10,12 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.Keycloak" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\AuthzEntitlements.Bank.Api\AuthzEntitlements.Bank.Api.csproj" />
+    <ProjectReference Include="..\AuthzEntitlements.Bank.Web\AuthzEntitlements.Bank.Web.csproj" />
   </ItemGroup>
 
 </Project>

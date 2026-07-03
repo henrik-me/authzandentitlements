@@ -22,6 +22,20 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.14.0" />
   </ItemGroup>
 
+  <!--
+    CS03 (AuthN via Keycloak OIDC). Aspire.Hosting.Keycloak is preview-only on the 13.1.0
+    band (dev-loop AppHost, never deployed — same posture as the existing Aspire dashboard/DCP
+    packages). Token validation on the request path deliberately uses the STABLE Microsoft
+    auth packages pinned to the exact installed-runtime build (10.0.0-rc.1.25451.107), NOT the
+    preview Aspire.Keycloak.Authentication, to keep request-path code off preview packages and
+    retain full control of the Keycloak issuer/authority config under TreatWarningsAsErrors.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.1.0-preview.1.25616.3" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0-rc.1.25451.107" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.0-rc.1.25451.107" />
+  </ItemGroup>
+
   <!-- CS02: EF Core stack pinned to the .NET 10 RC1 line matching the installed runtime. -->
   <ItemGroup>
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0-rc.1" />

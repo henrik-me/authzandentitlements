@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using AuthzEntitlements.Bank.Api.Auth;
 using AuthzEntitlements.Bank.Api.Data;
 using AuthzEntitlements.Bank.Api.Endpoints;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +7,13 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+// Validate Keycloak-issued access tokens (AuthN) and register the authorization
+// policy contract (AuthZ). The Keycloak authority/audience are injected at runtime
+// by the AppHost via configuration (see AuthenticationSetup for the exact keys).
+builder.Services.AddBankJwtAuthentication(builder.Configuration, builder.Environment);
+builder.Services.AddBankAuthorization();
+
 
 // Aspire injects the "bank" connection string via .WithReference(bankDb) in the
 // AppHost. We use the plain Npgsql EF Core provider so every EF package stays on
@@ -29,6 +37,11 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapDefaultEndpoints();
+
+// AuthN/AuthZ middleware. Endpoints without RequireAuthorization (the "/" info
+// endpoint and health checks) remain anonymous.
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapGet("/", () => TypedResults.Ok(new
 {

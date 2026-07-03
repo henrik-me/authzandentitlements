@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using AuthzEntitlements.Bank.Api.Auth;
 using AuthzEntitlements.Bank.Api.Contracts;
 using AuthzEntitlements.Bank.Api.Data;
 using AuthzEntitlements.Bank.Api.Domain;
@@ -14,26 +16,49 @@ public static class TransactionEndpoints
     {
         var transactions = app.MapGroup("/api/transactions");
 
-        transactions.MapGet("/", async (BankDbContext db, CancellationToken ct) =>
-            TypedResults.Ok(
+        transactions.MapGet("/", async Task<IResult> (
+            ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
+        {
+            var tenantId = await user.ResolveCallerTenantIdAsync(db, ct);
+            if (tenantId is null)
+            {
+                return TypedResults.Forbid();
+            }
+
+            return TypedResults.Ok(
                 await db.Transactions.AsNoTracking()
+                    .Where(t => t.TenantId == tenantId)
                     .Include(t => t.Approval)
                     .OrderBy(t => t.CreatedAt)
                     .Select(t => t.ToDto())
-                    .ToListAsync(ct)));
+                    .ToListAsync(ct));
+        }).RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
         transactions.MapGet("/{id:guid}", async Task<IResult> (
-            Guid id, BankDbContext db, CancellationToken ct) =>
+            Guid id, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
         {
+            var tenantId = await user.ResolveCallerTenantIdAsync(db, ct);
+            if (tenantId is null)
+            {
+                return TypedResults.Forbid();
+            }
+
             var txn = await db.Transactions.AsNoTracking()
                 .Include(t => t.Approval)
-                .FirstOrDefaultAsync(t => t.Id == id, ct);
+                .FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tenantId, ct);
             return txn is null ? TypedResults.NotFound() : TypedResults.Ok(txn.ToDto());
-        });
+        }).RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
         transactions.MapPost("/", async Task<IResult> (
-            CreateTransactionRequest request, BankDbContext db, CancellationToken ct) =>
+            CreateTransactionRequest request, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
         {
+            // The maker is the authenticated subject; a caller may not act as another user.
+            var subject = user.GetSubjectId();
+            if (subject is null || subject != request.MakerId)
+            {
+                return TypedResults.Forbid();
+            }
+
             if (request.Amount <= 0m)
             {
                 return TypedResults.Problem("Transaction amount must be positive.",
@@ -49,6 +74,15 @@ public static class TransactionEndpoints
                 return TypedResults.Problem(
                     $"Account {request.AccountId} does not exist.",
                     statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            // Token-tenant fail-closed check: the caller's token tenant must match the
+            // account's tenant (from the trusted account row, not the caller). A missing/
+            // unknown tenant claim fails closed and never depends on tenant-row lookup.
+            var callerTenantId = await user.ResolveCallerTenantIdAsync(db, ct);
+            if (callerTenantId is null || callerTenantId != account.TenantId)
+            {
+                return TypedResults.Forbid();
             }
 
             var maker = await db.Users.AsNoTracking()
@@ -80,25 +114,44 @@ public static class TransactionEndpoints
 
             await db.SaveChangesAsync(ct);
             return TypedResults.Created($"/api/transactions/{txn.Id}", txn.ToDto());
-        });
+        }).RequireAuthorization(AuthorizationSetup.TransactionCreatePolicy);
 
         transactions.MapPost("/{id:guid}/approve", (
-            Guid id, DecideRequest request, BankDbContext db, CancellationToken ct) =>
-            DecideAsync(id, request, approve: true, db, ct));
+            Guid id, DecideRequest request, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
+            DecideAsync(id, request, user, approve: true, db, ct))
+            .RequireAuthorization(AuthorizationSetup.ApprovalDecidePolicy);
 
         transactions.MapPost("/{id:guid}/reject", (
-            Guid id, DecideRequest request, BankDbContext db, CancellationToken ct) =>
-            DecideAsync(id, request, approve: false, db, ct));
+            Guid id, DecideRequest request, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
+            DecideAsync(id, request, user, approve: false, db, ct))
+            .RequireAuthorization(AuthorizationSetup.ApprovalDecidePolicy);
 
         return app;
     }
 
     private static async Task<IResult> DecideAsync(
-        Guid transactionId, DecideRequest request, bool approve, BankDbContext db, CancellationToken ct)
+        Guid transactionId, DecideRequest request, ClaimsPrincipal user, bool approve,
+        BankDbContext db, CancellationToken ct)
     {
+        // The checker is the authenticated subject; a caller may not decide as another user.
+        var subject = user.GetSubjectId();
+        if (subject is null || subject != request.CheckerId)
+        {
+            return TypedResults.Forbid();
+        }
+
+        // Fail-closed token-tenant scoping, consistent with every other endpoint: the
+        // transaction is resolved only within the caller's token tenant, so a missing/
+        // unknown tenant claim (or a cross-tenant target) never decides an approval.
+        var callerTenantId = await user.ResolveCallerTenantIdAsync(db, ct);
+        if (callerTenantId is null)
+        {
+            return TypedResults.Forbid();
+        }
+
         var txn = await db.Transactions
             .Include(t => t.Approval)
-            .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
+            .FirstOrDefaultAsync(t => t.Id == transactionId && t.TenantId == callerTenantId, ct);
 
         if (txn is null)
         {
