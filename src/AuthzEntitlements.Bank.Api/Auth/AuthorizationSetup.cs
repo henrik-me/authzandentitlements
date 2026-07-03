@@ -31,24 +31,28 @@ public static class AuthorizationSetup
         services.AddSingleton<IAuthorizationHandler, ScopeAuthorizationHandler>();
 
         services.AddAuthorizationBuilder()
-            // Baseline role policies (roles come from the "roles" claim).
-            .AddPolicy(RoleNames.Teller, p => p.RequireRole(RoleNames.Teller))
-            .AddPolicy(RoleNames.BranchManager, p => p.RequireRole(RoleNames.BranchManager))
-            .AddPolicy(RoleNames.ComplianceOfficer, p => p.RequireRole(RoleNames.ComplianceOfficer))
-            .AddPolicy(RoleNames.Auditor, p => p.RequireRole(RoleNames.Auditor))
+            // Baseline role policies (roles come from the "roles" claim). Every policy
+            // requires an authenticated user so anonymous requests challenge (401) rather
+            // than forbid (403).
+            .AddPolicy(RoleNames.Teller, p => p.RequireAuthenticatedUser().RequireRole(RoleNames.Teller))
+            .AddPolicy(RoleNames.BranchManager, p => p.RequireAuthenticatedUser().RequireRole(RoleNames.BranchManager))
+            .AddPolicy(RoleNames.ComplianceOfficer, p => p.RequireAuthenticatedUser().RequireRole(RoleNames.ComplianceOfficer))
+            .AddPolicy(RoleNames.Auditor, p => p.RequireAuthenticatedUser().RequireRole(RoleNames.Auditor))
             // Coarse-grained scope policies.
             .AddPolicy(ScopeReadPolicy, p =>
-                p.AddRequirements(new ScopeRequirement(ScopeReadPolicy)))
+                p.RequireAuthenticatedUser().AddRequirements(new ScopeRequirement(ScopeReadPolicy)))
             .AddPolicy(ScopeTransactionsWritePolicy, p =>
-                p.AddRequirements(new ScopeRequirement(ScopeTransactionsWritePolicy)))
+                p.RequireAuthenticatedUser().AddRequirements(new ScopeRequirement(ScopeTransactionsWritePolicy)))
             .AddPolicy(ScopeApprovalsWritePolicy, p =>
-                p.AddRequirements(new ScopeRequirement(ScopeApprovalsWritePolicy)))
+                p.RequireAuthenticatedUser().AddRequirements(new ScopeRequirement(ScopeApprovalsWritePolicy)))
             // Composite write policies: scope AND an eligible role.
             .AddPolicy(TransactionCreatePolicy, p =>
-                p.AddRequirements(new ScopeRequirement(ScopeTransactionsWritePolicy))
+                p.RequireAuthenticatedUser()
+                    .AddRequirements(new ScopeRequirement(ScopeTransactionsWritePolicy))
                     .RequireRole(MakerEligibleRoles))
             .AddPolicy(ApprovalDecidePolicy, p =>
-                p.AddRequirements(new ScopeRequirement(ScopeApprovalsWritePolicy))
+                p.RequireAuthenticatedUser()
+                    .AddRequirements(new ScopeRequirement(ScopeApprovalsWritePolicy))
                     .RequireRole(CheckerEligibleRoles));
 
         return services;

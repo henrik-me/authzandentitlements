@@ -76,16 +76,13 @@ public static class TransactionEndpoints
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
-            // Token-level defence in depth: the caller's tenant claim must match the
-            // resolved account's tenant Code. The domain never trusts the caller's
-            // tenant (it derives it from the account); this is an additional gate.
-            var accountTenant = await db.Tenants.AsNoTracking()
-                .FirstOrDefaultAsync(t => t.Id == account.TenantId, ct);
-            if (accountTenant is not null && !user.MatchesTenant(accountTenant.Code))
+            // Token-tenant fail-closed check: the caller's token tenant must match the
+            // account's tenant (from the trusted account row, not the caller). A missing/
+            // unknown tenant claim fails closed and never depends on tenant-row lookup.
+            var callerTenantId = await user.ResolveCallerTenantIdAsync(db, ct);
+            if (callerTenantId is null || callerTenantId != account.TenantId)
             {
-                return TypedResults.Problem(
-                    "Caller tenant claim does not match the account tenant.",
-                    statusCode: StatusCodes.Status403Forbidden);
+                return TypedResults.Forbid();
             }
 
             var maker = await db.Users.AsNoTracking()

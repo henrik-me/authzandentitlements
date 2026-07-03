@@ -22,8 +22,24 @@ builder.AddServiceDefaults();
 //   Keycloak:ClientSecret  — confidential-client secret (default "bank-web-secret").
 var keycloak = builder.Configuration.GetSection("Keycloak");
 var realm = keycloak["Realm"] ?? "authz-bank";
-var authority = keycloak["Authority"]
-    ?? $"{keycloak["AuthServerUrl"]?.TrimEnd('/')}/realms/{realm}";
+var authServerUrl = keycloak["AuthServerUrl"];
+var authority = keycloak["Authority"];
+if (string.IsNullOrWhiteSpace(authority))
+{
+    authority = string.IsNullOrWhiteSpace(authServerUrl)
+        ? null
+        : $"{authServerUrl.TrimEnd('/')}/realms/{realm}";
+}
+
+if (string.IsNullOrWhiteSpace(authority))
+{
+    // Fail fast: a relative/blank authority breaks OIDC discovery with a confusing
+    // runtime error. The AppHost injects Keycloak:Authority at runtime.
+    throw new InvalidOperationException(
+        "Keycloak authority is not configured. Set 'Keycloak:Authority' (a full realm URL) " +
+        "or 'Keycloak:AuthServerUrl'.");
+}
+
 var clientSecret = keycloak["ClientSecret"] ?? "bank-web-secret";
 
 builder.Services.AddAuthentication(options =>
@@ -35,7 +51,9 @@ builder.Services.AddAuthentication(options =>
     .AddOpenIdConnect(OidcScheme, options =>
     {
         options.Authority = authority;
-        options.RequireHttpsMetadata = false; // dev-only: Keycloak runs over http in the lab.
+        // Dev reaches Keycloak over plain HTTP; every other environment must require
+        // HTTPS for the OIDC metadata/JWKS (mirrors Bank.Api's AuthenticationSetup).
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
         options.ClientId = "bank-web";
         options.ClientSecret = clientSecret;
         options.ResponseType = "code";
