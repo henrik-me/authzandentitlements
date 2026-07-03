@@ -1,10 +1,10 @@
 # CS03 — AuthN via Keycloak OIDC
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c2
 **Branch:** cs03/content
 **Started:** 2026-07-03
-**Closed:** —
+**Closed:** 2026-07-03
 **Phase:** 1 — AuthN + coarse-grained
 **Lane:** Identity
 **Depends on:** CS02
