@@ -241,6 +241,14 @@ above are managed by the harness and will be overwritten on the next
 `composed.overrides[".github/copilot-instructions.md"].local_blocks`.
 
 <!-- harness:local-start id=copilot-instructions.harness -->
-_(Project-local agent instructions — repository-specific cross-repo
-procedures, model choices, and institutional citations. Empty by default.)_
+### Known tooling constraints
+
+- **`harness review <pr>` is currently broken (`henrik-me/agent-harness#407`).**
+  Its non-dry-run path aborts with `Could not find clickstop file for CS<NN>`
+  even when the active clickstop file exists on the branch (`--dry-run`
+  succeeds). Until the harness pin is bumped past the fix, obtain the mandatory
+  content-PR rubber-duck review by **dispatching the reviewer sub-agent
+  directly** using the canonical reviewer preamble in `OPERATIONS.md`
+  (§ "Reviewer dispatch — canonical preamble"), then record the verdict in the
+  PR `## Review log` + `## Model audit` manually. Tracked downstream as LRN-006.
 <!-- harness:local-end id=copilot-instructions.harness -->
