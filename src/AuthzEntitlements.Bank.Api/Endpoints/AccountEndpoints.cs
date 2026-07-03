@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AuthzEntitlements.Bank.Api.Auth;
 using AuthzEntitlements.Bank.Api.Contracts;
 using AuthzEntitlements.Bank.Api.Data;
@@ -6,37 +7,54 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthzEntitlements.Bank.Api.Endpoints;
 
-// CRUD for accounts (the primary authz resource). Create is minimal in CS02: it
-// validates referential integrity and persists; richer rules land in later CSs.
-// CS03: account creation is a privileged write, gated to the BranchManager role
-// (interim rule — a dedicated account-lifecycle scope arrives with later authz CSs).
+// CRUD for accounts (the primary authz resource). Reads are tenant-scoped to the
+// caller's token tenant; create is gated to the BranchManager role AND the caller's
+// tenant. Auth is an outer gate; the domain layer still owns its invariants.
 public static class AccountEndpoints
 {
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
         var accounts = app.MapGroup("/api/accounts");
 
-        accounts.MapGet("/", async (BankDbContext db, CancellationToken ct) =>
-            TypedResults.Ok(
+        accounts.MapGet("/", async Task<IResult> (
+            ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
+        {
+            var tenantId = await user.ResolveCallerTenantIdAsync(db, ct);
+            if (tenantId is null)
+            {
+                return TypedResults.Forbid();
+            }
+
+            return TypedResults.Ok(
                 await db.Accounts.AsNoTracking()
+                    .Where(a => a.TenantId == tenantId)
                     .OrderBy(a => a.AccountNumber)
                     .Select(a => a.ToDto())
-                    .ToListAsync(ct)))
-            .RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
+                    .ToListAsync(ct));
+        }).RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
-        accounts.MapGet("/{id:guid}", async Task<IResult> (Guid id, BankDbContext db, CancellationToken ct) =>
+        accounts.MapGet("/{id:guid}", async Task<IResult> (
+            Guid id, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
         {
-            var account = await db.Accounts.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id, ct);
+            var tenantId = await user.ResolveCallerTenantIdAsync(db, ct);
+            if (tenantId is null)
+            {
+                return TypedResults.Forbid();
+            }
+
+            var account = await db.Accounts.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == id && a.TenantId == tenantId, ct);
             return account is null ? TypedResults.NotFound() : TypedResults.Ok(account.ToDto());
         }).RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
         accounts.MapPost("/", async Task<IResult> (
-            CreateAccountRequest request, BankDbContext db, CancellationToken ct) =>
+            CreateAccountRequest request, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
         {
-            if (!await db.Tenants.AnyAsync(t => t.Id == request.TenantId, ct))
+            // The caller may only create accounts within their own token tenant.
+            var callerTenantId = await user.ResolveCallerTenantIdAsync(db, ct);
+            if (callerTenantId is null || callerTenantId != request.TenantId)
             {
-                return TypedResults.Problem($"Tenant {request.TenantId} does not exist.",
-                    statusCode: StatusCodes.Status400BadRequest);
+                return TypedResults.Forbid();
             }
 
             if (!await db.Branches.AnyAsync(b => b.Id == request.BranchId

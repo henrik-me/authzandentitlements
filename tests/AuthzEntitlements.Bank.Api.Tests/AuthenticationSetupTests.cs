@@ -82,4 +82,25 @@ public sealed class AuthenticationSetupTests
     {
         Assert.Null(AuthenticationSetup.ResolveAuthority(Config()));
     }
+
+    [Fact]
+    public void JwtBearer_AllowsHttpMetadata_InDevelopment()
+    {
+        var options = BuildJwtOptions(Config(("Keycloak:AuthServerUrl", "http://localhost:8080")));
+        Assert.False(options.RequireHttpsMetadata);
+    }
+
+    [Fact]
+    public void JwtBearer_RequiresHttpsMetadata_OutsideDevelopment()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddBankJwtAuthentication(
+            Config(("Keycloak:Authority", "https://kc/realms/authz-bank")),
+            new TestHostEnvironment { EnvironmentName = Environments.Production });
+        var options = services.BuildServiceProvider()
+            .GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
+            .Get(JwtBearerDefaults.AuthenticationScheme);
+        Assert.True(options.RequireHttpsMetadata);
+    }
 }

@@ -148,4 +148,20 @@ public sealed class AuthPolicyTests
         Assert.False(noTenant.MatchesTenant("CONTOSO"));
         Assert.Null(noTenant.GetTenant());
     }
+
+    [Fact]
+    public void GetSubjectId_ParsesSubClaim_FailsClosedWhenAbsentOrInvalid()
+    {
+        var id = Guid.NewGuid();
+        var withSub = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(TenantClaims.SubjectClaimType, id.ToString())], "TestAuth"));
+        Assert.Equal(id, withSub.GetSubjectId());
+
+        var noSub = new ClaimsPrincipal(new ClaimsIdentity([], "TestAuth"));
+        Assert.Null(noSub.GetSubjectId());
+
+        var badSub = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(TenantClaims.SubjectClaimType, "not-a-guid")], "TestAuth"));
+        Assert.Null(badSub.GetSubjectId());
+    }
 }

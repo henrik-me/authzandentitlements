@@ -16,27 +16,49 @@ public static class TransactionEndpoints
     {
         var transactions = app.MapGroup("/api/transactions");
 
-        transactions.MapGet("/", async (BankDbContext db, CancellationToken ct) =>
-            TypedResults.Ok(
+        transactions.MapGet("/", async Task<IResult> (
+            ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
+        {
+            var tenantId = await user.ResolveCallerTenantIdAsync(db, ct);
+            if (tenantId is null)
+            {
+                return TypedResults.Forbid();
+            }
+
+            return TypedResults.Ok(
                 await db.Transactions.AsNoTracking()
+                    .Where(t => t.TenantId == tenantId)
                     .Include(t => t.Approval)
                     .OrderBy(t => t.CreatedAt)
                     .Select(t => t.ToDto())
-                    .ToListAsync(ct)))
-            .RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
+                    .ToListAsync(ct));
+        }).RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
         transactions.MapGet("/{id:guid}", async Task<IResult> (
-            Guid id, BankDbContext db, CancellationToken ct) =>
+            Guid id, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
         {
+            var tenantId = await user.ResolveCallerTenantIdAsync(db, ct);
+            if (tenantId is null)
+            {
+                return TypedResults.Forbid();
+            }
+
             var txn = await db.Transactions.AsNoTracking()
                 .Include(t => t.Approval)
-                .FirstOrDefaultAsync(t => t.Id == id, ct);
+                .FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tenantId, ct);
             return txn is null ? TypedResults.NotFound() : TypedResults.Ok(txn.ToDto());
         }).RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
         transactions.MapPost("/", async Task<IResult> (
             CreateTransactionRequest request, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
         {
+            // The maker is the authenticated subject; a caller may not act as another user.
+            var subject = user.GetSubjectId();
+            if (subject is null || subject != request.MakerId)
+            {
+                return TypedResults.Forbid();
+            }
+
             if (request.Amount <= 0m)
             {
                 return TypedResults.Problem("Transaction amount must be positive.",
@@ -98,21 +120,29 @@ public static class TransactionEndpoints
         }).RequireAuthorization(AuthorizationSetup.TransactionCreatePolicy);
 
         transactions.MapPost("/{id:guid}/approve", (
-            Guid id, DecideRequest request, BankDbContext db, CancellationToken ct) =>
-            DecideAsync(id, request, approve: true, db, ct))
+            Guid id, DecideRequest request, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
+            DecideAsync(id, request, user, approve: true, db, ct))
             .RequireAuthorization(AuthorizationSetup.ApprovalDecidePolicy);
 
         transactions.MapPost("/{id:guid}/reject", (
-            Guid id, DecideRequest request, BankDbContext db, CancellationToken ct) =>
-            DecideAsync(id, request, approve: false, db, ct))
+            Guid id, DecideRequest request, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
+            DecideAsync(id, request, user, approve: false, db, ct))
             .RequireAuthorization(AuthorizationSetup.ApprovalDecidePolicy);
 
         return app;
     }
 
     private static async Task<IResult> DecideAsync(
-        Guid transactionId, DecideRequest request, bool approve, BankDbContext db, CancellationToken ct)
+        Guid transactionId, DecideRequest request, ClaimsPrincipal user, bool approve,
+        BankDbContext db, CancellationToken ct)
     {
+        // The checker is the authenticated subject; a caller may not decide as another user.
+        var subject = user.GetSubjectId();
+        if (subject is null || subject != request.CheckerId)
+        {
+            return TypedResults.Forbid();
+        }
+
         var txn = await db.Transactions
             .Include(t => t.Approval)
             .FirstOrDefaultAsync(t => t.Id == transactionId, ct);

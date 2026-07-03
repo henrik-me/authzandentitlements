@@ -103,8 +103,9 @@ public static class AuthenticationSetup
 
                 options.Audience = audience;
 
-                // Dev-only: the Keycloak container is reached over plain HTTP.
-                options.RequireHttpsMetadata = false;
+                // Dev reaches Keycloak over plain HTTP; every other environment must
+                // fail closed and require HTTPS for the issuer metadata/JWKS.
+                options.RequireHttpsMetadata = !environment.IsDevelopment();
 
                 options.TokenValidationParameters = new TokenValidationParameters
                 {

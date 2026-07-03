@@ -78,4 +78,6 @@ adds protocol mappers so the **access token** carries:
 OAuth scopes surface in the standard `scope` string: `bank.read`,
 `bank.transactions.write`, `bank.approvals.write`. CS04's edge gateway enforces
 coarse-grained scope checks from that `scope` string; Bank.Api validates the
-`aud`, `roles`, and `tenant`/`branch` claims.
+`aud` and `roles` claims and enforces the `tenant` claim on every endpoint. The
+`branch` claim is carried for later branch-scoped (ABAC) authorization and is not
+yet enforced by Bank.Api.

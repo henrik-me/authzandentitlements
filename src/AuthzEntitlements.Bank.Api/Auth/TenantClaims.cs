@@ -11,6 +11,17 @@ public static class TenantClaims
     // The custom Keycloak protocol-mapper claim carrying the tenant Code.
     public const string TenantClaimType = "tenant";
 
+    // The subject claim. Keycloak sets each user's id to the Bank.Api User.Id, so
+    // the token subject correlates directly to a domain user.
+    public const string SubjectClaimType = "sub";
+
+    // Returns the caller's subject id, or null when the claim is absent or not a GUID.
+    public static Guid? GetSubjectId(this ClaimsPrincipal principal)
+    {
+        var value = principal.FindFirstValue(SubjectClaimType);
+        return Guid.TryParse(value, out var id) ? id : null;
+    }
+
     // Returns the caller's tenant Code, or null when the claim is absent/blank.
     public static string? GetTenant(this ClaimsPrincipal principal)
     {
