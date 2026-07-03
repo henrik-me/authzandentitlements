@@ -56,8 +56,8 @@ Provide persistent observability beyond the dev-time Aspire dashboard.
 - **D3 — Endpoints:** OTLP gRPC 4317 (`otlp-grpc`), OTLP HTTP 4318 (`otlp-http`), Grafana UI 3000
   (`grafana`, external). Grafana anonymous access enabled with org role Editor
   (`GF_AUTH_ANONYMOUS_ENABLED=true` + `GF_AUTH_ANONYMOUS_ORG_ROLE=Editor`) so the lab needs no login;
-  the admin login form is disabled (`GF_AUTH_DISABLE_LOGIN_FORM=true`) so nobody can sign in as the
-  default admin/admin to escalate past the capped anonymous Editor.
+  the default admin/admin cannot escalate because both the UI login form
+  (`GF_AUTH_DISABLE_LOGIN_FORM=true`) and HTTP Basic Auth (`GF_AUTH_BASIC_ENABLED=false`) are disabled.
   and Explore (Loki/Tempo) works out of the box.
 - **D4 — Service fan-out:** the AppHost injects `OTEL_EXPORTER_OTLP_ENDPOINT` = the lgtm OTLP
   endpoint into each instrumented service (bank-api, entitlements-service, edge-gateway, bank-web).

@@ -20,13 +20,14 @@ var observability = builder.AddContainer("observability", "grafana/otel-lgtm", "
         "../../infra/observability/grafana/dashboards-provisioning.yaml",
         "/otel-lgtm/grafana/conf/provisioning/dashboards/custom.yaml",
         isReadOnly: true)
-    // Anonymous Editor + disabled login form: the lab's Grafana opens with no login and Explore
-    // (Loki/Tempo) works, but nobody can sign in as the image's default admin (admin/admin) to
-    // escalate — the login form is off, so every visitor is a capped anonymous Editor (no
-    // user/datasource/settings admin).
+    // Anonymous Editor kiosk: the lab's Grafana opens with no login and Explore (Loki/Tempo)
+    // works, but the image's default admin/admin cannot be used to escalate — BOTH the UI login
+    // form and HTTP Basic Auth are disabled, so every visitor is a capped anonymous Editor (no
+    // user/datasource/settings admin) with no interactive OR programmatic path to admin.
     .WithEnvironment("GF_AUTH_ANONYMOUS_ENABLED", "true")
     .WithEnvironment("GF_AUTH_ANONYMOUS_ORG_ROLE", "Editor")
     .WithEnvironment("GF_AUTH_DISABLE_LOGIN_FORM", "true")
+    .WithEnvironment("GF_AUTH_BASIC_ENABLED", "false")
     .WithHttpEndpoint(targetPort: 3000, name: "grafana")
     // OTLP ingest stays internal: model 4317/4318 as tcp (not http) endpoints so
     // WithExternalHttpEndpoints() marks ONLY the Grafana UI external — the OTLP ports are
