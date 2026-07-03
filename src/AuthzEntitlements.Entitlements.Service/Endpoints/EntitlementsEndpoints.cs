@@ -113,11 +113,21 @@ public static class EntitlementsEndpoints
             return TypedResults.Ok(new FeatureEntitlementResponse(false, string.Empty, NoSubscription));
         }
 
-        var enabled = await featureGate.IsEnabledAsync(featureKey, subscription.PlanTier, ct);
         var planTier = subscription.PlanTier.ToString();
-        var reason = !FeatureCatalog.IsKnown(featureKey)
-            ? "unknown feature"
-            : enabled ? "feature enabled" : "feature disabled";
+
+        // FeatureCatalog is the single source of truth: a key it does not know fails
+        // closed (disabled) WITHOUT consulting the provider, so a flag defined only in an
+        // external provider (e.g. Unleash) cannot leak an enabled=true for a key the
+        // catalog considers unknown or drift from the /plan feature list.
+        if (!FeatureCatalog.IsKnown(featureKey))
+        {
+            Emit(audit, metrics, tenantCode, EntitlementDecisionType.Feature, featureKey,
+                EntitlementOutcome.Deny, planTier);
+            return TypedResults.Ok(new FeatureEntitlementResponse(false, planTier, "unknown feature"));
+        }
+
+        var enabled = await featureGate.IsEnabledAsync(featureKey, subscription.PlanTier, ct);
+        var reason = enabled ? "feature enabled" : "feature disabled";
 
         Emit(audit, metrics, tenantCode, EntitlementDecisionType.Feature, featureKey,
             enabled ? EntitlementOutcome.Allow : EntitlementOutcome.Deny, planTier);

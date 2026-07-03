@@ -20,9 +20,9 @@ public sealed partial class LoggingEntitlementAuditSink(ILogger<LoggingEntitleme
         EntitlementDecisionLogged(
             logger,
             decision.TenantCode,
-            decision.DecisionType.ToString(),
+            decision.DecisionType.ToString().ToLowerInvariant(),
             decision.Key,
-            decision.Outcome.ToString(),
+            decision.Outcome.ToString().ToLowerInvariant(),
             decision.PlanTier,
             decision.Amount,
             decision.Used,

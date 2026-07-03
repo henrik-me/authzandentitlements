@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AuthzEntitlements.Bank.Api.Entitlements;
 
 // Client-side result records for the Entitlements.Service HTTP contract. Each carries
@@ -9,6 +11,7 @@ public sealed record ModuleCheckResult(bool Entitled, string PlanTier, string Re
 {
     // True only for the fail-closed sentinel produced when the service is unreachable
     // or returns a non-success response. Never set from a deserialized wire payload.
+    [JsonIgnore]
     public bool IsUnavailable { get; init; }
 
     public static ModuleCheckResult Unavailable(string reason) =>
@@ -17,6 +20,7 @@ public sealed record ModuleCheckResult(bool Entitled, string PlanTier, string Re
 
 public sealed record FeatureCheckResult(bool Enabled, string PlanTier, string Reason)
 {
+    [JsonIgnore]
     public bool IsUnavailable { get; init; }
 
     public static FeatureCheckResult Unavailable(string reason) =>
@@ -25,6 +29,7 @@ public sealed record FeatureCheckResult(bool Enabled, string PlanTier, string Re
 
 public sealed record QuotaDecisionResult(bool Allowed, long Limit, long Used, long Remaining, string Reason)
 {
+    [JsonIgnore]
     public bool IsUnavailable { get; init; }
 
     public static QuotaDecisionResult Unavailable(string reason) =>
@@ -33,10 +38,12 @@ public sealed record QuotaDecisionResult(bool Allowed, long Limit, long Used, lo
 
 public sealed record SeatUsageResult(string PlanTier, int SeatLimit, int SeatsUsed, int Remaining)
 {
+    [JsonIgnore]
     public bool IsUnavailable { get; init; }
 
     // Only populated on the fail-closed sentinel; the wire contract carries no reason
     // field for seats, so this stays null on a successful lookup.
+    [JsonIgnore]
     public string? Reason { get; init; }
 
     public static SeatUsageResult Unavailable(string reason) =>
