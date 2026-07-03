@@ -1,9 +1,9 @@
 # CS02 — Fintech back-office domain skeleton
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae
+**Branch:** cs02/content
+**Started:** 2026-07-03
 **Closed:** —
 **Phase:** 0 — Foundations
 **Lane:** Foundation
@@ -38,7 +38,22 @@ Model the fintech back-office domain (accounts, transactions, approvals) that ex
 | EF Core mapping + migrations | pending | — | |
 | Seed scenario data | pending | — | |
 | Expose minimal CRUD endpoints | pending | — | |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and any feature docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; create planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8, claude-opus-4.7 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae |
+| Reviewer agent | copilot |
+
+## Plan-vs-implementation review
+
+_Pending — populated at the close-out gate (GPT-5.5) before the active → done rename._
