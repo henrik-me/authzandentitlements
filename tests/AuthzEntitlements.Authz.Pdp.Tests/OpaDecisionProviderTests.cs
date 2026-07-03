@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using AuthzEntitlements.Authz.Pdp.Contracts;
 using AuthzEntitlements.Authz.Pdp.Providers.Adapters.Opa;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -77,7 +78,8 @@ public sealed class OpaDecisionProviderTests
     // --- Fixtures -----------------------------------------------------------
 
     private static OpaDecisionProvider ProviderWith(StubHandler handler) =>
-        new(new StubHttpClientFactory(handler), Options.Create(new OpaOptions()));
+        new(new StubHttpClientFactory(handler), Options.Create(new OpaOptions()),
+            NullLogger<OpaDecisionProvider>.Instance);
 
     private static OpaDecisionProvider ProviderReturning(string json, out StubHandler handler)
     {
@@ -313,9 +315,28 @@ public sealed class OpaDecisionProviderTests
         // rather than let the exception escape as a 500.
         var provider = new OpaDecisionProvider(
             new ThrowingHttpClientFactory(new UriFormatException("bad base url")),
-            Options.Create(new OpaOptions()));
+            Options.Create(new OpaOptions()),
+            NullLogger<OpaDecisionProvider>.Instance);
 
         AssertProviderUnavailable(provider.Evaluate(TransactionCreate()));
+    }
+
+    [Fact]
+    public void FailClosed_MessageIsStable_AndDoesNotLeakExceptionDetail()
+    {
+        // A transport error whose message carries internal detail (URL, network cause). The
+        // caller-facing Reason.Message must be the stable text, never the raw exception string —
+        // /api/authz/evaluate returns AccessDecision straight to anonymous callers.
+        const string secret = "http://internal-opa.corp.local:8181 connection refused";
+        var handler = new StubHandler(_ => throw new HttpRequestException(secret));
+        var provider = ProviderWith(handler);
+
+        var decision = provider.Evaluate(TransactionCreate());
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal("ProviderUnavailable", decision.Reasons[0].Code);
+        Assert.DoesNotContain(secret, decision.Reasons[0].Message);
+        Assert.DoesNotContain("connection refused", decision.Reasons[0].Message);
     }
 
     private static void AssertProviderUnavailable(AccessDecision decision)

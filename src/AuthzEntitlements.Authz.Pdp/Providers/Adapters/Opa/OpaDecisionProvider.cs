@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using AuthzEntitlements.Authz.Pdp.Contracts;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace AuthzEntitlements.Authz.Pdp.Providers.Adapters.Opa;
@@ -17,7 +18,9 @@ namespace AuthzEntitlements.Authz.Pdp.Providers.Adapters.Opa;
 // Fail-closed posture: any failure to obtain a well-formed Permit/Deny from OPA — transport error,
 // timeout, non-success status, an absent "result" (policy undefined for the input), a missing
 // reason, an unrecognized decision, or a JSON parse error — returns Deny with the provider-local
-// ProviderUnavailable reason. It never falls through to a permit.
+// ProviderUnavailable reason. It never falls through to a permit. The specific cause is LOGGED;
+// the AccessDecision returned to (anonymous) /api/authz/evaluate callers carries only a stable,
+// non-sensitive message, so internal URLs/network/config detail is never leaked to callers.
 public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
 {
     public const string HttpClientName = "opa";
@@ -28,17 +31,29 @@ public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
     // legible, machine-stable Deny rather than an opaque 500.
     private const string ProviderUnavailable = "ProviderUnavailable";
 
+    // Stable, non-sensitive message returned to callers on every fail-closed decision. The specific
+    // cause (exception text, remote status phrase, config detail) is logged instead of surfaced, so
+    // /api/authz/evaluate — which returns AccessDecision.Reason.Message straight to anonymous
+    // callers — cannot leak internal configuration or network details.
+    private const string ProviderUnavailableMessage =
+        "The OPA authorization engine did not return a usable decision; failing closed.";
+
     // Web defaults give camelCase serialization (matching the wire contract) AND case-insensitive
     // property matching on the way back in.
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly OpaOptions _options;
+    private readonly ILogger<OpaDecisionProvider> _logger;
 
-    public OpaDecisionProvider(IHttpClientFactory httpClientFactory, IOptions<OpaOptions> options)
+    public OpaDecisionProvider(
+        IHttpClientFactory httpClientFactory,
+        IOptions<OpaOptions> options,
+        ILogger<OpaDecisionProvider> logger)
     {
         _httpClientFactory = httpClientFactory;
         _options = options.Value;
+        _logger = logger;
     }
 
     public string Name => "opa";
@@ -93,7 +108,7 @@ public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
         }
     }
 
-    private static AccessDecision MapDecision(OpaDecisionResult? result)
+    private AccessDecision MapDecision(OpaDecisionResult? result)
     {
         // Absent result = policy undefined for the input (OPA returned "{}"): fail closed.
         if (result is null)
@@ -144,8 +159,13 @@ public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
         _ => null,
     };
 
-    private static AccessDecision FailClosed(string message) =>
-        AccessDecision.Deny(new Reason(ProviderUnavailable, message));
+    // Log the specific cause for operators/telemetry; return only the stable, non-sensitive message
+    // to the caller so no internal detail leaks through the anonymous evaluate endpoint.
+    private AccessDecision FailClosed(string diagnostic)
+    {
+        _logger.LogWarning("OPA adapter failing closed: {Diagnostic}", diagnostic);
+        return AccessDecision.Deny(new Reason(ProviderUnavailable, ProviderUnavailableMessage));
+    }
 
     // Wraps the AccessRequest as OPA's expected {"input": <request>} envelope.
     private sealed record OpaInput(AccessRequest Input);
