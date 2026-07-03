@@ -2,6 +2,13 @@
 
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!--
+      Transitive pinning lets us bump a vulnerable transitive package to its patched
+      version from CPM without a direct PackageReference. Used by CS02 to remediate
+      CVE-2025-55247 (GHSA-w3q9-fxm7-j8fq) in the MSBuild packages that EF Core Design
+      10.0.0-rc.1 drags in. See the Microsoft.Build.* pins below.
+    -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,6 +20,32 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.14.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.14.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.14.0" />
+  </ItemGroup>
+
+  <!-- CS02: EF Core stack pinned to the .NET 10 RC1 line matching the installed runtime. -->
+  <ItemGroup>
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0-rc.1" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0-rc.1.25451.107" />
+  </ItemGroup>
+
+  <!--
+    CS02: patched-version pins (transitive) for CVE-2025-55247 / GHSA-w3q9-fxm7-j8fq.
+    EF Core Design 10.0.0-rc.1 pulls Microsoft.Build.Tasks.Core / Utilities.Core 17.14.8,
+    which carry a Linux-only, design-time MSBuild DoS advisory. 17.14.28 is the patched
+    release on the same minor line. This REMEDIATES (not suppresses) the advisory, per
+    LRN-003's guidance to pin patched versions via CPM. Drop when EF Core Design ships a
+    build referencing patched MSBuild packages.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Build.Tasks.Core" Version="17.14.28" />
+    <PackageVersion Include="Microsoft.Build.Utilities.Core" Version="17.14.28" />
+  </ItemGroup>
+
+  <!-- CS02: xUnit test stack for the pure-domain unit tests. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
 
 </Project>
