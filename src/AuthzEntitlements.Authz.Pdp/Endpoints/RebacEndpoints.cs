@@ -45,8 +45,12 @@ public static class RebacEndpoints
             foreach (var s in RebacScenarioCatalog.WhoCanAccess)
             {
                 var users = await fga.WhoCanAccessAsync(s.ObjectType, s.ObjectId, s.Relation);
+                // Exact-set oracle: the returned users must match ExpectedUserIds with no missing AND
+                // no extra, so an engine that over-grants (leaks a viewer) is caught, not just one
+                // that under-grants.
                 var missing = s.ExpectedUserIds.Where(u => !users.Contains(u)).ToList();
-                var passed = missing.Count == 0;
+                var unexpected = users.Where(u => !s.ExpectedUserIds.Contains(u)).ToList();
+                var passed = missing.Count == 0 && unexpected.Count == 0;
                 allPassed &= passed;
                 if (passed) { passedCount++; }
                 results.Add(new
@@ -54,9 +58,10 @@ public static class RebacEndpoints
                     kind = "who-can-access",
                     s.Id,
                     s.Description,
-                    expectedSupersetOf = s.ExpectedUserIds,
+                    expectedExactly = s.ExpectedUserIds,
                     actual = users,
                     missing,
+                    unexpected,
                     passed,
                 });
             }

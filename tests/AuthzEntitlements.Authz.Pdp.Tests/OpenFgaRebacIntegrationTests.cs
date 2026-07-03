@@ -50,7 +50,7 @@ public sealed class OpenFgaRebacIntegrationTests
     }
 
     [Fact]
-    public async Task WhoCanAccess_ReturnsExpectedUsers()
+    public async Task WhoCanAccess_ReturnsExactlyExpectedUsers()
     {
         var service = ServiceOrSkip();
         if (service is null) { return; }
@@ -60,10 +60,10 @@ public sealed class OpenFgaRebacIntegrationTests
         foreach (var s in RebacScenarioCatalog.WhoCanAccess)
         {
             var users = await service.WhoCanAccessAsync(s.ObjectType, s.ObjectId, s.Relation);
-            foreach (var expected in s.ExpectedUserIds)
-            {
-                Assert.Contains(expected, users);
-            }
+            var expected = s.ExpectedUserIds.OrderBy(u => u, StringComparer.Ordinal).ToList();
+            // Exact-set: WhoCanAccessAsync already returns user ids sorted ordinal, so compare the
+            // full sequences — catches both a missing expected viewer and an unexpected extra one.
+            Assert.Equal(expected, users);
         }
     }
 

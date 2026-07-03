@@ -11,8 +11,9 @@ public sealed record RebacForwardScenario(
     string ObjectId,
     bool ExpectAllowed);
 
-// A reverse-index "who can access object X" scenario (OpenFGA ListUsers): every id in
-// ExpectedUserIds must appear among the users OpenFGA returns for (object, relation).
+// A reverse-index "who can access object X" scenario (OpenFGA ListUsers): the set of users
+// OpenFGA returns for (object, relation) must EXACTLY equal ExpectedUserIds — no missing and no
+// extra — so the scenario is a precise oracle that catches both under- and over-granting.
 public sealed record RebacWhoScenario(
     string Id,
     string Description,
@@ -76,9 +77,10 @@ public static class RebacScenarioCatalog
             RebacTypes.Account, "acme-checking", RebacRelations.CanView,
             ["rm-anne", "branch-mgr-london", "region-mgr-emea"]),
         new("who-can-view-personal-carol",
-            "Who can view account:personal-carol (owner + delegate).",
+            "Who can view account:personal-carol: owner (carol) + delegate (dave) + the London branch " +
+            "and EMEA region managers (personal-carol sits in branch:london).",
             RebacTypes.Account, "personal-carol", RebacRelations.CanView,
-            ["carol", "dave"]),
+            ["carol", "dave", "branch-mgr-london", "region-mgr-emea"]),
     ];
 
     public static IReadOnlyList<RebacWhatScenario> WhatCanUserAccess { get; } =
