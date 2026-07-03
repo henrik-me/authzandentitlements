@@ -3,6 +3,7 @@ using AuthzEntitlements.Bank.Api.Auth;
 using AuthzEntitlements.Bank.Api.Contracts;
 using AuthzEntitlements.Bank.Api.Data;
 using AuthzEntitlements.Bank.Api.Domain;
+using AuthzEntitlements.Bank.Api.Entitlements;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuthzEntitlements.Bank.Api.Endpoints;
@@ -50,7 +51,8 @@ public static class TransactionEndpoints
         }).RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
         transactions.MapPost("/", async Task<IResult> (
-            CreateTransactionRequest request, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
+            CreateTransactionRequest request, ClaimsPrincipal user, BankDbContext db,
+            IEntitlementsClient entitlements, EntitlementsEnforcer enforcer, CancellationToken ct) =>
         {
             // The maker is the authenticated subject; a caller may not act as another user.
             var subject = user.GetSubjectId();
@@ -99,6 +101,26 @@ public static class TransactionEndpoints
                 return TypedResults.Problem(
                     $"Maker {request.MakerId} belongs to a different tenant than account {request.AccountId}.",
                     statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            // Commercial-entitlement enforcement runs only after every subject/maker/account/
+            // tenant check has passed. The tenant Code is derived from the trusted account row
+            // (never caller input), consistent with the ABAC "attributes from the resource"
+            // doctrine used throughout this API.
+            var tenant = await db.Tenants.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == account.TenantId, ct);
+            if (tenant is null)
+            {
+                return TypedResults.Problem(
+                    $"Tenant {account.TenantId} does not exist.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var decision = await enforcer.EvaluateCreateAsync(
+                entitlements, tenant.Code, request.Type, request.Amount, ct);
+            if (!decision.Allowed)
+            {
+                return TypedResults.Problem(decision.Reason, statusCode: decision.StatusCode);
             }
 
             var (txn, approval) = Transaction.Create(
