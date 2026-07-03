@@ -1,10 +1,10 @@
 # CS03 — AuthN via Keycloak OIDC
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c2
 **Branch:** cs03/content
 **Started:** 2026-07-03
-**Closed:** —
+**Closed:** 2026-07-03
 **Phase:** 1 — AuthN + coarse-grained
 **Lane:** Identity
 **Depends on:** CS02
@@ -35,13 +35,13 @@ Provide verified identity (AuthN) via an OIDC provider issuing tokens carrying t
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Keycloak container + realm import (AppHost) | pending | — | agent-id=cs03-infra-apphost \| role=implementer \| report-status=pending \| learnings=0 — AddKeycloak + WithRealmImport + WithReference to bank-api/bank-web |
-| Realm export JSON (users/roles/scopes/claims/clients) | pending | — | agent-id=cs03-realm \| role=implementer \| report-status=pending \| learnings=0 — infra/keycloak/authz-realm.json per Design contract |
-| JWT validation + authz policies in Bank.Api (+ tests) | pending | — | agent-id=cs03-bank-api-authz \| role=implementer \| report-status=pending \| learnings=0 — JwtBearer, tenant/role/scope policies, protect endpoints |
-| Bank.Web OIDC login stub | pending | — | agent-id=cs03-bank-web \| role=implementer \| report-status=pending \| learnings=0 — OIDC code flow, claims display |
-| Document Entra ID path | pending | — | agent-id=cs03-entra-doc \| role=implementer \| report-status=pending \| learnings=0 — docs/identity/entra-id.md |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
+| Keycloak container + realm import (AppHost) | done | yoga-ae-c2 | agent-id=cs03-infra-apphost(orchestrator-integrated) \| role=implementer \| report-status=complete \| learnings=2 — AppHost Keycloak + realm import + stable-authority env injection |
+| Realm export JSON (users/roles/scopes/claims/clients) | done | cs03-realm | agent-id=cs03-realm \| role=implementer \| report-status=complete \| learnings=1 — infra/keycloak/authz-bank-realm.json |
+| JWT validation + authz policies in Bank.Api (+ tests) | done | cs03-bank-api-authz | agent-id=cs03-bank-api-authz \| role=implementer \| report-status=complete \| learnings=2 — JwtBearer, role/scope/tenant policies, sub/tenant binding, protected endpoints |
+| Bank.Web OIDC login stub | done | cs03-bank-web | agent-id=cs03-bank-web \| role=implementer \| report-status=complete \| learnings=0 — OIDC code flow + claims display |
+| Document Entra ID path | done | cs03-entra-doc | agent-id=cs03-entra-doc \| role=implementer \| report-status=complete \| learnings=0 — docs/identity/entra-id.md |
+| Close-out: docs + restart state | done | yoga-ae-c2 | WORKBOARD row removed; CONTEXT.md refreshed (CS03 done) |
+| Close-out: learnings + follow-ups | done | yoga-ae-c2 | Filed LRN entries; follow-up: route-level integration tests |
 
 ## Design decisions & contract
 
@@ -107,4 +107,22 @@ Authoritative contract shared by all CS03 sub-agents. Aligns the Keycloak realm 
 
 ## Plan-vs-implementation review
 
-_Pending — completed at close-out per OPERATIONS.md § Plan-vs-implementation review (close-out gate). The GO/NEEDS-FIX outcome is recorded here before the active → done rename._
+**Reviewer:** GPT-5.5 (independent — sub-agent `cs03-pvi`)
+**Date:** 2026-07-03T08:15:00Z
+**Outcome:** GO
+
+Per-item outcome (plan vs. merged `main` HEAD `6fd1548`):
+
+| Planned item | Outcome | Evidence |
+|---|---|---|
+| Keycloak Aspire container; realm users/roles/scopes/custom claims | match | AppHost Keycloak + realm import (`AppHost.cs`); roles/scopes/mappers/users (`infra/keycloak/authz-bank-realm.json`). |
+| Client-credentials/workload clients (used by CS19) | match | `bank-workload` service account + `bank.read` + tenant claim (`authz-bank-realm.json`). |
+| Bank.Web OIDC login + service JWT validation | match | Bank.Web OIDC code flow (`Bank.Web/Program.cs`); Bank.Api JWT bearer (`Auth/AuthenticationSetup.cs`). |
+| Entra ID documented alternative | match | Concept/token/config mapping (`docs/identity/entra-id.md`). |
+| Exit: users obtain a JWT with tenant/roles/scopes | match | Realm scopes/mappers emit `tenant`/`roles`/`scope`; runtime-verified for all 5 seed users. |
+| Exit: services validate incoming tokens | match | Auth middleware + policy-gated endpoints; runtime authz matrix (401/200/403/404/201). |
+| R1/R2 identity + tenant hardening | added | Maker/checker bound to `sub`; every endpoint tenant-scoped + fail-closed (`TenantScope.cs`, `TransactionEndpoints.cs`). |
+
+**Test coverage:** sufficient — 7→28 tests (policy, authentication-setup incl. `MapInboundClaims` + HTTPS-metadata gating, scope split, tenant/subject helpers). Gap: no route-level integration tests (filed as a follow-up suggestion).
+
+**Review rounds:** GPT-5.5 rubber-duck R1 (Needs-Fix) → R2 (Needs-Fix) → R3 (Go) → R4 (Go, post-Copilot); Copilot PR review (4 comments, all resolved); plan-vs-implementation (this gate) = GO.
