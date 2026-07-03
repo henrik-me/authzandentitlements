@@ -33,10 +33,10 @@ Integrate OpenFGA for relationship-based fintech scenarios.
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Add OpenFGA container | pending | — | |
-| Author model + tuples | pending | — | |
-| Implement adapter | pending | — | |
-| Verify reverse-index queries | pending | — | |
+| Add OpenFGA container | in_progress | yoga-ae-c2 | agent-id=cs07-openfga-impl \| role=implementer \| report-status=pending \| learnings=0 |
+| Author model + tuples | in_progress | yoga-ae-c2 | agent-id=cs07-openfga-impl \| role=implementer \| report-status=pending \| learnings=0 |
+| Implement adapter | in_progress | yoga-ae-c2 | agent-id=cs07-openfga-impl \| role=implementer \| report-status=pending \| learnings=0 |
+| Verify reverse-index queries | in_progress | yoga-ae-c2 | agent-id=cs07-openfga-impl \| role=implementer \| report-status=pending \| learnings=0 |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 

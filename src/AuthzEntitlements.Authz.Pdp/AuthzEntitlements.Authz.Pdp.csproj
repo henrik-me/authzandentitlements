@@ -10,4 +10,9 @@
     <ProjectReference Include="..\AuthzEntitlements.ServiceDefaults\AuthzEntitlements.ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <!-- CS07: OpenFGA (ReBAC) engine client. Version is centrally managed (CPM). -->
+  <ItemGroup>
+    <PackageReference Include="OpenFga.Sdk" />
+  </ItemGroup>
+
 </Project>

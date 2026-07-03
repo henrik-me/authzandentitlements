@@ -41,9 +41,13 @@ app.MapGet("/", () => TypedResults.Ok(new
         "/api/authz/evaluate",
         "/api/authz/scenarios",
         "/api/authz/scenarios/verify",
+        "/api/authz/rebac/verify",
+        "/api/authz/rebac/who-can-access",
+        "/api/authz/rebac/what-can-user-access",
     },
 }));
 
 app.MapPdpEndpoints();
+app.MapRebacEndpoints();
 
 app.Run();
