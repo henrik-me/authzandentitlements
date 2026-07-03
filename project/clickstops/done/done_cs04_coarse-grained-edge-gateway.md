@@ -1,10 +1,10 @@
 # CS04 — Coarse-grained edge gateway (YARP)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs04/content
 **Started:** 2026-07-03
-**Closed:** —
+**Closed:** 2026-07-03
 **Phase:** 1 — AuthN + coarse-grained
 **Lane:** Identity
 **Depends on:** CS03
