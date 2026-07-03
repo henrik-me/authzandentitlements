@@ -67,9 +67,26 @@ service is unreachable). Every decision emits an **audit-ready** structured even
 CS13). `dotnet build` 0/0, full-solution `dotnet test` 140/140; runtime-verified against Postgres 17. GPT-5.5 rubber-duck
 R1–R9 + 5 Copilot rounds (all resolved). New learnings LRN-015..017.
 
-**Next claimable:** CS05 (AuthZEN-aligned PDP abstraction) and CS12 (observability stack) — Wave 2, depend on CS02.
-CS10's completion advances CS14 (Blazor product UI; needs CS03/CS04/CS06/CS10/CS11) and CS22 (compliance; needs
-CS11/CS12/CS13). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
+**CS05 (AuthZEN-aligned unified PDP abstraction) complete** (PR #24, merged 2026-07-03). A new
+`AuthzEntitlements.Authz.Pdp` (ASP.NET Core minimal APIs, net10.0, **no DB**) defines the unified fine-grained PDP: an
+**AuthZEN-aligned `IAuthorizationDecisionProvider`** (`AccessRequest` = subject/action/resource/context → `AccessDecision`
+= permit/deny + reasons + obligations) answered by an in-process `ReferenceDecisionProvider` that mirrors the Bank.Api
+rules in order (scope → role → subject-is-maker → tenant → pending → SoD; 10,000 maker-checker threshold obligation).
+**Config-driven provider selection** (`Pdp:Provider`, default `reference`) via a **fail-closed**
+`AuthorizationDecisionProviderFactory` (unknown/blank/duplicate/whitespace names rejected) is the seam CS06–CS09 adapters
+plug into. A **22-scenario engine-agnostic `FintechScenarioCatalog`** + `ScenarioCatalogRunner` is the parity bar
+(exposed at `POST /api/authz/scenarios/verify`); every decision funnels through `PdpDecisionService`, emitting one
+**audit-ready** event (`IPdpDecisionAuditSink`) + an OTel `pdp.evaluate` span + `pdp.decisions.total` counter —
+**hooks/contracts only** (live Audit.Service is CS13; observability stack is CS12; no Bank.Api integration). The evaluate
+boundary fails closed (400) on malformed requests. Adapter-author contract at `docs/authz/pdp-contract.md`. `dotnet build`
+0/0; PDP `dotnet test` 139/139 (full solution green). GPT-5.5 rubber-duck R1 (Block) → R2–R6 (Go) + 5 Copilot rounds
+(all resolved). New learnings LRN-021..022.
+
+**Next claimable:** the **engine adapters CS06 (ASP.NET + Casbin), CS07 (OpenFGA), CS08 (OPA/Rego), CS09 (Cedar)** —
+Wave 3, unblocked by CS05's PDP contract + parity catalog (parallelizable); plus CS13 (audit pipeline; needs CS05) and
+CS11 (governance; needs CS02 + CS08). CS12 (observability stack) is active under `yoga-ae`. CS10's completion advances
+CS14 (Blazor product UI) and CS22 (compliance). `harness lint` is green; the remaining CSs carry an independent GPT-5.5
+`## Plan review` attestation.
 
 ## Constraints
 

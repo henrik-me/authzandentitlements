@@ -403,6 +403,46 @@ tags: [review, copilot]
 
 **Evidence:** CS10 PR #18 — 5 Copilot rounds; the quota-500 + audit-casing comments were re-raised ~4× after being fixed; the one genuinely-new substantive finding each round (release-lock, quota-remaining off-by-one, transient-503 mislabel) was fixed and the rest resolved; merged after the final re-engage + full thread resolution.
 
+### LRN-021
+
+```yaml
+id: LRN-021
+date: 2026-07-03
+category: architectural
+source_cs: CS05
+status: open
+tags: [pdp, authz, parity, adapters]
+```
+
+**Problem:** The CS05 reference PDP is the parity oracle the CS06–CS09 engine adapters are compared against via the shared scenario catalog. An adapter that faithfully mirrors the Bank.Api rules must agree with the reference provider on every scenario — including cases where *several* checks fail at once and only the *first-failing* reason is reported.
+
+**Finding:** Mirroring the rule *set* is not enough — the rule *order* must match Bank.Api too. CS05 R1 review caught the reference provider checking segregation-of-duties (maker==checker) *before* pending-status, whereas Bank.Api `Approval.Decide` checks `Status != Pending` first. For a request that is both a self-approval AND already-decided, the two disagreed on the reason code (`MakerEqualsChecker` vs `NotPending`). The fix reordered the PDP to pending-before-SoD. CS06–CS09 adapters MUST replicate the reference provider's ordered checks (scope → role → subject-is-maker → tenant → pending → SoD), not just the predicates, or they will fail catalog parity on combined-failure scenarios.
+
+**Evidence:** CS05 PR #24; `ReferenceDecisionProvider.EvaluateApprovalDecision`; `Approval.cs:26-35`; catalog scenario `manager-approve-own-txn-sod` (pending) vs `manager-approve-already-approved`; R1 Block → R2 Go.
+
+**Implications carried forward:**
+- CS06–CS09 adapter briefings must require matching the reference provider's *check order*, verified by `ScenarioCatalogRunner` (primary-reason-code parity), not just decision parity.
+
+### LRN-022
+
+```yaml
+id: LRN-022
+date: 2026-07-03
+category: tooling
+source_cs: CS05
+status: open
+tags: [dotnet, opentelemetry, testing, metrics]
+```
+
+**Problem:** The PDP telemetry primitives (`ActivitySource`, `Meter`, `Counter<long>`) are process-wide statics. Tests that assert on emitted metrics/spans via `MeterListener`/`ActivityListener` see measurements from every test in the process, so a naive assertion is flaky under xUnit's cross-class parallelism.
+
+**Finding:** Isolate a metric-counter assertion by a discriminator tag the code does NOT transform. The `action` tag is normalized to a bounded vocabulary (known verb or `unknown`) for cardinality safety, so it can no longer serve as a per-test key — filter on a unique **provider** name instead (register a stub `IAuthorizationDecisionProvider` with a `Guid`-based Name and filter measurements where the `provider` tag equals it). The span `pdp.action` tag keeps the *raw* action, so span tests may still isolate by a unique probe action. Combine with a lock-guarded capture list and a delta measurement.
+
+**Evidence:** CS05 PR #24; `PdpDecisionServiceHooksTests.Evaluate_IncrementsDecisionCounter_...` (rewritten to isolate by provider name after the metric-action normalization landed); `CopilotHardeningTests` metric test.
+
+**Implications carried forward:**
+- CS06–CS09 adapter tests and any CS that asserts on the shared PDP telemetry must isolate by an untransformed tag (provider) or a raw span tag, never by the normalized metric `action`.
+
 ## Applied
 
 _(no entries yet)_
