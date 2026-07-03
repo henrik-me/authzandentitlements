@@ -34,10 +34,10 @@ Model the fintech back-office domain (accounts, transactions, approvals) that ex
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Define domain entities | pending | — | |
-| EF Core mapping + migrations | pending | — | |
-| Seed scenario data | pending | — | |
-| Expose minimal CRUD endpoints | pending | — | |
+| Define domain entities | in_progress | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=pending \| learnings=0 |
+| EF Core mapping + migrations | in_progress | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=pending \| learnings=0 |
+| Seed scenario data | in_progress | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=pending \| learnings=0 |
+| Expose minimal CRUD endpoints | in_progress | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=pending \| learnings=0 |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and any feature docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; create planned follow-up CSs for unresolved issues |
 
