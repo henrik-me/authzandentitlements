@@ -1,10 +1,10 @@
 # CS02 — Fintech back-office domain skeleton
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae
 **Branch:** cs02/content
 **Started:** 2026-07-03
-**Closed:** —
+**Closed:** 2026-07-03
 **Phase:** 0 — Foundations
 **Lane:** Foundation
 **Depends on:** CS01
