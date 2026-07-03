@@ -1,0 +1,40 @@
+<Project>
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!--
+    NuGet audit advisories on preview / .NET 10 RC-era packages CS01 does not control:
+    MessagePack 2.5.192 (transitive via the Aspire.AppHost.Sdk dashboard/DCP) and
+    OpenTelemetry 1.14.0 (from the aspire-servicedefaults template). Because
+    TreatWarningsAsErrors promotes NuGet audit warnings to build errors at restore time,
+    we acknowledge ONLY these specific known advisory IDs via NuGetAuditSuppress — NOT a
+    blanket NU1902/NU1903 NoWarn. Any NEW advisory (on these or any other package) still
+    fails the build. These are localhost-only dev-loop packages with no untrusted-input
+    path in CS01. Remove entries as upstream ships non-vulnerable stable releases;
+    tracked for CS18 (security hardening).
+  -->
+  <ItemGroup>
+    <!-- MessagePack 2.5.192 (transitive via Aspire.AppHost.Sdk) — 2 High + 9 Moderate -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-hv8m-jj95-wg3x" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-vh6j-jc39-fggf" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2f33-pr97-265q" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v72x-2h86-7f8m" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2x83-8g95-xh59" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-cj9g-3mj2-g8vv" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-wfr3-xj75-pfwh" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-w567-gjr2-hm5j" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-cxmj-83gh-fp49" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-q2h6-ghwm-5qm8" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-qhmf-xw27-6rqr" />
+    <!-- OpenTelemetry 1.14.0 (aspire-servicedefaults template) — 4 Moderate -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-q834-8qmm-v933" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-mr8r-92fq-pj8p" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-4625-4j76-fww9" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-g94r-2vxg-569j" />
+  </ItemGroup>
+
+</Project>

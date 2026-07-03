@@ -34,17 +34,30 @@ Stand up the .NET Aspire solution skeleton that every other CS builds on.
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Install aspire CLI + templates | pending | — | |
-| Create AppHost + ServiceDefaults | pending | — | |
-| Add PostgreSQL integration + logical DBs | pending | — | |
-| Add central package management | pending | — | |
-| Verify dashboard + build | pending | — | |
+| Install aspire CLI + templates | done | yoga-ae | Aspire CLI 13.1.0 present; aspire-apphost + aspire-servicedefaults templates verified |
+| Create AppHost + ServiceDefaults | done | yoga-ae | src/AuthzEntitlements.AppHost + src/AuthzEntitlements.ServiceDefaults (net10.0) |
+| Add PostgreSQL integration + logical DBs | done | yoga-ae | Aspire.Hosting.PostgreSQL; postgres resource + 5 DBs (bank, openfga, entitlements, governance, audit) |
+| Add central package management | done | yoga-ae | Directory.Packages.props (CPM); Directory.Build.props; global.json pins .NET 10 RC SDK |
+| Verify dashboard + build | done | yoga-ae | dotnet build 0/0; `aspire run` → dashboard :17254 (302→login), postgres:17.6 container healthy |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and any feature docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; create planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- **Security-audit suppression (follow-up for CS18).** Under `TreatWarningsAsErrors`, NuGet
+  audit advisories are promoted to build errors at restore time. **15 advisories across 3
+  preview/RC-era packages** currently apply: **MessagePack 2.5.192** (2 High + 9 Moderate —
+  transitive via `Aspire.AppHost.Sdk` dashboard/DCP, not directly controllable),
+  **OpenTelemetry.Exporter.OpenTelemetryProtocol 1.14.0** (3 Moderate) and **OpenTelemetry.Api
+  1.14.0** (1 Moderate — from the `aspire-servicedefaults` template). Mitigation: per-advisory
+  `<NuGetAuditSuppress>` entries listing the specific GHSA IDs (NOT a blanket NU1902/NU1903
+  code) in `Directory.Build.props`, so any NEW advisory — on these or any other package — still
+  fails the build. These are localhost-only dev-loop packages in CS01 (no untrusted-input
+  path). **Revisit in CS18 (security hardening):** drop entries as non-vulnerable stable
+  Aspire 13 / OTel packages ship, or pin patched versions via CPM.
+- Aspire 13 tooling notes: `aspire add <integration>` fails in a non-interactive/agent shell
+  (exit 5) — use `dotnet add package Aspire.Hosting.<X>` instead. `aspire-apphost` template
+  emits `AppHost.cs` (not `Program.cs`).
 
 ## Model audit
 
