@@ -40,9 +40,22 @@ gated, and maker/checker + tenant are **bound to the token** (never caller-suppl
 Microsoft Entra ID. `dotnet build` 0/0, `dotnet test` 28/28; runtime-verified end-to-end against real Keycloak
 (token claims for all 5 users + authz matrix + full `aspire run`). New learnings LRN-008..012 filed.
 
-**Next claimable:** CS05 (AuthZEN-aligned PDP abstraction), CS10 (commercial entitlements), CS12 (observability
-stack) — Wave 2, depend on CS02. CS03's completion unblocks **CS04** (coarse-grained edge gateway, Identity
-lane). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
+**CS04 (coarse-grained edge gateway) complete** (PRs #17 + #19, merged 2026-07-03). A new `AuthzEntitlements.Edge.Gateway`
+(ASP.NET Core + YARP `Yarp.ReverseProxy` 2.3.0) fronts `Bank.Api` and enforces **coarse-grained** authorization at the
+edge before routing — valid JWT + audience `bank-api` + the scope a route class needs (`bank.read` /
+`bank.transactions.write` / `bank.approvals.write`) + `tenant`-claim presence — mirroring the CS03 token contract
+(`MapInboundClaims=false`, shared `ResolveAudience`). Four coarse policies + a `TenantPresenceRequirement`; YARP routes
+map each Bank.Api route class to its policy; the edge-authorized marker lives in the YARP proxy pipeline so routed
+requests audit as `allow/routed`, edge short-circuits as denies, and unmatched (404)/method-mismatch (405) requests are
+not audited. **Both gates emit structured, audit-ready authorization-decision events** (edge: `GatewayAuditMiddleware`
++ `gateway.decisions` meter; fine: `Bank.Api` `BankAuthorizationAuditMiddleware`) plus OTel — CS13 ingests later.
+Boundary doc at `docs/architecture/coarse-vs-fine-boundary.md`. Build 0/0; gateway + Bank.Api unit suites pass;
+runtime-verified against live Keycloak (401 no-token; scope-differentiated allow/deny; 405 not audited). GPT-5.5
+rubber-duck (edge R1–R6) + Copilot reviewed. New learnings LRN-013..014.
+
+**Next claimable:** CS05 (AuthZEN-aligned PDP abstraction) and CS12 (observability stack) — Wave 2, depend on CS02
+(CS10 is active). CS04 (with CS03/CS06/CS10/CS11) advances toward CS14 (Blazor product UI) and, with CS05, CS18
+(security hardening). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
 
 ## Constraints
 
