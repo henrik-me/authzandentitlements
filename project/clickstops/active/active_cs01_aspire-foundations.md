@@ -45,16 +45,16 @@ Stand up the .NET Aspire solution skeleton that every other CS builds on.
 ## Notes / Learnings
 
 - **Security-audit suppression (follow-up for CS18).** Under `TreatWarningsAsErrors`, NuGet
-  audit advisories are promoted to build errors at restore time. Three advisories on
-  preview/RC-era packages currently block a clean build: **MessagePack 2.5.192** (High,
-  GHSA-hv8m-jj95-wg3x — transitive via `Aspire.AppHost.Sdk` dashboard/DCP, not directly
-  controllable) and **OpenTelemetry.Exporter.OpenTelemetryProtocol / OpenTelemetry.Api 1.14.0**
-  (Moderate, GHSA-q834-8qmm-v933 / GHSA-g94r-2vxg-569j — from the `aspire-servicedefaults`
-  template). Mitigation: scoped `<NoWarn>NU1902;NU1903</NoWarn>` in `Directory.Build.props`
-  (NU1904 critical + all compiler warnings-as-errors stay active). These are localhost-only
-  dev-loop packages in CS01 (no untrusted input path). **Revisit in CS18 (security hardening):**
-  remove the suppression once non-vulnerable stable Aspire 13 / OTel packages ship, or pin
-  patched versions via CPM.
+  audit advisories are promoted to build errors at restore time. **15 advisories across 3
+  preview/RC-era packages** currently apply: **MessagePack 2.5.192** (2 High + 9 Moderate —
+  transitive via `Aspire.AppHost.Sdk` dashboard/DCP, not directly controllable),
+  **OpenTelemetry.Exporter.OpenTelemetryProtocol 1.14.0** (3 Moderate) and **OpenTelemetry.Api
+  1.14.0** (1 Moderate — from the `aspire-servicedefaults` template). Mitigation: per-advisory
+  `<NuGetAuditSuppress>` entries listing the specific GHSA IDs (NOT a blanket NU1902/NU1903
+  code) in `Directory.Build.props`, so any NEW advisory — on these or any other package — still
+  fails the build. These are localhost-only dev-loop packages in CS01 (no untrusted-input
+  path). **Revisit in CS18 (security hardening):** drop entries as non-vulnerable stable
+  Aspire 13 / OTel packages ship, or pin patched versions via CPM.
 - Aspire 13 tooling notes: `aspire add <integration>` fails in a non-interactive/agent shell
   (exit 5) — use `dotnet add package Aspire.Hosting.<X>` instead. `aspire-apphost` template
   emits `AppHost.cs` (not `Program.cs`).
