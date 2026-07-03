@@ -1,8 +1,8 @@
 {
-  "harness_ref": "0.12.0",
-  "resolved_sha": "3e66461519af7ff314a72097dcea0f06940a67c9",
+  "harness_ref": "0.13.0",
+  "resolved_sha": "55019804571146021b9e757d2c9b8e51c25d3352",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-07-02T21:46:13.862Z",
+  "synced_at": "2026-07-03T10:13:09.159Z",
   "files": [
     {
       "target": "TRACKING.md",
@@ -15,14 +15,14 @@
       "target": "RETROSPECTIVES.md",
       "source_template": "template/managed/RETROSPECTIVES.md",
       "class": "managed",
-      "rendered_hash": "b51847e6f7721ff87785cfca22ae18a8c707d408ed280efff2fb38480337d00f",
+      "rendered_hash": "e4fa93b84cd21a9c7ff7ccf73fd54e1673a60486bdbc9199eab427858c881b38",
       "action": "updated"
     },
     {
       "target": "READMEGUIDE.md",
       "source_template": "template/managed/READMEGUIDE.md",
       "class": "managed",
-      "rendered_hash": "25daab0f17eaa8e6c42c2624cbc800210be84d442e345df428f2f09a1e58d16c",
+      "rendered_hash": "194069f290570a5f81ae607336459b64cedaa6c31e5c41754a8dc848fbad3978",
       "action": "updated"
     },
     {
@@ -71,7 +71,7 @@
       "target": "INSTRUCTIONS.md",
       "source_template": "template/composed/INSTRUCTIONS.md",
       "class": "composed",
-      "rendered_hash": "463fc4b929448598544b2658d775936d1da83c8491ee729e406b0e0062f8245f",
+      "rendered_hash": "71dace6c398dcfaf9109b27651734358034c6e78ae6668b6f430d18825120706",
       "action": "updated",
       "blocks": [
         {
@@ -85,7 +85,7 @@
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "7d05dd52a958f583b141fbe6810c06e30975cfdf770a36a48eea1275848ab505"
+      "template_prose_hash": "e93da54db97e84a21b0961aa76f1eaaab7e588f8a1a3e35897d3b56404f02676"
     },
     {
       "target": "CONVENTIONS.md",
@@ -111,21 +111,21 @@
       "target": "OPERATIONS.md",
       "source_template": "template/composed/OPERATIONS.md",
       "class": "composed",
-      "rendered_hash": "2e3d97ec3f726c6dde762c21a357e835a22ba379b0b07802be681a53ea3443ec",
+      "rendered_hash": "0d2720dd907e128229836cea1c207b8918b06660cc80e165b4c0c6ee2226116a",
       "action": "updated",
       "blocks": [
         {
           "id": "operations.project-deploy",
           "source_line_range": {
-            "start": 2742,
-            "end": 2744
+            "start": 2732,
+            "end": 2734
           },
           "body_hash": "35a13a15deb994c17bb4db02b4b9870c0de1f5192f68f996c3835465549f4093",
           "template_marker_hash": "c538812699662e1747082864f419826b433df6e5164cdd28e870df72fcc559e5",
           "provenance": "seeded-empty"
         }
       ],
-      "template_prose_hash": "02b874faedb709f9d25e0fced9679711e3b9e21bb56ac26a837534075a89f61a"
+      "template_prose_hash": "5f20398fa2e8eb1010e89aba2d192bd64e26954f65293cc6c427f2ad0f8e22cc"
     },
     {
       "target": "REVIEWS.md",
@@ -151,21 +151,21 @@
       "target": ".github/copilot-instructions.md",
       "source_template": "template/composed/.github/copilot-instructions.md",
       "class": "composed",
-      "rendered_hash": "c61e35d4a670e4432b25e6d60071669412fba6af7a77033497784a32c0020e50",
+      "rendered_hash": "a400e210a9cfc9eb3af6a3e106ab8d7472eb5f921e483c58504ed773ae746b29",
       "action": "updated",
       "blocks": [
         {
           "id": "copilot-instructions.harness",
           "source_line_range": {
             "start": 243,
-            "end": 246
+            "end": 254
           },
-          "body_hash": "06ba16e7804bd0fbe18412571250d38fcd2e364406baa9f1692ae9d6383c32b1",
+          "body_hash": "7baa1193f1337ec8c00ef94942e33cb29511ea4acbee349adddd307f3b1f2dc9",
           "template_marker_hash": "42a32b7dec3ef51074bab594f4f872f7d4a96b032495723a45e5c5a83dd1b3e6",
-          "provenance": "seeded-empty"
+          "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "35d9c677dc8d5f3e79eb4f5a1f2b75b3285ca3245ce81f89b3fc3ea491f58bab"
+      "template_prose_hash": "ec6ca762af7d3cf8a0cf2ad49204c4dd2f30b41b18fbe20af3373612af7a862e"
     },
     {
       "target": ".github/pull_request_template.md",

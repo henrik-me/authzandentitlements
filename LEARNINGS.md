@@ -122,7 +122,7 @@ id: LRN-006
 date: 2026-07-03
 category: tooling
 source_cs: CS02
-status: open
+status: obsolete
 tags: [harness, review, cli, escalation]
 ```
 
@@ -132,9 +132,7 @@ tags: [harness, review, cli, escalation]
 
 **Evidence:** this session; `harness review 5 --rubber-duck-only --no-poll` → exit 2 with the lookup error; `--dry-run` variant → exit 0; file present via `git ls-files`.
 
-**Implications carried forward:**
-- Until fixed upstream, run content-PR rubber-duck reviews by dispatching the reviewer sub-agent directly (canonical preamble) rather than via `harness review`.
-- Tracked upstream at `henrik-me/agent-harness#407`; revisit this workaround once that issue is resolved and the harness pin is bumped.
+**Disposition:** obsolete — fixed upstream in **agent-harness v0.13.0** (CS93; `henrik-me/agent-harness#407` closed COMPLETED — `findClickstopFile` in `lib/review.mjs` now normalizes the padded/zero-stripped CS id on both sides and resolves directory-form + done-stage clickstops). This repo bumped its pin to v0.13.0 and removed the temporary `.github/copilot-instructions.md` workaround note; `harness review 5` verified working (exit 0, resolves `done_cs02_…`).
 
 ### LRN-007
 
