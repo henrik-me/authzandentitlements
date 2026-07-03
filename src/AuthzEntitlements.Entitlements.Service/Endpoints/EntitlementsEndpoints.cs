@@ -6,7 +6,6 @@ using AuthzEntitlements.Entitlements.Service.Metering;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
 namespace AuthzEntitlements.Entitlements.Service.Endpoints;
 
@@ -19,7 +18,6 @@ public static class EntitlementsEndpoints
 {
     private const string NoSubscription = "no subscription";
     private const int MaxConsumeAttempts = 8;
-    private const int MaxSeatAttempts = 8;
 
     public static IEndpointRouteBuilder MapEntitlementsEndpoints(this IEndpointRouteBuilder app)
     {
@@ -262,52 +260,41 @@ public static class EntitlementsEndpoints
         var plan = await db.Plans.AsNoTracking().FirstAsync(p => p.Tier == subscription.PlanTier, ct);
         var planTier = subscription.PlanTier.ToString();
 
-        // Enforce the seat cap atomically. Two concurrent assigns could each read the same
-        // seatsUsed and both grant a seat past the limit; a Serializable transaction makes
-        // the loser fail (serialization 40001, or the unique (SubscriptionId, UserId) index)
-        // so we roll back and re-evaluate rather than over-allocating. A unique-index
-        // violation means a concurrent insert for the SAME user, which the retry re-reads as
-        // already-assigned (idempotent allow). Any residual over-allocation under extreme
-        // concurrency is a known CS10 lab limitation; the Serializable isolation is what
-        // prevents it in practice.
-        for (var attempt = 1; ; attempt++)
+        // Enforce the seat cap atomically. A per-subscription advisory transaction lock
+        // serializes concurrent seat mutations for THIS subscription so the
+        // count -> capacity-check -> insert sequence cannot over-allocate, without the
+        // serialization-failure retry storms a Serializable isolation level causes under
+        // contention. pg_advisory_xact_lock blocks only other seat operations on the same
+        // subscription (keyed on its id) and auto-releases when the transaction ends.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock(hashtextextended({subscription.Id.ToString()}, 0))", ct);
+
+        var seatsUsed = await db.SeatAssignments
+            .CountAsync(a => a.SubscriptionId == subscription.Id, ct);
+        var alreadyAssigned = await db.SeatAssignments
+            .AnyAsync(a => a.SubscriptionId == subscription.Id && a.UserId == request.UserId, ct);
+
+        var decision = SeatDecision.Evaluate(plan.SeatLimit, seatsUsed, alreadyAssigned);
+
+        if (decision.Assigned && !alreadyAssigned)
         {
-            await using var tx = await db.Database.BeginTransactionAsync(
-                System.Data.IsolationLevel.Serializable, ct);
-            try
+            db.SeatAssignments.Add(new SeatAssignment
             {
-                var seatsUsed = await db.SeatAssignments
-                    .CountAsync(a => a.SubscriptionId == subscription.Id, ct);
-                var alreadyAssigned = await db.SeatAssignments
-                    .AnyAsync(a => a.SubscriptionId == subscription.Id && a.UserId == request.UserId, ct);
-
-                var decision = SeatDecision.Evaluate(plan.SeatLimit, seatsUsed, alreadyAssigned);
-
-                if (decision.Assigned && !alreadyAssigned)
-                {
-                    db.SeatAssignments.Add(new SeatAssignment
-                    {
-                        Id = Guid.NewGuid(),
-                        SubscriptionId = subscription.Id,
-                        UserId = request.UserId,
-                    });
-                    await db.SaveChangesAsync(ct);
-                }
-
-                await tx.CommitAsync(ct);
-
-                Emit(audit, metrics, tenantCode, EntitlementDecisionType.Seat, "seats",
-                    decision.Assigned ? EntitlementOutcome.Allow : EntitlementOutcome.Deny, planTier);
-
-                return TypedResults.Ok(new SeatAssignmentResponse(
-                    decision.Assigned, plan.SeatLimit, decision.SeatsUsed, decision.Remaining, decision.Reason));
-            }
-            catch (Exception ex) when (attempt < MaxSeatAttempts && IsRetryableSeatConflict(ex))
-            {
-                db.ChangeTracker.Clear();
-                await tx.RollbackAsync(ct);
-            }
+                Id = Guid.NewGuid(),
+                SubscriptionId = subscription.Id,
+                UserId = request.UserId,
+            });
+            await db.SaveChangesAsync(ct);
         }
+
+        await tx.CommitAsync(ct);
+
+        Emit(audit, metrics, tenantCode, EntitlementDecisionType.Seat, "seats",
+            decision.Assigned ? EntitlementOutcome.Allow : EntitlementOutcome.Deny, planTier);
+
+        return TypedResults.Ok(new SeatAssignmentResponse(
+            decision.Assigned, plan.SeatLimit, decision.SeatsUsed, decision.Remaining, decision.Reason));
     }
 
     private static async Task<IResult> ReleaseSeatAsync(
@@ -348,16 +335,6 @@ public static class EntitlementsEndpoints
         return TypedResults.Ok(new SeatAssignmentResponse(
             false, plan.SeatLimit, seatsUsed, remaining, found ? "seat-released" : "not-assigned"));
     }
-
-    // A seat-assign SaveChanges/commit conflict we can safely retry: EF wraps unique-index
-    // and serialization failures as DbUpdateException on SaveChanges, while a Serializable
-    // commit-time serialization failure surfaces as a bare PostgresException (40001).
-    private static bool IsRetryableSeatConflict(Exception ex) =>
-        ex is DbUpdateException
-        || ex is PostgresException
-        {
-            SqlState: PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.UniqueViolation
-        };
 
     private static void Emit(
         IEntitlementAuditSink audit,
