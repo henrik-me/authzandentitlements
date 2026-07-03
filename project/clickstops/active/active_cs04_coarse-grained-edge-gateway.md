@@ -54,14 +54,16 @@ Four coarse policies + a `TenantPresenceRequirement`; YARP routes map each Bank.
 route class to its policy. Every coarse decision emits a structured, **audit-ready**
 event (subject/tenant/scope/route/decision/reason/trace) via `ILogger` + an OTel
 `ActivitySource`/`Meter` (CS13 ingests later — no live Audit.Service yet). Boundary
-doc at `docs/architecture/coarse-vs-fine-boundary.md`. 35 gateway unit tests (63 solution-wide).
+doc at `docs/architecture/coarse-vs-fine-boundary.md`. A dedicated gateway unit-test
+project covers JWT setup, scope, tenant presence, policy composition, and audit
+classification/gating.
 
 **Sub-agents (parallel, disjoint ownership):** `cs04-edge-gateway` (claude-opus-4.8) —
 gateway vertical + tests; `cs04-boundary-doc` (claude-opus-4.8) — boundary doc.
 Orchestrator `yoga-ae-c3` (claude-opus-4.8): CPM pin, `.sln` + AppHost wiring, verification.
 
-**Verification.** Build 0 warnings/0 errors under `TreatWarningsAsErrors`; 63 tests pass
-(35 gateway + 28 Bank.Api, no regressions); `harness lint` 0 failed. Runtime e2e against
+**Verification.** Build 0 warnings/0 errors under `TreatWarningsAsErrors`; the gateway
+and Bank.Api unit suites pass with no regressions; `harness lint` 0 failed. Runtime e2e against
 live Keycloak + a real teller1 token: no token → **401** at edge; `bank.read` token →
 `GET /api/accounts` **routed** (`allow/routed`); `bank.read` token → `POST /api/transactions`
 → **403** at edge (`deny/missing-scope`); `bank.transactions.write` token → same POST →
