@@ -143,6 +143,10 @@ builder.AddProject<Projects.AuthzEntitlements_Bank_Web>("bank-web")
 // (no database, no WithReference): it answers the shared decision contract with the
 // deterministic reference engine. Wiring Bank.Api to call it is deliberately out of CS05
 // scope; the adapter engines (CS06-CS09) register behind its config-driven provider seam.
-builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-pdp");
+builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-pdp")
+    // CS12 — authz-pdp uses ServiceDefaults and emits its own PDP-decision ActivitySource/Meter,
+    // so fan its OTLP telemetry out to the persistent observability collector like the other services.
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WaitFor(observability);
 
 builder.Build().Run();
