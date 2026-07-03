@@ -20,9 +20,10 @@ var observability = builder.AddContainer("observability", "grafana/otel-lgtm", "
         "../../infra/observability/grafana/dashboards-provisioning.yaml",
         "/otel-lgtm/grafana/conf/provisioning/dashboards/custom.yaml",
         isReadOnly: true)
-    // Anonymous admin so the lab's Grafana needs no login.
+    // Anonymous Editor: the lab's Grafana needs no login and Explore (Loki/Tempo) works,
+    // without granting admin (no user/datasource/settings management) to anyone on the network.
     .WithEnvironment("GF_AUTH_ANONYMOUS_ENABLED", "true")
-    .WithEnvironment("GF_AUTH_ANONYMOUS_ORG_ROLE", "Admin")
+    .WithEnvironment("GF_AUTH_ANONYMOUS_ORG_ROLE", "Editor")
     .WithHttpEndpoint(targetPort: 3000, name: "grafana")
     .WithEndpoint(targetPort: 4317, name: "otlp-grpc", scheme: "http")
     .WithEndpoint(targetPort: 4318, name: "otlp-http", scheme: "http")
