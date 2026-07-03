@@ -103,4 +103,47 @@ public sealed class AccessRequestValidationTests
             new ActionRequest(ActionNames.AccountRead),
             new Resource(""),
             new EvaluationContext([]))));
+
+    // Whitespace-only required string fields are malformed and must be rejected at the boundary
+    // (IsNullOrWhiteSpace), not pass validation and reach evaluation.
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public void Validate_WhitespaceSubjectType_ReturnsError(string ws) =>
+        Assert.NotNull(AccessRequestValidation.Validate(new AccessRequest(
+            new Subject(ws, "u", []),
+            new ActionRequest(ActionNames.AccountRead),
+            new Resource("account"),
+            new EvaluationContext([]))));
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public void Validate_WhitespaceSubjectId_ReturnsError(string ws) =>
+        Assert.NotNull(AccessRequestValidation.Validate(new AccessRequest(
+            new Subject("user", ws, []),
+            new ActionRequest(ActionNames.AccountRead),
+            new Resource("account"),
+            new EvaluationContext([]))));
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("   ")]
+    public void Validate_WhitespaceActionName_ReturnsError(string ws) =>
+        Assert.NotNull(AccessRequestValidation.Validate(new AccessRequest(
+            new Subject("user", "u", []),
+            new ActionRequest(ws),
+            new Resource("account"),
+            new EvaluationContext([]))));
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public void Validate_WhitespaceResourceType_ReturnsError(string ws) =>
+        Assert.NotNull(AccessRequestValidation.Validate(new AccessRequest(
+            new Subject("user", "u", []),
+            new ActionRequest(ActionNames.AccountRead),
+            new Resource(ws),
+            new EvaluationContext([]))));
 }
