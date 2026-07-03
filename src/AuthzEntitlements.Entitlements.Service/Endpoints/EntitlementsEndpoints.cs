@@ -221,7 +221,7 @@ public static class EntitlementsEndpoints
                 // return an allow/deny payload, and a 500 would invite caller retry storms.
                 EmitQuota(audit, metrics, tenantCode, quotaKey, EntitlementOutcome.Deny,
                     planTier, amount, used, limit, consumed: 0);
-                var remainingNow = limit < 0 ? EntitlementCatalog.Unlimited : limit - used;
+                var remainingNow = limit < 0 ? EntitlementCatalog.Unlimited : Math.Max(0L, limit - used);
                 return TypedResults.Ok(new QuotaConsumeResponse(
                     false, limit, used, remainingNow, "quota temporarily unavailable"));
             }

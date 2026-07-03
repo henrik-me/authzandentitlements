@@ -38,6 +38,6 @@ public readonly record struct QuotaDecision(
             return new QuotaDecision(true, limit, newUsed, limit - newUsed, ReasonWithinQuota);
         }
 
-        return new QuotaDecision(false, limit, used, limit - used, ReasonExceeded);
+        return new QuotaDecision(false, limit, used, Math.Max(0L, limit - used), ReasonExceeded);
     }
 }

@@ -6,7 +6,7 @@ namespace AuthzEntitlements.Entitlements.Service.Domain;
 public static class SeatMath
 {
     public static int Remaining(int seatLimit, int seatsUsed) =>
-        seatLimit < 0 ? (int)EntitlementCatalog.Unlimited : seatLimit - seatsUsed;
+        seatLimit < 0 ? (int)EntitlementCatalog.Unlimited : Math.Max(0, seatLimit - seatsUsed);
 
     public static bool HasCapacity(int seatLimit, int seatsUsed) =>
         seatLimit < 0 || seatsUsed < seatLimit;
