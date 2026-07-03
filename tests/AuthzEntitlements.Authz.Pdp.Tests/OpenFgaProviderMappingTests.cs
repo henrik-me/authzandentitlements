@@ -37,6 +37,16 @@ public sealed class OpenFgaProviderMappingTests
     }
 
     [Fact]
+    public void SupportedActions_AreExactlyTheMappedBankActions()
+    {
+        var actions = RebacActionMap.SupportedActions;
+
+        Assert.Contains(ActionNames.AccountRead, actions);
+        Assert.Contains(ActionNames.TransactionCreate, actions);
+        Assert.Equal(2, actions.Count);
+    }
+
+    [Fact]
     public void TryMap_BuildsQualifiedUserRelationAndObject()
     {
         var request = Request(ActionNames.AccountRead, "rm-anne", "account", "acme-checking");

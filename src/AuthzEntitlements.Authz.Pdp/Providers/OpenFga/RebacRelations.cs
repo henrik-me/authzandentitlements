@@ -47,5 +47,5 @@ public static class RebacActionMap
         ActionToRelation.TryGetValue(action, out relation!);
 
     // The supported actions, exposed so tests can assert the map's shape without reflection.
-    public static IReadOnlyCollection<string> SupportedActions => (IReadOnlyCollection<string>)ActionToRelation.Keys;
+    public static IReadOnlyCollection<string> SupportedActions => ActionToRelation.Keys.ToArray();
 }
