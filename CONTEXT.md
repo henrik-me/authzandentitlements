@@ -82,10 +82,28 @@ boundary fails closed (400) on malformed requests. Adapter-author contract at `d
 0/0; PDP `dotnet test` 139/139 (full solution green). GPT-5.5 rubber-duck R1 (Block) → R2–R6 (Go) + 5 Copilot rounds
 (all resolved). New learnings LRN-021..022.
 
+**CS12 (persistent observability stack) complete** (PRs #27 + #32, merged 2026-07-03). A single
+`grafana/otel-lgtm:0.28.0` container (`observability`) bundles the **OTel Collector + Prometheus + Tempo +
+Loki + Grafana** as the persistent telemetry backend beyond the ephemeral dev-time Aspire dashboard; a
+persistent container lifetime + a `/data` volume survive `aspire run` restarts. All **five**
+ServiceDefaults-instrumented services (`bank-api`, `entitlements-service`, `edge-gateway`, `bank-web`,
+`authz-pdp`) fan OTLP to it via an AppHost-injected `OTEL_EXPORTER_OTLP_ENDPOINT` (ServiceDefaults already
+gates its exporter on that var — **no ServiceDefaults code change**). Two read-only **baseline Grafana
+dashboards** (Service Health RED + Request Rates) are provisioned from `infra/observability/`. Grafana is
+locked to an **anonymous-Editor kiosk** — anonymous role `Editor`, UI login form + HTTP Basic Auth both
+disabled — so the image's default `admin/admin` cannot escalate; OTLP ingest (4317/4318) is modeled as
+internal `tcp` so only the Grafana UI is external. Doc at `docs/observability/observability-stack.md`.
+`dotnet build` 0/0, full-solution `dotnet test` 279/279; standalone `grafana/otel-lgtm:0.28.0` verified
+(both dashboards provision on Grafana 13.0.1; Prometheus(default)/Loki/Tempo datasources; `admin/admin`
+Basic Auth blocked). GPT-5.5 rubber-duck (7 rounds incl. security hardening) + Copilot (multi-round) +
+plan-vs-impl GO. New learnings LRN-023..024; LRN-014 (OTLP-export 500) carried forward for a full-`aspire
+run` triage.
+
 **Next claimable:** the **engine adapters CS06 (ASP.NET + Casbin), CS07 (OpenFGA), CS08 (OPA/Rego), CS09 (Cedar)** —
 Wave 3, unblocked by CS05's PDP contract + parity catalog (parallelizable); plus CS13 (audit pipeline; needs CS05) and
-CS11 (governance; needs CS02 + CS08). CS12 (observability stack) is active under `yoga-ae`. CS10's completion advances
-CS14 (Blazor product UI) and CS22 (compliance). `harness lint` is green; the remaining CSs carry an independent GPT-5.5
+CS11 (governance; needs CS02 + CS08). CS10's completion advances
+CS14 (Blazor product UI) and CS22 (compliance); CS12's completion advances CS22 (needs CS11/CS12/CS13) and
+CS24 (perf benchmark; needs engines + CS12). `harness lint` is green; the remaining CSs carry an independent GPT-5.5
 `## Plan review` attestation.
 
 ## Constraints
