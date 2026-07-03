@@ -10,6 +10,7 @@ publish/
 *.binlog
 
 # Aspire / secrets
+.aspire/
 **/appsettings.*.local.json
 *.dev.env
 .env

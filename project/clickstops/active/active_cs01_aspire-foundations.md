@@ -34,17 +34,30 @@ Stand up the .NET Aspire solution skeleton that every other CS builds on.
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Install aspire CLI + templates | pending | — | |
-| Create AppHost + ServiceDefaults | pending | — | |
-| Add PostgreSQL integration + logical DBs | pending | — | |
-| Add central package management | pending | — | |
-| Verify dashboard + build | pending | — | |
+| Install aspire CLI + templates | done | yoga-ae | Aspire CLI 13.1.0 present; aspire-apphost + aspire-servicedefaults templates verified |
+| Create AppHost + ServiceDefaults | done | yoga-ae | src/AuthzEntitlements.AppHost + src/AuthzEntitlements.ServiceDefaults (net10.0) |
+| Add PostgreSQL integration + logical DBs | done | yoga-ae | Aspire.Hosting.PostgreSQL; postgres resource + 5 DBs (bank, openfga, entitlements, governance, audit) |
+| Add central package management | done | yoga-ae | Directory.Packages.props (CPM); Directory.Build.props; global.json pins .NET 10 RC SDK |
+| Verify dashboard + build | done | yoga-ae | dotnet build 0/0; `aspire run` → dashboard :17254 (302→login), postgres:17.6 container healthy |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and any feature docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; create planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- **Security-audit suppression (follow-up for CS18).** Under `TreatWarningsAsErrors`, NuGet
+  audit advisories are promoted to build errors at restore time. Three advisories on
+  preview/RC-era packages currently block a clean build: **MessagePack 2.5.192** (High,
+  GHSA-hv8m-jj95-wg3x — transitive via `Aspire.AppHost.Sdk` dashboard/DCP, not directly
+  controllable) and **OpenTelemetry.Exporter.OpenTelemetryProtocol / OpenTelemetry.Api 1.14.0**
+  (Moderate, GHSA-q834-8qmm-v933 / GHSA-g94r-2vxg-569j — from the `aspire-servicedefaults`
+  template). Mitigation: scoped `<NoWarn>NU1902;NU1903</NoWarn>` in `Directory.Build.props`
+  (NU1904 critical + all compiler warnings-as-errors stay active). These are localhost-only
+  dev-loop packages in CS01 (no untrusted input path). **Revisit in CS18 (security hardening):**
+  remove the suppression once non-vulnerable stable Aspire 13 / OTel packages ship, or pin
+  patched versions via CPM.
+- Aspire 13 tooling notes: `aspire add <integration>` fails in a non-interactive/agent shell
+  (exit 5) — use `dotnet add package Aspire.Hosting.<X>` instead. `aspire-apphost` template
+  emits `AppHost.cs` (not `Program.cs`).
 
 ## Model audit
 
