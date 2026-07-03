@@ -158,6 +158,60 @@ accounted for.
 ## Project-specific conventions
 
 <!-- harness:local-start id=conventions.project -->
-_(Add project-specific conventions here. Example: language version, formatter config,
-framework conventions.)_
+### Language + build
+
+- **.NET 10 / C#**, ASP.NET Core minimal APIs + .NET Aspire; EF Core 10 + Npgsql on
+  Postgres. **Central Package Management**: every `<PackageVersion>` lives in
+  `Directory.Packages.props`; `.csproj` `<PackageReference>` entries omit `Version`.
+- `Directory.Build.props` sets **`TreatWarningsAsErrors=true`** — build **0 warnings**.
+  LF line endings, no BOM (the harness text-encoding gate rejects CRLF/BOM).
+
+### Fail-closed authorization + entitlements (security)
+
+Authorization and entitlement code is security-critical — apply these at **authoring**
+time; they have repeatedly been review blockers (LRN-011, LRN-017):
+
+- **Never trust caller-supplied security attributes.** Derive tenant / branch / owner /
+  maker / checker from the **trusted** source — the loaded resource row or the validated
+  token (`sub`, `tenant` claim) — never from the request body. A caller may not act as
+  another subject; bind maker/checker/tenant to the token.
+- **Fail closed on every gate.** A missing/unknown claim, an unreachable dependency, an
+  unknown key, a malformed payload, or a decision-service error must **deny**, never
+  allow: missing tenant claim → 403; entitlements/PDP unreachable → deny (503); unknown
+  feature/module/policy key → disabled/deny **without** consulting a downstream provider
+  (the local catalog is the source of truth); malformed input → deny + clear error, never
+  a silent default.
+- **Distinguish transient failures from business denials.** A decision endpoint returns
+  **2xx allow/deny** for business outcomes and a **5xx (503)** for transient/infrastructure
+  failures, so a fail-closed caller maps the 5xx to "unavailable → deny" rather than
+  mislabeling it as a business decision (e.g. a quota-store retry-exhaustion is a 503, not
+  a 429 "quota exceeded").
+- **Defense in depth.** Token/scope/role checks are an **outer** gate over domain
+  invariants (maker-checker, SoD, tenant scoping), which still enforce independently —
+  never the only line of defense.
+- **Client sentinels are non-deserializable.** Fields that signal a *local* fail-closed
+  state on a typed-client result (e.g. `IsUnavailable`, a sentinel `Reason`) must be
+  `[JsonIgnore]` so a wire payload can never inject them; only the local `Unavailable(…)`
+  factory sets them.
+- **Emit audit-ready decision events.** Every authz/entitlement decision emits a structured
+  event with stable, matchable fields — the decision-type/outcome **values** are lower-cased
+  for stable matching; ingestion may be deferred (Audit.Service, CS13) but emission is not.
+
+### Concurrency (Postgres + EF Core)
+
+- **Hard capacity caps use a pessimistic per-subject lock, not `Serializable` + retry.** For a
+  `count → check → insert` capacity cap (seats today; and new grant/capacity work such as JIT
+  grants) enforce it atomically with a Postgres **advisory transaction lock** —
+  `SELECT pg_advisory_xact_lock(hashtextextended(<id>, 0))` issued inside the EF transaction
+  via `db.Database.ExecuteSqlInterpolatedAsync(…)`. It serializes (blocks) rather than
+  conflict-retrying, so it does not thrash/500 under contention; a `Serializable`-isolation +
+  retry loop exhausts and 500s (LRN-015, verified to 30-way concurrency on seat assignment).
+- **Decide-once / last-writer races use `xmin` optimistic concurrency.** Map the Postgres
+  system column with `entity.Property<uint>("xmin").IsRowVersion()`
+  (`UseXminAsConcurrencyToken()` was removed in Npgsql 10 rc1); verify the generated SQL adds
+  no physical column (LRN-004). **Approve/reject** (maker-checker decide-once) surfaces a
+  **409** on the losing writer instead of last-writer-wins. **Quota-consume** instead uses an
+  `xmin` **retry** loop (re-read + re-evaluate) and, on sustained-contention retry exhaustion,
+  fails closed with a transient **503** (never a 200 business deny or a 429), per the
+  fail-closed convention above (LRN-017).
 <!-- harness:local-end id=conventions.project -->
