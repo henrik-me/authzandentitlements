@@ -1,9 +1,9 @@
 # CS08 — Adapter: OPA / Rego (policy / ABAC)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae
+**Branch:** cs08/content
+**Started:** 2026-07-03
 **Closed:** —
 **Phase:** 2 — Fine-grained AuthZ
 **Lane:** Engines
@@ -33,11 +33,29 @@ Integrate OPA/Rego for maker-checker, segregation-of-duties, and conditional pol
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Add OPA container | pending | — | |
-| Author Rego + tests | pending | — | |
-| Implement adapter | pending | — | |
-| Map scenarios | pending | — | |
+| Author Rego decision policy (mirror reference rules → 22-scenario parity) | pending | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=pending \| learnings=0 |
+| Author `opa test` unit tests for the decision policy | pending | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=pending \| learnings=0 |
+| ABAC conditions showcase (amount/time/geo/risk/tier) + `opa test` | pending | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=pending \| learnings=0 |
+| Add OPA Aspire container (WithExplicitStart, pinned tag, bind-mount policy) + inject endpoint into authz-pdp | pending | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=pending \| learnings=0 |
+| Implement `OpaDecisionProvider` (Name="opa") + DI registration + `Opa` config | pending | sub-agent | agent-id=cs08-impl-adapter \| role=adapter-implementer \| report-status=pending \| learnings=0 |
+| OpaDecisionProvider unit tests (request shaping, response mapping, fail-closed) | pending | sub-agent | agent-id=cs08-impl-adapter \| role=adapter-implementer \| report-status=pending \| learnings=0 |
+| Adapter doc `docs/authz/opa-adapter.md` | pending | sub-agent | agent-id=cs08-impl-adapter \| role=adapter-implementer \| report-status=pending \| learnings=0 |
+| Close-out: docs + restart state | pending | yoga-ae | Update WORKBOARD.md, CONTEXT.md; adapter/policy docs ship in the content PR |
+| Close-out: learnings + follow-ups | pending | yoga-ae | File LEARNINGS.md entries; planned follow-up CSs for any deferred ABAC wire-through |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae |
+| Reviewer agent | copilot |
+
+## Plan-vs-implementation review
+
+_Pending — completed with the GPT-5.5 close-out gate before the `active → done` rename (CS03b). A NEEDS-FIX outcome blocks close-out._
