@@ -168,12 +168,13 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
     private static bool HasAnyRole(AccessRequest request, HashSet<string> eligible) =>
         request.Subject.Roles.Any(eligible.Contains);
 
-    // Fail closed on tenant: a missing subject or resource tenant is treated as a
-    // mismatch, mirroring Bank.Api's fail-closed token-tenant check.
+    // Fail closed on tenant: a missing OR whitespace-only tenant on either side is treated as a
+    // mismatch (a blank string is not a real tenant), mirroring Bank.Api's fail-closed
+    // token-tenant check.
     private static bool TenantMatches(AccessRequest request) =>
-        request.Subject.Tenant is { Length: > 0 } subjectTenant
-        && request.Resource.Tenant is { Length: > 0 } resourceTenant
-        && string.Equals(subjectTenant, resourceTenant, StringComparison.Ordinal);
+        !string.IsNullOrWhiteSpace(request.Subject.Tenant)
+        && !string.IsNullOrWhiteSpace(request.Resource.Tenant)
+        && string.Equals(request.Subject.Tenant, request.Resource.Tenant, StringComparison.Ordinal);
 
     private static bool SubjectIsMaker(AccessRequest request) =>
         request.Resource.MakerId is { Length: > 0 } makerId

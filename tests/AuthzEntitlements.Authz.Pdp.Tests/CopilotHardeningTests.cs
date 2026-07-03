@@ -154,6 +154,42 @@ public sealed class CopilotHardeningTests
         Assert.Equal("casbin", factory.GetActiveProvider().Name);
     }
 
+    // ---- Trimmed provider config still selects the intended provider ----
+
+    [Theory]
+    [InlineData("reference ")]
+    [InlineData("  reference")]
+    [InlineData(" reference ")]
+    public void Factory_WhitespacePaddedProviderConfig_SelectsProvider(string configured)
+    {
+        var factory = new AuthorizationDecisionProviderFactory(
+            [new ReferenceDecisionProvider()],
+            Options.Create(new PdpOptions { Provider = configured }));
+
+        Assert.Equal("reference", factory.GetActiveProvider().Name);
+    }
+
+    // ---- Whitespace-only tenants fail the isolation gate (fail closed) ----
+
+    [Theory]
+    [InlineData(" ", " ")]
+    [InlineData("CONTOSO", " ")]
+    [InlineData(" ", "CONTOSO")]
+    public void ReferenceProvider_WhitespaceTenant_DeniesTenantMismatch(
+        string subjectTenant, string resourceTenant)
+    {
+        var request = PdpRequests.For(
+            PdpRequests.User("u", subjectTenant, RoleNames.Teller),
+            ActionNames.AccountRead,
+            new Resource("account", Tenant: resourceTenant),
+            ScopeNames.Read);
+
+        var decision = new ReferenceDecisionProvider().Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.TenantMismatch, decision.Reasons[0].Code);
+    }
+
     private sealed class NamedProvider(string name) : IAuthorizationDecisionProvider
     {
         public string Name => name;

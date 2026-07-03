@@ -20,9 +20,13 @@ public sealed class AuthorizationDecisionProviderFactory
     {
         _providers = providers.ToList();
         ValidateProviderNames(_providers);
-        _configuredProvider = string.IsNullOrWhiteSpace(options.Value.Provider)
+        // Trim the configured name so accidental whitespace from env/secret sources
+        // (e.g. "reference ") still selects the intended provider; a blank value falls back to
+        // the default, and a non-blank unknown name still fails closed in GetActiveProvider.
+        var configured = options.Value.Provider?.Trim();
+        _configuredProvider = string.IsNullOrEmpty(configured)
             ? PdpOptions.DefaultProvider
-            : options.Value.Provider;
+            : configured;
     }
 
     // Fail fast at construction if any registered provider has a blank name or two share a name
