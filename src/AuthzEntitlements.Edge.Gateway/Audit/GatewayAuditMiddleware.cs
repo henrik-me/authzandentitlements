@@ -17,6 +17,13 @@ public sealed class GatewayAuditMiddleware(
 {
     private const string ApiPathPrefix = "/api";
 
+    // Set by a marker middleware that runs only after the coarse authorization
+    // policy has passed (UseAuthorization short-circuits denied requests before
+    // it). Its presence distinguishes an EDGE deny (absent) from an edge allow
+    // that was routed to Bank.Api (present), so a downstream fine-grained 403 is
+    // audited as allow/routed rather than as a coarse edge deny.
+    public const string EdgeAuthorizedItemKey = "gateway.edge.authorized";
+
     public async Task InvokeAsync(HttpContext context)
     {
         // Skip infrastructure paths (root info + health/liveness). Only calls that
@@ -31,7 +38,9 @@ public sealed class GatewayAuditMiddleware(
 
         var user = context.User;
         var tenant = user.GetTenant();
-        var (decision, reason) = ClassifyDecision(context.Response.StatusCode, tenant is not null);
+        var edgeAuthorized = context.Items.ContainsKey(EdgeAuthorizedItemKey);
+        var (decision, reason) = ClassifyDecision(
+            context.Response.StatusCode, tenant is not null, edgeAuthorized);
 
         var routeConfig = context.Features.Get<IReverseProxyFeature>()?.Route.Config;
         var routeId = routeConfig?.RouteId;
@@ -80,21 +89,27 @@ public sealed class GatewayAuditMiddleware(
         activity?.SetTag("gateway.route", routeId);
     }
 
-    // Pure, unit-testable classification of a final status into the coarse
-    // decision/reason vocabulary. 401 is an unauthenticated challenge; 403 is a
-    // forbid that — given the token reached authorization — distinguishes a
-    // missing tenant claim from a missing scope. Anything below 400 (and any
-    // downstream 5xx the proxy forwarded) counts as allowed/routed at the edge.
-    public static (string Decision, string Reason) ClassifyDecision(int statusCode, bool hasTenant)
-        => statusCode switch
+    // Pure, unit-testable classification of a request into the coarse
+    // decision/reason vocabulary. The primary discriminator is whether the request
+    // cleared the edge coarse policy (edgeAuthorized): once it clears the edge and
+    // is routed, ANY resulting status — including a fine-grained 401/403 from
+    // Bank.Api or a downstream 5xx — is an edge allow/routed, NOT a coarse deny.
+    // Only a request short-circuited AT the edge is a deny, and there the status
+    // distinguishes an unauthenticated challenge (401) from a forbid (403) whose
+    // reason is a missing tenant claim vs a missing scope.
+    public static (string Decision, string Reason) ClassifyDecision(
+        int statusCode, bool hasTenant, bool edgeAuthorized)
+    {
+        if (edgeAuthorized)
         {
-            StatusCodes.Status401Unauthorized =>
-                (GatewayTelemetry.DecisionDeny, GatewayTelemetry.ReasonUnauthenticated),
-            StatusCodes.Status403Forbidden =>
-                (GatewayTelemetry.DecisionDeny,
-                    hasTenant ? GatewayTelemetry.ReasonMissingScope : GatewayTelemetry.ReasonMissingTenant),
-            _ => (GatewayTelemetry.DecisionAllow, GatewayTelemetry.ReasonRouted),
-        };
+            return (GatewayTelemetry.DecisionAllow, GatewayTelemetry.ReasonRouted);
+        }
+
+        return statusCode == StatusCodes.Status401Unauthorized
+            ? (GatewayTelemetry.DecisionDeny, GatewayTelemetry.ReasonUnauthenticated)
+            : (GatewayTelemetry.DecisionDeny,
+                hasTenant ? GatewayTelemetry.ReasonMissingScope : GatewayTelemetry.ReasonMissingTenant);
+    }
 
     // Best-effort map from a matched route's coarse policy to the scope it
     // requires, for the audit record. AuthenticatedPolicy (and any unmatched

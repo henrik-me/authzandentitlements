@@ -42,6 +42,17 @@ app.MapGet("/", () => TypedResults.Ok(new
 app.UseMiddleware<GatewayAuditMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Marker: reached only when the coarse authorization policy passed (a denied
+// request is short-circuited by UseAuthorization above). GatewayAuditMiddleware
+// reads this to tell an edge deny apart from an edge allow that was routed to
+// Bank.Api, so a downstream fine-grained 403 is audited as allow/routed.
+app.Use(async (context, nextMiddleware) =>
+{
+    context.Items[GatewayAuditMiddleware.EdgeAuthorizedItemKey] = true;
+    await nextMiddleware(context);
+});
+
 app.MapReverseProxy();
 
 app.Run();

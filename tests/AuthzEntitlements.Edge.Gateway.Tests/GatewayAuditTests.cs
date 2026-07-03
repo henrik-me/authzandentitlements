@@ -7,26 +7,48 @@ namespace AuthzEntitlements.Edge.Gateway.Tests;
 // audit record faithfully carries the values it is constructed with.
 public sealed class GatewayAuditTests
 {
-    public static TheoryData<int, bool, string, string> Cases => new()
+    // edgeAuthorized = false: the request was denied AT the edge (UseAuthorization
+    // short-circuited), so the status maps to the coarse deny reason.
+    public static TheoryData<int, bool, string, string> EdgeDeniedCases => new()
     {
         { 401, true, "deny", "unauthenticated" },
         { 401, false, "deny", "unauthenticated" },
         { 403, false, "deny", "missing-tenant" },
         { 403, true, "deny", "missing-scope" },
-        { 200, true, "allow", "routed" },
-        { 201, false, "allow", "routed" },
-        { 404, true, "allow", "routed" },
-        { 500, false, "allow", "routed" },
     };
 
     [Theory]
-    [MemberData(nameof(Cases))]
-    public void ClassifyDecision_MapsStatusAndTenant(
+    [MemberData(nameof(EdgeDeniedCases))]
+    public void ClassifyDecision_WhenDeniedAtEdge_MapsStatusAndTenant(
         int statusCode, bool hasTenant, string expectedDecision, string expectedReason)
     {
-        var (decision, reason) = GatewayAuditMiddleware.ClassifyDecision(statusCode, hasTenant);
+        var (decision, reason) =
+            GatewayAuditMiddleware.ClassifyDecision(statusCode, hasTenant, edgeAuthorized: false);
         Assert.Equal(expectedDecision, decision);
         Assert.Equal(expectedReason, reason);
+    }
+
+    // edgeAuthorized = true: the request cleared the coarse policy and was routed,
+    // so EVERY resulting status is an edge allow/routed — including a downstream
+    // fine-grained 401/403 from Bank.Api. This is the case a status-only classifier
+    // got wrong: a non-BranchManager POST /api/accounts is edge-allowed, then 403'd
+    // by Bank.Api, and must NOT be audited as a coarse edge deny.
+    [Theory]
+    [InlineData(200)]
+    [InlineData(201)]
+    [InlineData(403)]
+    [InlineData(401)]
+    [InlineData(404)]
+    [InlineData(500)]
+    public void ClassifyDecision_WhenRouted_IsAlwaysAllowRouted(int downstreamStatus)
+    {
+        foreach (var hasTenant in new[] { true, false })
+        {
+            var (decision, reason) =
+                GatewayAuditMiddleware.ClassifyDecision(downstreamStatus, hasTenant, edgeAuthorized: true);
+            Assert.Equal("allow", decision);
+            Assert.Equal("routed", reason);
+        }
     }
 
     [Fact]
