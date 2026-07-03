@@ -14,7 +14,7 @@ public sealed class GatewayMetrics
         var meter = meterFactory.Create(GatewayTelemetry.Name);
         _decisions = meter.CreateCounter<long>(
             "gateway.decisions",
-            unit: "{decision}",
+            unit: "1",
             description: "Count of coarse edge authorization decisions.");
     }
 

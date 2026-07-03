@@ -55,6 +55,19 @@ public sealed class GatewayAuthenticationSetupTests
     }
 
     [Fact]
+    public void ResolveAudience_DefaultsToBankApi_WhenUnset()
+    {
+        Assert.Equal("bank-api", GatewayAuthenticationSetup.ResolveAudience(Config()));
+    }
+
+    [Fact]
+    public void ResolveAudience_UsesConfiguredAudience()
+    {
+        Assert.Equal("other-api",
+            GatewayAuthenticationSetup.ResolveAudience(Config(("Keycloak:Audience", "other-api"))));
+    }
+
+    [Fact]
     public void JwtBearer_DefaultsAudienceToBankApi_WhenUnset()
     {
         var options = BuildJwtOptions(Config(("Keycloak:AuthServerUrl", "http://localhost:8080")));

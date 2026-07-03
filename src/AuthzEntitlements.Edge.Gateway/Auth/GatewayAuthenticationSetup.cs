@@ -52,6 +52,15 @@ public static class GatewayAuthenticationSetup
         return null;
     }
 
+    // Resolves the expected access-token audience from configuration, defaulting to
+    // DefaultAudience when unset. Shared by the JWT bearer setup and the audit
+    // middleware so both report the exact same audience.
+    public static string ResolveAudience(IConfiguration config)
+    {
+        var audience = config[AudienceConfigKey];
+        return string.IsNullOrWhiteSpace(audience) ? DefaultAudience : audience;
+    }
+
     public static IServiceCollection AddGatewayJwtAuthentication(
         this IServiceCollection services,
         IConfiguration config,
@@ -59,11 +68,7 @@ public static class GatewayAuthenticationSetup
     {
         var authority = ResolveAuthority(config);
 
-        var audience = config[AudienceConfigKey];
-        if (string.IsNullOrWhiteSpace(audience))
-        {
-            audience = DefaultAudience;
-        }
+        var audience = ResolveAudience(config);
 
         if (string.IsNullOrWhiteSpace(authority))
         {

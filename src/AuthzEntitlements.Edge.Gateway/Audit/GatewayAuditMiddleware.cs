@@ -13,9 +13,14 @@ namespace AuthzEntitlements.Edge.Gateway.Audit;
 public sealed class GatewayAuditMiddleware(
     RequestDelegate next,
     ILogger<GatewayAuditMiddleware> logger,
-    GatewayMetrics metrics)
+    GatewayMetrics metrics,
+    IConfiguration configuration)
 {
     private const string ApiPathPrefix = "/api";
+
+    // The configured expected audience, resolved once. Reported on every audit event
+    // so it reflects the actual Keycloak:Audience configuration, not just the default.
+    private readonly string _audience = GatewayAuthenticationSetup.ResolveAudience(configuration);
 
     // Set by a marker middleware that runs only after the coarse authorization
     // policy has passed (UseAuthorization short-circuits denied requests before
@@ -68,7 +73,7 @@ public sealed class GatewayAuditMiddleware(
             Subject: user.GetSubject(),
             Tenant: tenant,
             RequiredScope: requiredScope,
-            Audience: GatewayAuthenticationSetup.DefaultAudience);
+            Audience: _audience);
 
         // Structured template names every field so CS13's Audit.Service can ingest
         // the event verbatim without parsing a free-text message.
