@@ -28,12 +28,12 @@ public sealed class PlanCompositionTests
     }
 
     [Fact]
-    public void Professional_HasWireFx_HighValueTransfers_SeatLimit25_Quota1000()
+    public void Professional_HasWireFx_HighValueTransactions_SeatLimit25_Quota1000()
     {
         Assert.Equal(
             new[] { EntitlementCatalog.Modules.Fx, EntitlementCatalog.Modules.Wire },
             ModulesOf(PlanTier.Professional));
-        Assert.Equal(new[] { EntitlementCatalog.Features.HighValueTransfers }, FeaturesOf(PlanTier.Professional));
+        Assert.Equal(new[] { EntitlementCatalog.Features.HighValueTransactions }, FeaturesOf(PlanTier.Professional));
         Assert.Equal(25, Plan(PlanTier.Professional).SeatLimit);
         Assert.Equal(1000, QuotaLimit(PlanTier.Professional));
     }
@@ -45,7 +45,7 @@ public sealed class PlanCompositionTests
             new[] { EntitlementCatalog.Modules.Fx, EntitlementCatalog.Modules.Treasury, EntitlementCatalog.Modules.Wire },
             ModulesOf(PlanTier.Enterprise));
         Assert.Equal(
-            new[] { EntitlementCatalog.Features.HighValueTransfers, EntitlementCatalog.Features.BulkPayments },
+            new[] { EntitlementCatalog.Features.HighValueTransactions, EntitlementCatalog.Features.BulkPayments },
             FeaturesOf(PlanTier.Enterprise));
         Assert.Equal((int)EntitlementCatalog.Unlimited, Plan(PlanTier.Enterprise).SeatLimit);
         Assert.Equal(EntitlementCatalog.Unlimited, QuotaLimit(PlanTier.Enterprise));

@@ -43,20 +43,21 @@ public sealed class EntitlementsEnforcer(ILogger<EntitlementsEnforcer> logger)
             }
         }
 
-        // 2. Feature gate — high-value amounts require the high-value-transfers feature.
-        if (amount >= EntitlementsCatalog.HighValueTransferThreshold)
+        // 2. Feature gate — high-value transactions (any type) require the
+        // high-value-transactions feature.
+        if (amount >= EntitlementsCatalog.HighValueTransactionThreshold)
         {
             var feature = await client.CheckFeatureAsync(
-                tenantCode, EntitlementsCatalog.HighValueTransfersFeatureKey, ct);
+                tenantCode, EntitlementsCatalog.HighValueTransactionsFeatureKey, ct);
             if (feature.IsUnavailable)
             {
-                return Unavailable(tenantCode, "feature", EntitlementsCatalog.HighValueTransfersFeatureKey, feature.Reason);
+                return Unavailable(tenantCode, "feature", EntitlementsCatalog.HighValueTransactionsFeatureKey, feature.Reason);
             }
 
             if (!feature.Enabled)
             {
-                return Deny(tenantCode, "feature", EntitlementsCatalog.HighValueTransfersFeatureKey,
-                    $"high-value transfers require the high-value-transfers feature (plan {feature.PlanTier})",
+                return Deny(tenantCode, "feature", EntitlementsCatalog.HighValueTransactionsFeatureKey,
+                    $"high-value transactions require the high-value-transactions feature (plan {feature.PlanTier})",
                     StatusCodes.Status403Forbidden);
             }
         }

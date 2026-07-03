@@ -6,6 +6,7 @@ using AuthzEntitlements.Entitlements.Service.Metering;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace AuthzEntitlements.Entitlements.Service.Endpoints;
 
@@ -18,6 +19,7 @@ public static class EntitlementsEndpoints
 {
     private const string NoSubscription = "no subscription";
     private const int MaxConsumeAttempts = 8;
+    private const int MaxSeatAttempts = 8;
 
     public static IEndpointRouteBuilder MapEntitlementsEndpoints(this IEndpointRouteBuilder app)
     {
@@ -28,6 +30,8 @@ public static class EntitlementsEndpoints
         group.MapGet("/features/{featureKey}", GetFeatureAsync);
         group.MapPost("/quotas/{quotaKey}/consume", ConsumeQuotaAsync);
         group.MapGet("/seats", GetSeatsAsync);
+        group.MapPost("/seats/assign", AssignSeatAsync);
+        group.MapPost("/seats/release", ReleaseSeatAsync);
 
         return app;
     }
@@ -237,6 +241,123 @@ public static class EntitlementsEndpoints
         return TypedResults.Ok(new SeatSummaryResponse(
             subscription.PlanTier.ToString(), plan.SeatLimit, seatsUsed, remaining));
     }
+
+    private static async Task<IResult> AssignSeatAsync(
+        string tenantCode,
+        SeatMutationRequest request,
+        EntitlementsDbContext db,
+        IEntitlementAuditSink audit,
+        EntitlementsMetrics metrics,
+        CancellationToken ct)
+    {
+        var subscription = await db.Subscriptions.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantCode == tenantCode, ct);
+        if (subscription is null)
+        {
+            Emit(audit, metrics, tenantCode, EntitlementDecisionType.Seat, "seats",
+                EntitlementOutcome.Deny, planTier: string.Empty);
+            return TypedResults.Ok(new SeatAssignmentResponse(false, 0, 0, 0, NoSubscription));
+        }
+
+        var plan = await db.Plans.AsNoTracking().FirstAsync(p => p.Tier == subscription.PlanTier, ct);
+        var planTier = subscription.PlanTier.ToString();
+
+        // Enforce the seat cap atomically. Two concurrent assigns could each read the same
+        // seatsUsed and both grant a seat past the limit; a Serializable transaction makes
+        // the loser fail (serialization 40001, or the unique (SubscriptionId, UserId) index)
+        // so we roll back and re-evaluate rather than over-allocating. A unique-index
+        // violation means a concurrent insert for the SAME user, which the retry re-reads as
+        // already-assigned (idempotent allow). Any residual over-allocation under extreme
+        // concurrency is a known CS10 lab limitation; the Serializable isolation is what
+        // prevents it in practice.
+        for (var attempt = 1; ; attempt++)
+        {
+            await using var tx = await db.Database.BeginTransactionAsync(
+                System.Data.IsolationLevel.Serializable, ct);
+            try
+            {
+                var seatsUsed = await db.SeatAssignments
+                    .CountAsync(a => a.SubscriptionId == subscription.Id, ct);
+                var alreadyAssigned = await db.SeatAssignments
+                    .AnyAsync(a => a.SubscriptionId == subscription.Id && a.UserId == request.UserId, ct);
+
+                var decision = SeatDecision.Evaluate(plan.SeatLimit, seatsUsed, alreadyAssigned);
+
+                if (decision.Assigned && !alreadyAssigned)
+                {
+                    db.SeatAssignments.Add(new SeatAssignment
+                    {
+                        Id = Guid.NewGuid(),
+                        SubscriptionId = subscription.Id,
+                        UserId = request.UserId,
+                    });
+                    await db.SaveChangesAsync(ct);
+                }
+
+                await tx.CommitAsync(ct);
+
+                Emit(audit, metrics, tenantCode, EntitlementDecisionType.Seat, "seats",
+                    decision.Assigned ? EntitlementOutcome.Allow : EntitlementOutcome.Deny, planTier);
+
+                return TypedResults.Ok(new SeatAssignmentResponse(
+                    decision.Assigned, plan.SeatLimit, decision.SeatsUsed, decision.Remaining, decision.Reason));
+            }
+            catch (Exception ex) when (attempt < MaxSeatAttempts && IsRetryableSeatConflict(ex))
+            {
+                db.ChangeTracker.Clear();
+                await tx.RollbackAsync(ct);
+            }
+        }
+    }
+
+    private static async Task<IResult> ReleaseSeatAsync(
+        string tenantCode,
+        SeatMutationRequest request,
+        EntitlementsDbContext db,
+        IEntitlementAuditSink audit,
+        EntitlementsMetrics metrics,
+        CancellationToken ct)
+    {
+        var subscription = await db.Subscriptions.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantCode == tenantCode, ct);
+        if (subscription is null)
+        {
+            Emit(audit, metrics, tenantCode, EntitlementDecisionType.Seat, "seats",
+                EntitlementOutcome.Deny, planTier: string.Empty);
+            return TypedResults.Ok(new SeatAssignmentResponse(false, 0, 0, 0, NoSubscription));
+        }
+
+        var plan = await db.Plans.AsNoTracking().FirstAsync(p => p.Tier == subscription.PlanTier, ct);
+
+        var assignment = await db.SeatAssignments
+            .FirstOrDefaultAsync(a => a.SubscriptionId == subscription.Id && a.UserId == request.UserId, ct);
+        var found = assignment is not null;
+        if (assignment is not null)
+        {
+            db.SeatAssignments.Remove(assignment);
+            await db.SaveChangesAsync(ct);
+        }
+
+        var seatsUsed = await db.SeatAssignments.AsNoTracking()
+            .CountAsync(a => a.SubscriptionId == subscription.Id, ct);
+        var remaining = SeatMath.Remaining(plan.SeatLimit, seatsUsed);
+
+        Emit(audit, metrics, tenantCode, EntitlementDecisionType.Seat, "seats",
+            EntitlementOutcome.Allow, subscription.PlanTier.ToString());
+
+        return TypedResults.Ok(new SeatAssignmentResponse(
+            false, plan.SeatLimit, seatsUsed, remaining, found ? "seat-released" : "not-assigned"));
+    }
+
+    // A seat-assign SaveChanges/commit conflict we can safely retry: EF wraps unique-index
+    // and serialization failures as DbUpdateException on SaveChanges, while a Serializable
+    // commit-time serialization failure surfaces as a bare PostgresException (40001).
+    private static bool IsRetryableSeatConflict(Exception ex) =>
+        ex is DbUpdateException
+        || ex is PostgresException
+        {
+            SqlState: PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.UniqueViolation
+        };
 
     private static void Emit(
         IEntitlementAuditSink audit,

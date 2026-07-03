@@ -12,8 +12,8 @@ public sealed class FeatureCatalogTests
     [InlineData(PlanTier.Standard, false)]
     [InlineData(PlanTier.Professional, true)]
     [InlineData(PlanTier.Enterprise, true)]
-    public void HighValueTransfers_EnabledFor_ProfessionalAndEnterprise(PlanTier tier, bool expected) =>
-        Assert.Equal(expected, FeatureCatalog.IsEnabled(EntitlementCatalog.Features.HighValueTransfers, tier));
+    public void HighValueTransactions_EnabledFor_ProfessionalAndEnterprise(PlanTier tier, bool expected) =>
+        Assert.Equal(expected, FeatureCatalog.IsEnabled(EntitlementCatalog.Features.HighValueTransactions, tier));
 
     [Theory]
     [InlineData(PlanTier.Standard, false)]
@@ -27,15 +27,15 @@ public sealed class FeatureCatalogTests
         Assert.Empty(FeatureCatalog.FeaturesFor(PlanTier.Standard));
 
     [Fact]
-    public void FeaturesFor_Professional_IsHighValueTransfersOnly() =>
+    public void FeaturesFor_Professional_IsHighValueTransactionsOnly() =>
         Assert.Equal(
-            new[] { EntitlementCatalog.Features.HighValueTransfers },
+            new[] { EntitlementCatalog.Features.HighValueTransactions },
             FeatureCatalog.FeaturesFor(PlanTier.Professional));
 
     [Fact]
     public void FeaturesFor_Enterprise_IsBothFeatures() =>
         Assert.Equal(
-            new[] { EntitlementCatalog.Features.HighValueTransfers, EntitlementCatalog.Features.BulkPayments },
+            new[] { EntitlementCatalog.Features.HighValueTransactions, EntitlementCatalog.Features.BulkPayments },
             FeatureCatalog.FeaturesFor(PlanTier.Enterprise));
 
     [Fact]

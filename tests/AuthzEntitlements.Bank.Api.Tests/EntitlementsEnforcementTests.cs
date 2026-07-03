@@ -96,13 +96,34 @@ public sealed class EntitlementsEnforcementTests
 
         var decision = await Enforcer().EvaluateCreateAsync(
             client, TenantCode, TransactionType.Transfer,
-            EntitlementsCatalog.HighValueTransferThreshold, CancellationToken.None);
+            EntitlementsCatalog.HighValueTransactionThreshold, CancellationToken.None);
 
         Assert.False(decision.Allowed);
         Assert.Equal(StatusCodes.Status403Forbidden, decision.StatusCode);
-        Assert.Contains("high-value-transfers feature", decision.Reason);
+        Assert.Contains("high-value-transactions feature", decision.Reason);
         // Feature deny happens after the module gate but before quota consumption.
         Assert.Equal(["module", "feature"], client.Calls);
+    }
+
+    [Fact]
+    public async Task HighValueNonTransfer_WhenFeatureDisabled_Denies403()
+    {
+        var client = new FakeEntitlementsClient
+        {
+            FeatureResult = new FeatureCheckResult(false, "professional", "flag off"),
+        };
+
+        // A high-value Debit (non-transfer) skips the wire-module gate but still hits the
+        // amount-only feature gate: the high-value-transactions feature applies to ANY type.
+        var decision = await Enforcer().EvaluateCreateAsync(
+            client, TenantCode, TransactionType.Debit,
+            EntitlementsCatalog.HighValueTransactionThreshold, CancellationToken.None);
+
+        Assert.False(decision.Allowed);
+        Assert.Equal(StatusCodes.Status403Forbidden, decision.StatusCode);
+        Assert.Contains("high-value-transactions feature", decision.Reason);
+        // No module gate for a non-transfer; feature deny short-circuits before quota.
+        Assert.Equal(["feature"], client.Calls);
     }
 
     [Fact]
@@ -112,7 +133,7 @@ public sealed class EntitlementsEnforcementTests
 
         var decision = await Enforcer().EvaluateCreateAsync(
             client, TenantCode, TransactionType.Transfer,
-            EntitlementsCatalog.HighValueTransferThreshold + 1m, CancellationToken.None);
+            EntitlementsCatalog.HighValueTransactionThreshold + 1m, CancellationToken.None);
 
         Assert.True(decision.Allowed);
         Assert.Equal(["module", "feature", "quota"], client.Calls);
@@ -192,7 +213,7 @@ public sealed class EntitlementsEnforcementTests
 
         var decision = await Enforcer().EvaluateCreateAsync(
             client, TenantCode, TransactionType.Transfer,
-            EntitlementsCatalog.HighValueTransferThreshold, CancellationToken.None);
+            EntitlementsCatalog.HighValueTransactionThreshold, CancellationToken.None);
 
         // Module deny (402) short-circuits even though the feature would also deny.
         Assert.Equal(StatusCodes.Status402PaymentRequired, decision.StatusCode);

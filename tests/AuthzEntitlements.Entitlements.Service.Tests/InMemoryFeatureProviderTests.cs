@@ -18,12 +18,12 @@ public sealed class InMemoryFeatureProviderTests
     [InlineData(PlanTier.Standard, false)]
     [InlineData(PlanTier.Professional, true)]
     [InlineData(PlanTier.Enterprise, true)]
-    public async Task HighValueTransfers_ResolvesFromCatalog(PlanTier tier, bool expected)
+    public async Task HighValueTransactions_ResolvesFromCatalog(PlanTier tier, bool expected)
     {
         var provider = InMemoryFeatureProviderFactory.Create();
 
         var result = await provider.ResolveBooleanValueAsync(
-            EntitlementCatalog.Features.HighValueTransfers, false, ContextFor(tier), CancellationToken.None);
+            EntitlementCatalog.Features.HighValueTransactions, false, ContextFor(tier), CancellationToken.None);
 
         Assert.Equal(expected, result.Value);
     }
@@ -59,7 +59,7 @@ public sealed class InMemoryFeatureProviderTests
         var provider = InMemoryFeatureProviderFactory.Create();
 
         var result = await provider.ResolveBooleanValueAsync(
-            EntitlementCatalog.Features.HighValueTransfers, false,
+            EntitlementCatalog.Features.HighValueTransactions, false,
             EvaluationContext.Empty, CancellationToken.None);
 
         Assert.False(result.Value);

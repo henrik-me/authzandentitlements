@@ -10,7 +10,7 @@ public static class FeatureCatalog
     private static readonly IReadOnlyDictionary<string, IReadOnlySet<PlanTier>> Policy =
         new Dictionary<string, IReadOnlySet<PlanTier>>(StringComparer.Ordinal)
         {
-            [EntitlementCatalog.Features.HighValueTransfers] =
+            [EntitlementCatalog.Features.HighValueTransactions] =
                 new HashSet<PlanTier> { PlanTier.Professional, PlanTier.Enterprise },
             [EntitlementCatalog.Features.BulkPayments] =
                 new HashSet<PlanTier> { PlanTier.Enterprise },
@@ -18,7 +18,7 @@ public static class FeatureCatalog
 
     // Every feature key the catalog knows about, in stable declaration order.
     public static IReadOnlyList<string> Keys { get; } =
-        [EntitlementCatalog.Features.HighValueTransfers, EntitlementCatalog.Features.BulkPayments];
+        [EntitlementCatalog.Features.HighValueTransactions, EntitlementCatalog.Features.BulkPayments];
 
     public static bool IsKnown(string featureKey) => Policy.ContainsKey(featureKey);
 

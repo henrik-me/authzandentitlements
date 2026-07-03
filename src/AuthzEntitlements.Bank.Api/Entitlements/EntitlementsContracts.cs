@@ -48,12 +48,13 @@ public sealed record SeatUsageResult(string PlanTier, int SeatLimit, int SeatsUs
 public static class EntitlementsCatalog
 {
     public const string WireModuleKey = "wire";
-    public const string HighValueTransfersFeatureKey = "high-value-transfers";
+    public const string HighValueTransactionsFeatureKey = "high-value-transactions";
     public const string MonthlyTransactionsQuotaKey = "monthly-transactions";
 
-    // Distinct from BankPolicy.ApprovalThreshold (10_000m, maker-checker): transfers at
-    // or above this amount additionally require the high-value-transfers feature flag.
-    public const decimal HighValueTransferThreshold = 50_000m;
+    // Distinct from BankPolicy.ApprovalThreshold (10_000m, maker-checker): high-value
+    // transactions of ANY type at or above this amount additionally require the
+    // high-value-transactions feature flag.
+    public const decimal HighValueTransactionThreshold = 50_000m;
 
     public const string UnknownPlanTier = "unknown";
 }

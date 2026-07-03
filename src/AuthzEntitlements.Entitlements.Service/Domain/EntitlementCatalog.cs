@@ -16,10 +16,10 @@ public static class EntitlementCatalog
 
     public static class Features
     {
-        public const string HighValueTransfers = "high-value-transfers";
+        public const string HighValueTransactions = "high-value-transactions";
         public const string BulkPayments = "bulk-payments";
 
-        public static readonly IReadOnlyList<string> All = [HighValueTransfers, BulkPayments];
+        public static readonly IReadOnlyList<string> All = [HighValueTransactions, BulkPayments];
     }
 
     public static class Quotas
