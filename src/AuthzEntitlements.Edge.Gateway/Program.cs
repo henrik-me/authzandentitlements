@@ -49,7 +49,14 @@ app.UseAuthorization();
 // Bank.Api, so a downstream fine-grained 403 is audited as allow/routed.
 app.Use(async (context, nextMiddleware) =>
 {
-    context.Items[GatewayAuditMiddleware.EdgeAuthorizedItemKey] = true;
+    // Only a MATCHED endpoint (a YARP proxy route) carries the coarse policy that
+    // UseAuthorization just evaluated and passed. Unmatched /api requests (no route
+    // for the method) reach here with a null endpoint and no policy — they 404
+    // without being routed, so they must NOT be recorded as an edge allow.
+    if (context.GetEndpoint() is not null)
+    {
+        context.Items[GatewayAuditMiddleware.EdgeAuthorizedItemKey] = true;
+    }
     await nextMiddleware(context);
 });
 

@@ -36,11 +36,20 @@ public sealed class GatewayAuditMiddleware(
 
         await next(context);
 
+        var edgeAuthorized = context.Items.ContainsKey(EdgeAuthorizedItemKey);
+        var statusCode = context.Response.StatusCode;
+
+        // An /api request that neither cleared the edge coarse policy (edgeAuthorized)
+        // nor was short-circuited by it (401/403) matched no coarse route — e.g. an
+        // unmatched method that 404s. That is not a coarse decision, so skip it.
+        if (!ShouldAudit(edgeAuthorized, statusCode))
+        {
+            return;
+        }
+
         var user = context.User;
         var tenant = user.GetTenant();
-        var edgeAuthorized = context.Items.ContainsKey(EdgeAuthorizedItemKey);
-        var (decision, reason) = ClassifyDecision(
-            context.Response.StatusCode, tenant is not null, edgeAuthorized);
+        var (decision, reason) = ClassifyDecision(statusCode, tenant is not null, edgeAuthorized);
 
         var routeConfig = context.Features.Get<IReverseProxyFeature>()?.Route.Config;
         var routeId = routeConfig?.RouteId;
@@ -88,6 +97,14 @@ public sealed class GatewayAuditMiddleware(
         activity?.SetTag("gateway.tenant", tenant);
         activity?.SetTag("gateway.route", routeId);
     }
+
+    // Whether an /api request represents a coarse authorization decision worth
+    // auditing. A routed request (edgeAuthorized) always is; otherwise only an edge
+    // short-circuit (401/403) is — any other status means no coarse route matched
+    // (e.g. an unmatched method that 404s), which is not a coarse decision.
+    public static bool ShouldAudit(bool edgeAuthorized, int statusCode)
+        => edgeAuthorized
+            || statusCode is StatusCodes.Status401Unauthorized or StatusCodes.Status403Forbidden;
 
     // Pure, unit-testable classification of a request into the coarse
     // decision/reason vocabulary. The primary discriminator is whether the request

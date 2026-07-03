@@ -51,6 +51,23 @@ public sealed class GatewayAuditTests
         }
     }
 
+    // A request is audited only when it is a coarse decision: routed (edgeAuthorized)
+    // or short-circuited at the edge (401/403). An unmatched /api method that 404s is
+    // NOT a coarse decision and must not be audited (and never as a false allow/routed).
+    [Theory]
+    [InlineData(true, 200, true)]
+    [InlineData(true, 403, true)]
+    [InlineData(true, 404, true)]
+    [InlineData(false, 401, true)]
+    [InlineData(false, 403, true)]
+    [InlineData(false, 404, false)]
+    [InlineData(false, 405, false)]
+    [InlineData(false, 200, false)]
+    public void ShouldAudit_OnlyForCoarseDecisions(bool edgeAuthorized, int statusCode, bool expected)
+    {
+        Assert.Equal(expected, GatewayAuditMiddleware.ShouldAudit(edgeAuthorized, statusCode));
+    }
+
     [Fact]
     public void GatewayAuditEvent_CarriesConstructedValues()
     {
