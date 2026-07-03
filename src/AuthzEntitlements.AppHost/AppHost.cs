@@ -57,7 +57,7 @@ var entitlementsService = builder.AddProject<Projects.AuthzEntitlements_Entitlem
     .WithEnvironment("Entitlements__Unleash__Url", unleash.GetEndpoint("http"))
     .WithEnvironment("Entitlements__Unleash__ApiToken", "*:development.unleash-insecure-client-token");
 
-builder.AddProject<Projects.AuthzEntitlements_Bank_Api>("bank-api")
+var bankApi = builder.AddProject<Projects.AuthzEntitlements_Bank_Api>("bank-api")
     .WithReference(bankDb)
     .WaitFor(bankDb)
     .WithReference(keycloak)
@@ -65,6 +65,22 @@ builder.AddProject<Projects.AuthzEntitlements_Bank_Api>("bank-api")
     .WithReference(entitlementsService)
     .WithEnvironment("Keycloak__Authority", keycloakAuthority)
     .WithEnvironment("Keycloak__Audience", "bank-api");
+
+// CS04 — coarse-grained edge gateway (YARP). Fronts Bank.Api and enforces coarse
+// token/audience/scope/tenant checks before routing. Shares the same stable Keycloak
+// authority/audience as Bank.Api; the bank-api destination address is injected into the
+// YARP cluster config at runtime so the proxy target tracks Aspire's assigned endpoint.
+builder.AddProject<Projects.AuthzEntitlements_Edge_Gateway>("edge-gateway")
+    .WithReference(keycloak)
+    .WaitFor(keycloak)
+    .WithReference(bankApi)
+    .WaitFor(bankApi)
+    .WithEnvironment("Keycloak__Authority", keycloakAuthority)
+    .WithEnvironment("Keycloak__Audience", "bank-api")
+    .WithEnvironment(
+        "ReverseProxy__Clusters__bank-api__Destinations__bank-api__Address",
+        bankApi.GetEndpoint("http"))
+    .WithExternalHttpEndpoints();
 
 builder.AddProject<Projects.AuthzEntitlements_Bank_Web>("bank-web")
     .WithReference(keycloak)
