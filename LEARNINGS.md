@@ -488,6 +488,47 @@ claim_area: observability
 - Any future externally-exposed dev UI backed by an image with a default admin account (Grafana, etc.) must disable BOTH the login form AND Basic Auth for an anonymous-only posture — anonymous role alone is not a boundary.
 - Model non-UI container ingress ports as `tcp` so `WithExternalHttpEndpoints()` does not inadvertently expose them.
 
+### LRN-025
+
+```yaml
+id: LRN-025
+date: 2026-07-03
+category: process
+source_cs: CS06
+status: open
+tags: [multi-agent, claim, rebase, workboard-auto-approve, ci]
+```
+
+**Problem:** During CS06's workboard claim PR, a *different* orchestrator closed out a dependency CS (CS05: content merge + active→done) on `main` while the claim branch was being prepared, advancing `main` past the claim branch's base.
+
+**Finding:** The `workboard-auto-approve` `validate-and-approve` job compares the PR's **2-dot** `git diff base_sha head_sha` file count against the GitHub API's **3-dot** `changed_files` count and **fails closed** when they diverge ("immutable git diff returned N files but PR reports M changed files"). When a branch falls behind `main`, the 2-dot diff picks up the other agent's merged changes and the counts mismatch. Fix: **rebase the branch onto latest `origin/main`** before the gate runs; the two counts then agree. This is a routine hazard for a fleet of parallel orchestrators — not specific to claim PRs.
+
+**Evidence:** CS06 claim PR #30 `validate-and-approve` failed with a 6-vs-2 changed-files mismatch after CS05 close-out (#29) landed; `git rebase origin/main` (onto cbebaf1) made CI green and it squash-merged. `.github/workflows/workboard-auto-approve.yml`.
+
+**Implications carried forward:**
+- In a multi-orchestrator repo, rebase any branch onto latest `origin/main` before push/merge if `main` advanced since branching — especially when a dependency CS may have closed out concurrently.
+
+### LRN-026
+
+```yaml
+id: LRN-026
+date: 2026-07-03
+category: architectural
+source_cs: CS06
+status: open
+tags: [pdp, adapters, rbac, casbin, aspnet, parity]
+claim_area: engines
+```
+
+**Problem:** The CS05 `ScenarioCatalogRunner` passes a provider ONLY when it returns the exact `Decision` AND primary reason code (`Reasons[0].Code`) in the reference's per-action ordering — but the fintech rules are mostly ABAC (tenant, subject-is-maker, pending, SoD, threshold), while CS06's engines (ASP.NET Core policies, Casbin) are RBAC baselines.
+
+**Finding:** Factor the adapter so a shared `FintechRuleEvaluator` owns the engine-agnostic part (per-action ordering + ABAC + obligations, in lock-step parity with the reference) and delegates ONLY role eligibility to the engine via `IEngineRoleAuthorizer.IsRoleAuthorized(action, roles)`. Each adapter is then thin (`Evaluate => FintechRuleEvaluator.Evaluate(request, this)`) and encodes its eligible-role SETS in its engine's native policy form (ASP.NET `RolesAuthorizationRequirement`; Casbin `(role, action)` policy pairs). Catalog parity is guaranteed by the shared evaluator while the engine genuinely owns the RBAC decision — realizing "same question, swappable engine" and honoring the CS06 plan-review amendment by handling ALL 22 cases rather than unsupported-denying non-RBAC ones.
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/{FintechRuleEvaluator,IEngineRoleAuthorizer}.cs` + `AspNetCore/AspNetCorePolicyProvider.cs` + `Casbin/CasbinDecisionProvider.cs`; both adapters pass all 22 `FintechScenarioCatalog` scenarios (PR #34; PDP tests 235/235).
+
+**Implications carried forward:**
+- CS07–CS09 adapter authors: reuse the `IEngineRoleAuthorizer` seam for RBAC-only engines. For richer engines — OpenFGA (ReBAC, CS07), OPA/Rego (CS08), Cedar (CS09) — weigh how much of the fintech decision the engine should own *natively* vs. compose via the shared evaluator; don't force the shared-evaluator split where the engine can express the full decision.
+
 ## Applied
 
 _(no entries yet)_

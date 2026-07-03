@@ -33,7 +33,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS06 | CS06 — Adapters: ASP.NET Core policies + Casbin.NET | 🟢 Active | yoga-ae-c4 | cs06/content | 2026-07-03 | — |
 | CS07 | CS07 — Adapter: OpenFGA (ReBAC / Zanzibar) | 🟢 Active | yoga-ae-c2 | cs07/content | 2026-07-03 | — |
 | CS08 | CS08 — Adapter: OPA / Rego (policy / ABAC) | 🟢 Active | yoga-ae | cs08/content | 2026-07-03 | — |
 

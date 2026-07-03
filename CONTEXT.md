@@ -99,12 +99,22 @@ Basic Auth blocked). GPT-5.5 rubber-duck (7 rounds incl. security hardening) + C
 plan-vs-impl GO. New learnings LRN-023..024; LRN-014 (OTLP-export 500) carried forward for a full-`aspire
 run` triage.
 
-**Next claimable:** the **engine adapters CS06 (ASP.NET + Casbin), CS07 (OpenFGA), CS08 (OPA/Rego), CS09 (Cedar)** —
-Wave 3, unblocked by CS05's PDP contract + parity catalog (parallelizable); plus CS13 (audit pipeline; needs CS05) and
-CS11 (governance; needs CS02 + CS08). CS10's completion advances
-CS14 (Blazor product UI) and CS22 (compliance); CS12's completion advances CS22 (needs CS11/CS12/CS13) and
-CS24 (perf benchmark; needs engines + CS12). `harness lint` is green; the remaining CSs carry an independent GPT-5.5
-`## Plan review` attestation.
+**CS06 (engine adapters: ASP.NET Core + Casbin.NET) complete** (PR #34, merged 2026-07-03). The first two engine
+adapters plug into the CS05 PDP seam: `AspNetCorePolicyProvider` (`Name="aspnet"`, ASP.NET Core
+`RolesAuthorizationRequirement`) and `CasbinDecisionProvider` (`Name="casbin"`, embedded Casbin.NET 2.21.2 RBAC model +
+programmatic policy) — both **container-free "lite" profile** (no files/containers). A shared `FintechRuleEvaluator`
+encodes the full per-action ordered fintech pipeline + ABAC in **lock-step parity with the reference**; each adapter is a
+thin `IEngineRoleAuthorizer` supplying only the **engine-owned role gate**, so both answer the 22-scenario
+`FintechScenarioCatalog` identically while the engine owns just role eligibility ("same question, swappable engine").
+Registered in `AddPdp` (default stays `reference`); selectable via `Pdp:Provider`. Doc at
+`docs/authz/adapters-aspnet-casbin.md`. `dotnet build` 0/0, full-solution `dotnet test` 375/375 (PDP 139→235, +96, incl.
+per-adapter catalog parity + threshold-obligation tests). GPT-5.5 rubber-duck R1 (Conditional Go) → R2/R3/R4 (Go) + 3
+Copilot rounds (all resolved) + plan-vs-impl GO. New learnings LRN-025..026.
+
+**Next claimable:** the remaining engine adapter **CS09 (Cedar)** — Wave 3, unblocked by CS05 (CS07/CS08 in flight); plus
+CS13 (audit pipeline; needs CS05). CS11 (governance) stays blocked on CS08. CS06's completion advances CS14 (Blazor
+product UI; needs CS03/CS04/CS06/CS10/CS11), CS16/CS17/CS20 (need engine behavior), and CS24 (perf benchmark; needs
+engines + CS12). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
 
 ## Constraints
 
