@@ -179,8 +179,11 @@ var openfga = builder.AddContainer("openfga", openfgaImage, openfgaImageTag)
 // deterministic reference engine. Wiring Bank.Api to call it is deliberately out of CS05
 // scope; the adapter engines (CS06-CS09) register behind its config-driven provider seam.
 // CS07 injects OpenFGA's endpoint (no hard WaitFor — matching Unleash) so switching
-// Pdp__Provider=openfga works once the explicit-start container is running.
+// Pdp__Provider=openfga works once the explicit-start container is running. CS12 fans the PDP's
+// own PDP-decision OTLP telemetry out to the persistent observability collector like the other services.
 builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-pdp")
-    .WithEnvironment("Pdp__OpenFga__ApiUrl", openfga.GetEndpoint("http"));
+    .WithEnvironment("Pdp__OpenFga__ApiUrl", openfga.GetEndpoint("http"))
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WaitFor(observability);
 
 builder.Build().Run();

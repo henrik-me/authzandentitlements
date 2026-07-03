@@ -16,6 +16,8 @@ public static class PdpServiceCollectionExtensions
         services.Configure<PdpOptions>(configuration.GetSection(PdpOptions.SectionName));
 
         services.AddSingleton<IAuthorizationDecisionProvider, ReferenceDecisionProvider>();
+        services.AddSingleton<IAuthorizationDecisionProvider, Adapters.AspNetCore.AspNetCorePolicyProvider>();
+        services.AddSingleton<IAuthorizationDecisionProvider, Adapters.Casbin.CasbinDecisionProvider>();
 
         // CS07 — OpenFGA (ReBAC) adapter. Bound + registered unconditionally so the factory can
         // select it by name, but its live client is built lazily (only on first use) so registration

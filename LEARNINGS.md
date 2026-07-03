@@ -298,6 +298,7 @@ claim_area: observability
 
 **Implications carried forward:**
 - Triage the OTLP exporter / OpenTelemetry-instrumentation vs .NET 10 RC1 interaction (candidate for the CS12 observability stack); until then, isolate service-level runtime verification from the AppHost OTLP wiring when it misbehaves.
+- **CS12 update (2026-07-03):** CS12 landed the real OTLP collector (`grafana/otel-lgtm`) and pointed every service's `OTEL_EXPORTER_OTLP_ENDPOINT` at it, but a full `aspire run` reproduction of the empty-body 500 was NOT performed (a parallel `aspire run` may be active; CS12 verified the stack standalone instead). Whether routing OTLP at a ready collector (with `WaitFor(observability)`) resolves the 500 remains open — reproduce on the next clean full `aspire run`.
 
 ### LRN-015
 
@@ -442,6 +443,91 @@ tags: [dotnet, opentelemetry, testing, metrics]
 
 **Implications carried forward:**
 - CS06–CS09 adapter tests and any CS that asserts on the shared PDP telemetry must isolate by an untransformed tag (provider) or a raw span tag, never by the normalized metric `action`.
+
+### LRN-023
+
+```yaml
+id: LRN-023
+date: 2026-07-03
+category: process
+source_cs: CS12
+status: open
+tags: [orchestration, observability, aspire, integration]
+claim_area: observability
+```
+
+**Problem:** CS12 (observability) and CS05 (PDP) were developed concurrently. CS12's AppHost wiring fanned OTLP to the collector for the four services that existed on its branch base, but CS05 added a fifth ServiceDefaults service (`authz-pdp`, with its own PDP-decision `ActivitySource`/`Meter`) that merged to `main` in parallel — so after both merged, `authz-pdp` was silently unwired and its telemetry went nowhere.
+
+**Finding:** A cross-cutting deliverable phrased as "all services" (here: "fan ServiceDefaults OTel out to the collector") is a moving target when sibling CSs add new services concurrently. Neither implementer CS catches it — the gap only exists in the *merged* tree. The **plan-vs-implementation close-out review caught it** by grepping the CURRENT `AppHost.cs` for every `AddServiceDefaults()`/`AddProject` consumer instead of trusting the branch-time service set. Fixed in PR #32.
+
+**Evidence:** CS12 PVI review round 1 = NEEDS-FIX (authz-pdp unwired); PR #32 wired it (`OTEL_EXPORTER_OTLP_ENDPOINT` + `WaitFor(observability)`); round 2 = GO. `src/AuthzEntitlements.AppHost/AppHost.cs`.
+
+**Implications carried forward:**
+- For any cross-cutting "all services / all X" deliverable, the close-out plan-vs-impl review MUST enumerate the current set from the merged tree, not the branch-base set — concurrent sibling merges can add members after your branch forks.
+- When a CS adds a new ServiceDefaults service (CS06–CS09 adapters, future services), wire it to the observability collector in the same PR.
+
+### LRN-024
+
+```yaml
+id: LRN-024
+date: 2026-07-03
+category: architectural
+source_cs: CS12
+status: open
+tags: [grafana, otel-lgtm, security, aspire, observability]
+claim_area: observability
+```
+
+**Problem:** Exposing the bundled `grafana/otel-lgtm` Grafana with anonymous access for a frictionless lab. Lowering only the anonymous org role to `Editor` (from `Admin`) is insufficient: the image ships Grafana with the default `admin/admin` account, so anyone reaching the exposed UI could still log in as admin and escalate past the Editor cap.
+
+**Finding:** A complete anonymous-Editor "kiosk" needs the anonymous settings PLUS the default-admin auth paths closed: `GF_AUTH_ANONYMOUS_ENABLED=true` + `GF_AUTH_ANONYMOUS_ORG_ROLE=Editor` + **`GF_AUTH_DISABLE_LOGIN_FORM=true`** (no UI login) + **`GF_AUTH_BASIC_ENABLED=false`** (no HTTP Basic Auth). Disabling the login form ALONE still leaves Basic Auth (`curl -u admin:admin`) open. Separately, model the OTLP ingest ports (4317/4318) as `tcp` (not `http`) endpoints so `WithExternalHttpEndpoints()` marks ONLY the Grafana UI external, keeping ingest off-box; build the `http://host:port` exporter URL explicitly via `ReferenceExpression`. Datasource/dashboard provisioning is file-based at image startup and is unaffected by disabling interactive auth.
+
+**Evidence:** CS12 Copilot + GPT-5.5 review rounds; verified on `grafana/otel-lgtm:0.28.0`: `disableLoginForm=true`, `admin/admin` Basic Auth no longer authenticates as admin, anonymous `/api/org` works, Prometheus/Loki/Tempo datasources + both dashboards still provision. `src/AuthzEntitlements.AppHost/AppHost.cs`.
+
+**Implications carried forward:**
+- Any future externally-exposed dev UI backed by an image with a default admin account (Grafana, etc.) must disable BOTH the login form AND Basic Auth for an anonymous-only posture — anonymous role alone is not a boundary.
+- Model non-UI container ingress ports as `tcp` so `WithExternalHttpEndpoints()` does not inadvertently expose them.
+
+### LRN-025
+
+```yaml
+id: LRN-025
+date: 2026-07-03
+category: process
+source_cs: CS06
+status: open
+tags: [multi-agent, claim, rebase, workboard-auto-approve, ci]
+```
+
+**Problem:** During CS06's workboard claim PR, a *different* orchestrator closed out a dependency CS (CS05: content merge + active→done) on `main` while the claim branch was being prepared, advancing `main` past the claim branch's base.
+
+**Finding:** The `workboard-auto-approve` `validate-and-approve` job compares the PR's **2-dot** `git diff base_sha head_sha` file count against the GitHub API's **3-dot** `changed_files` count and **fails closed** when they diverge ("immutable git diff returned N files but PR reports M changed files"). When a branch falls behind `main`, the 2-dot diff picks up the other agent's merged changes and the counts mismatch. Fix: **rebase the branch onto latest `origin/main`** before the gate runs; the two counts then agree. This is a routine hazard for a fleet of parallel orchestrators — not specific to claim PRs.
+
+**Evidence:** CS06 claim PR #30 `validate-and-approve` failed with a 6-vs-2 changed-files mismatch after CS05 close-out (#29) landed; `git rebase origin/main` (onto cbebaf1) made CI green and it squash-merged. `.github/workflows/workboard-auto-approve.yml`.
+
+**Implications carried forward:**
+- In a multi-orchestrator repo, rebase any branch onto latest `origin/main` before push/merge if `main` advanced since branching — especially when a dependency CS may have closed out concurrently.
+
+### LRN-026
+
+```yaml
+id: LRN-026
+date: 2026-07-03
+category: architectural
+source_cs: CS06
+status: open
+tags: [pdp, adapters, rbac, casbin, aspnet, parity]
+claim_area: engines
+```
+
+**Problem:** The CS05 `ScenarioCatalogRunner` passes a provider ONLY when it returns the exact `Decision` AND primary reason code (`Reasons[0].Code`) in the reference's per-action ordering — but the fintech rules are mostly ABAC (tenant, subject-is-maker, pending, SoD, threshold), while CS06's engines (ASP.NET Core policies, Casbin) are RBAC baselines.
+
+**Finding:** Factor the adapter so a shared `FintechRuleEvaluator` owns the engine-agnostic part (per-action ordering + ABAC + obligations, in lock-step parity with the reference) and delegates ONLY role eligibility to the engine via `IEngineRoleAuthorizer.IsRoleAuthorized(action, roles)`. Each adapter is then thin (`Evaluate => FintechRuleEvaluator.Evaluate(request, this)`) and encodes its eligible-role SETS in its engine's native policy form (ASP.NET `RolesAuthorizationRequirement`; Casbin `(role, action)` policy pairs). Catalog parity is guaranteed by the shared evaluator while the engine genuinely owns the RBAC decision — realizing "same question, swappable engine" and honoring the CS06 plan-review amendment by handling ALL 22 cases rather than unsupported-denying non-RBAC ones.
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/{FintechRuleEvaluator,IEngineRoleAuthorizer}.cs` + `AspNetCore/AspNetCorePolicyProvider.cs` + `Casbin/CasbinDecisionProvider.cs`; both adapters pass all 22 `FintechScenarioCatalog` scenarios (PR #34; PDP tests 235/235).
+
+**Implications carried forward:**
+- CS07–CS09 adapter authors: reuse the `IEngineRoleAuthorizer` seam for RBAC-only engines. For richer engines — OpenFGA (ReBAC, CS07), OPA/Rego (CS08), Cedar (CS09) — weigh how much of the fintech decision the engine should own *natively* vs. compose via the shared evaluator; don't force the shared-evaluator split where the engine can express the full decision.
 
 ## Applied
 

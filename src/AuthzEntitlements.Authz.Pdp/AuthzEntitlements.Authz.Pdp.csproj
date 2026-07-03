@@ -15,4 +15,9 @@
     <PackageReference Include="OpenFga.Sdk" />
   </ItemGroup>
 
+  <!-- CS06: Casbin.NET backs the in-process "casbin" RBAC/ABAC PDP adapter. -->
+  <ItemGroup>
+    <PackageReference Include="Casbin.NET" />
+  </ItemGroup>
+
 </Project>
