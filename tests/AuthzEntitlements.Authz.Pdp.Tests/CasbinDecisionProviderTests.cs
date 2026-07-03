@@ -120,4 +120,26 @@ public sealed class CasbinDecisionProviderTests
         Assert.Equal(Decision.Deny, decision.Decision);
         Assert.Equal(ReasonCodes.RoleNotAuthorized, decision.Reasons[0].Code);
     }
+
+    // The catalog runner only checks Decision + primary reason code, not obligations; assert the
+    // adapter carries the exact maker-checker threshold obligation FintechRuleEvaluator attaches.
+    [Theory]
+    [InlineData(250, ObligationIds.PostImmediately)]
+    [InlineData(9_999, ObligationIds.PostImmediately)]
+    [InlineData(10_000, ObligationIds.RequireApproval)]
+    [InlineData(15_000, ObligationIds.RequireApproval)]
+    public void TransactionCreate_CarriesThresholdObligation(int amount, string expectedObligation)
+    {
+        var provider = new CasbinDecisionProvider();
+        var request = PdpRequests.For(
+            PdpRequests.User("user-teller1", PdpRequests.Contoso, RoleNames.Teller),
+            ActionNames.TransactionCreate,
+            new Resource("transaction", Tenant: PdpRequests.Contoso, Amount: amount, MakerId: "user-teller1"),
+            ScopeNames.TransactionsWrite);
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Permit, decision.Decision);
+        Assert.Equal(expectedObligation, Assert.Single(decision.Obligations).Id);
+    }
 }

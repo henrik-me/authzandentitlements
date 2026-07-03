@@ -7,7 +7,7 @@ namespace AuthzEntitlements.Authz.Pdp.Providers.Adapters;
 // pending status, segregation of duties) and the approval-threshold obligation — and calls
 // this hook only at the role step of a role-gated action. Each CS06-CS09 adapter answers it
 // with its engine (ASP.NET Core role policies, a Casbin RBAC model+policy, ...). Keeping the
-// eligible-role *sets* inside the engine (an ASP.NET policy, a Casbin policy.csv) is what
+// eligible-role *sets* inside the engine (an ASP.NET policy, a Casbin RBAC policy) is what
 // makes these genuine engine integrations rather than hard-coded role lists.
 public interface IEngineRoleAuthorizer
 {

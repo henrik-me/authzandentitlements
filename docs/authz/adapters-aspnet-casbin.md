@@ -39,7 +39,7 @@ CS06 factors the decision accordingly:
 - [`IEngineRoleAuthorizer`](../../src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/IEngineRoleAuthorizer.cs)
   is the one hook the evaluator delegates to the engine: `IsRoleAuthorized(action,
   subjectRoles)`. Each adapter answers it with its own engine, and encodes the eligible-role
-  *sets* in that engine's native policy form (an ASP.NET policy, a Casbin `policy.csv`) —
+  *sets* in that engine's native policy form (an ASP.NET policy, a Casbin RBAC policy) —
   which is what makes these genuine engine integrations rather than hard-coded role lists.
 
 So an adapter is thin by design — it supplies a role gate and defers everything else:
@@ -81,8 +81,9 @@ available to the Web SDK project).
 ## The `casbin` engine
 
 `CasbinDecisionProvider` (`Name = "casbin"`) answers the role gate with a Casbin.NET RBAC
-model + policy loaded from embedded text (no `.conf`/`.csv` files on disk, no adapter store).
-The model maps a subject to an action:
+model + policy: the model is embedded as a text constant and the policy is a set of in-memory
+`(role, action)` pairs added programmatically via `AddPolicy` at construction — no
+`.conf`/`.csv` files on disk, no persistent adapter store. The model maps a subject to an action:
 
 ```ini
 [request_definition]
@@ -95,7 +96,7 @@ e = some(where (p.eft == allow))
 m = r.sub == p.sub && r.act == p.act
 ```
 
-with a policy line per eligible `(role, action)` pair. `IsRoleAuthorized` enforces the
+with one `AddPolicy(role, action)` grant per eligible pair. `IsRoleAuthorized` enforces the
 subject's roles against the action:
 
 ```csharp
