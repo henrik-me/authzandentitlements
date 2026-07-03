@@ -38,6 +38,12 @@ using (var scope = app.Services.CreateScope())
 
 app.MapDefaultEndpoints();
 
+// Audit middleware wraps auth so it observes the FINAL status, including the
+// 401/403 that authentication/authorization short-circuit. It emits one
+// structured, audit-ready fine-grained authorization-decision event per /api
+// request (CS13 ingests these).
+app.UseMiddleware<BankAuthorizationAuditMiddleware>();
+
 // AuthN/AuthZ middleware. Endpoints without RequireAuthorization (the "/" info
 // endpoint and health checks) remain anonymous.
 app.UseAuthentication();
