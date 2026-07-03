@@ -43,23 +43,25 @@ app.UseMiddleware<GatewayAuditMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Marker: reached only when the coarse authorization policy passed (a denied
-// request is short-circuited by UseAuthorization above). GatewayAuditMiddleware
-// reads this to tell an edge deny apart from an edge allow that was routed to
-// Bank.Api, so a downstream fine-grained 403 is audited as allow/routed.
-app.Use(async (context, nextMiddleware) =>
+app.MapReverseProxy(proxyPipeline =>
 {
-    // Only a MATCHED endpoint (a YARP proxy route) carries the coarse policy that
-    // UseAuthorization just evaluated and passed. Unmatched /api requests (no route
-    // for the method) reach here with a null endpoint and no policy — they 404
-    // without being routed, so they must NOT be recorded as an edge allow.
-    if (context.GetEndpoint() is not null)
+    // The edge-authorized marker lives INSIDE the proxy pipeline, so it is set only
+    // for a request that matched a real YARP route AND cleared its coarse policy and
+    // is about to be forwarded to Bank.Api — precisely an edge allow/routed. A coarse
+    // deny is short-circuited by UseAuthorization before the endpoint runs, and an
+    // unmatched path (404) or unsupported method (ASP.NET's synthetic 405 endpoint)
+    // never enters this pipeline, so neither is ever recorded as an edge allow.
+    proxyPipeline.Use(async (context, nextProxy) =>
     {
         context.Items[GatewayAuditMiddleware.EdgeAuthorizedItemKey] = true;
-    }
-    await nextMiddleware(context);
-});
+        await nextProxy(context);
+    });
 
-app.MapReverseProxy();
+    // Preserve YARP's standard proxy steps (the custom pipeline replaces the
+    // defaults except the always-present initializer + forwarder).
+    proxyPipeline.UseSessionAffinity();
+    proxyPipeline.UseLoadBalancing();
+    proxyPipeline.UsePassiveHealthChecks();
+});
 
 app.Run();
