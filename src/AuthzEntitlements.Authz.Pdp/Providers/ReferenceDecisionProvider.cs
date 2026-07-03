@@ -119,8 +119,11 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
         return AccessDecision.Permit(PermitReason(), obligation);
     }
 
-    // Approving/rejecting requires the approvals scope, a checker-eligible role,
-    // same-tenant access, segregation of duties (checker != maker), and a pending target.
+    // Approving/rejecting requires the approvals scope, a checker-eligible role, same-tenant
+    // access, a pending target, and segregation of duties (checker != maker). Pending is
+    // checked BEFORE SoD to mirror Bank.Api's Approval.Decide, which rejects an already-decided
+    // approval before the maker==checker check — so a self-approval of an already-decided
+    // transaction denies NotPending, exactly as the enforced domain rule does.
     private static AccessDecision EvaluateApprovalDecision(AccessRequest request)
     {
         if (!HasScope(request, ScopeNames.ApprovalsWrite))
@@ -139,18 +142,18 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
             return TenantMismatch();
         }
 
-        if (SubjectIsMaker(request))
-        {
-            return AccessDecision.Deny(new Reason(
-                ReasonCodes.MakerEqualsChecker,
-                "Segregation of duties: the checker may not be the maker of the transaction."));
-        }
-
         if (!IsPending(request))
         {
             return AccessDecision.Deny(new Reason(
                 ReasonCodes.NotPending,
                 "Only a pending transaction can be approved or rejected."));
+        }
+
+        if (SubjectIsMaker(request))
+        {
+            return AccessDecision.Deny(new Reason(
+                ReasonCodes.MakerEqualsChecker,
+                "Segregation of duties: the checker may not be the maker of the transaction."));
         }
 
         return Permitted();

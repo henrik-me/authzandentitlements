@@ -70,7 +70,7 @@ records: `Subject` + `ActionRequest` (bound to the JSON field `action`) + `Resou
 |---|---|---|---|
 | `Type` | `string` | AuthZEN subject type | `"user"` |
 | `Id` | `string` | Stable subject id (matched against a transaction's maker) | `"user-teller1"` |
-| `Roles` | `string[]` | Fintech roles the subject holds (see [Roles](#roles)) | `["Teller"]` |
+| `Roles` | `IReadOnlyList<string>` | Fintech roles the subject holds (see [Roles](#roles)); JSON array | `["Teller"]` |
 | `Tenant` | `string?` | Owning tenant; **null/empty fails closed** on tenant checks | `"CONTOSO"` |
 | `Branch` | `string?` | Carried, but not yet evaluated (branch ABAC is deferred) | `null` |
 
@@ -101,7 +101,7 @@ Attributes a rule does not need stay `null`.
 
 | Field | Type | Meaning | Example |
 |---|---|---|---|
-| `Scopes` | `string[]` | Coarse OAuth scopes the PDP re-checks (see [Scopes](#scopes)) | `["bank.read"]` |
+| `Scopes` | `IReadOnlyList<string>` | Coarse OAuth scopes the PDP re-checks (see [Scopes](#scopes)); JSON array | `["bank.read"]` |
 
 ### JSON on the wire
 
@@ -180,8 +180,8 @@ decision plus the reasons that explain it and any obligations to honour on a per
 | Field | Type | Meaning |
 |---|---|---|
 | `Decision` | `Decision` enum | `Permit` or `Deny`. **`Deny = 0`**, so the zero value **fails closed** |
-| `Reasons` | `Reason[]` | Why. `Reasons[0]` is the **primary** reason (parity + audit key on it) |
-| `Obligations` | `Obligation[]` | Post-decision requirements to honour on a permit (empty on deny) |
+| `Reasons` | `IReadOnlyList<Reason>` | Why. `Reasons[0]` is the **primary** reason (parity + audit key on it) |
+| `Obligations` | `IReadOnlyList<Obligation>` | Post-decision requirements to honour on a permit (empty on deny) |
 
 A `Reason` is a machine-stable `Code` + a human `Message`; the `Code` is the contract other layers
 match on and stays stable even if the wording changes. An `Obligation` is an `Id` plus optional
@@ -297,9 +297,13 @@ at the service, not by a dedicated scope).
 | 1 | `bank.approvals.write` scope present | `MissingScope` |
 | 2 | Subject has a checker-eligible role | `RoleNotAuthorized` |
 | 3 | Subject tenant matches resource tenant | `TenantMismatch` |
-| 4 | Checker is **not** the maker (`Subject.Id != MakerId`) | `MakerEqualsChecker` |
-| 5 | `Resource.Status` is `"Pending"` | `NotPending` |
+| 4 | `Resource.Status` is `"Pending"` | `NotPending` |
+| 5 | Checker is **not** the maker (`Subject.Id != MakerId`) | `MakerEqualsChecker` |
 | ✓ | otherwise | **Permit** (`Permit`) |
+
+Pending is checked **before** segregation of duties, mirroring Bank.Api's `Approval.Decide`,
+which rejects an already-decided approval before the maker-equals-checker check. A self-approval
+of an already-decided transaction therefore denies `NotPending`.
 
 ### Any other action
 

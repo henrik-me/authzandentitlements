@@ -17,15 +17,17 @@ public static class PdpEndpoints
         // AuthZEN Access Evaluation: one request in, one self-explaining decision out.
         group.MapPost("/evaluate", (AccessRequest? request, PdpDecisionService decisions) =>
         {
-            // Fail closed on a missing/empty body rather than dereferencing null.
-            if (request is null)
+            // Fail closed on a missing OR structurally-incomplete body: System.Text.Json turns
+            // a "{}" body into an AccessRequest whose nested records are null, so a bare null
+            // check is not enough — dereferencing those nulls downstream would surface a 500.
+            // A malformed request is a 400, never an evaluated decision.
+            var validationError = AccessRequestValidation.Validate(request);
+            if (validationError is not null)
             {
-                return Results.Problem(
-                    "A JSON AccessRequest body (subject, action, resource, context) is required.",
-                    statusCode: StatusCodes.Status400BadRequest);
+                return Results.Problem(validationError, statusCode: StatusCodes.Status400BadRequest);
             }
 
-            return Results.Ok(decisions.Evaluate(request));
+            return Results.Ok(decisions.Evaluate(request!));
         });
 
         // Lists the shared scenario catalog (ids, descriptions, expected outcomes).

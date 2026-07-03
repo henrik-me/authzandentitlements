@@ -401,16 +401,18 @@ public sealed class ReferenceDecisionProviderTests
     }
 
     [Fact]
-    public void Approval_SoDCheckedBeforePendingStatus()
+    public void Approval_PendingCheckedBeforeSoD()
     {
-        // Checker == maker AND non-pending: SoD is evaluated before the pending check.
+        // Checker == maker AND non-pending: pending is evaluated before SoD, mirroring
+        // Bank.Api's Approval.Decide (already-decided rejected before the maker==checker check),
+        // so the combined case denies NotPending — not MakerEqualsChecker.
         var request = PdpRequests.For(
             PdpRequests.User("mgr", PdpRequests.Contoso, RoleNames.BranchManager),
             ActionNames.TransactionApprove,
             Transaction(PdpRequests.Contoso, 15_000m, "mgr", "Approved"),
             ScopeNames.ApprovalsWrite);
 
-        AssertDeny(request, ReasonCodes.MakerEqualsChecker);
+        AssertDeny(request, ReasonCodes.NotPending);
     }
 
     // --- Fail-closed unknown action ---
