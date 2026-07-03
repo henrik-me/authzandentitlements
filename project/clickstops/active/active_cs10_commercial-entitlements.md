@@ -33,10 +33,10 @@ Model commercial entitlements: plan tiers, module licensing, seats, feature gate
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Model plans + entitlements | pending | — | |
-| Add OpenFeature + Unleash | pending | — | |
-| Implement metering + quotas | pending | — | |
-| Enforce in API | pending | — | |
+| Model plans + entitlements | done | yoga-ae | agent-id=cs10-entitlements-service \| role=service-impl \| report-status=complete \| learnings=3 |
+| Add OpenFeature + Unleash | done | yoga-ae | agent-id=cs10-entitlements-service \| role=service-impl \| report-status=complete \| learnings=3 (OpenFeature 2.14.0 in-memory default + config-gated real Unleash.Client 6.2.1 provider; Unleash container in AppHost via WithExplicitStart) |
+| Implement metering + quotas | done | yoga-ae | agent-id=cs10-entitlements-service \| role=service-impl \| report-status=complete \| learnings=3 (OTel Meter `AuthzEntitlements.Entitlements` + Postgres UsageCounter, xmin-concurrency consume) |
+| Enforce in API | done | yoga-ae | agent-id=cs10-bankapi-enforcement \| role=enforcement-impl \| report-status=complete \| learnings=0 (wire-module/high-value-feature/monthly-quota gates, fail-closed) |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 

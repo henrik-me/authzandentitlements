@@ -1,0 +1,279 @@
+using AuthzEntitlements.Entitlements.Service.Contracts;
+using AuthzEntitlements.Entitlements.Service.Data;
+using AuthzEntitlements.Entitlements.Service.Domain;
+using AuthzEntitlements.Entitlements.Service.Features;
+using AuthzEntitlements.Entitlements.Service.Metering;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.EntityFrameworkCore;
+
+namespace AuthzEntitlements.Entitlements.Service.Endpoints;
+
+// The commercial entitlements API. Every decision (module/feature/quota/seat) emits an
+// audit-ready event and a metric. Endpoints are anonymous: this service is called
+// intra-cluster by Bank.Api; edge/token concerns are handled in other CSs. Lookups are
+// keyed by tenant Code. Unknown tenants fail closed with a deny/empty result and HTTP
+// 200 (so the caller can fail closed itself) — except /plan, which returns 404.
+public static class EntitlementsEndpoints
+{
+    private const string NoSubscription = "no subscription";
+    private const int MaxConsumeAttempts = 8;
+
+    public static IEndpointRouteBuilder MapEntitlementsEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/entitlements/{tenantCode}");
+
+        group.MapGet("/plan", GetPlanAsync);
+        group.MapGet("/modules/{moduleKey}", GetModuleAsync);
+        group.MapGet("/features/{featureKey}", GetFeatureAsync);
+        group.MapPost("/quotas/{quotaKey}/consume", ConsumeQuotaAsync);
+        group.MapGet("/seats", GetSeatsAsync);
+
+        return app;
+    }
+
+    private static async Task<IResult> GetPlanAsync(
+        string tenantCode, EntitlementsDbContext db, CancellationToken ct)
+    {
+        var subscription = await db.Subscriptions.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantCode == tenantCode, ct);
+        if (subscription is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var plan = await db.Plans.AsNoTracking()
+            .Include(p => p.Modules)
+            .FirstAsync(p => p.Tier == subscription.PlanTier, ct);
+
+        var seatsUsed = await db.SeatAssignments.AsNoTracking()
+            .CountAsync(a => a.SubscriptionId == subscription.Id, ct);
+
+        var modules = plan.Modules
+            .Select(m => m.ModuleKey)
+            .OrderBy(k => k, StringComparer.Ordinal)
+            .ToArray();
+
+        var features = FeatureCatalog.FeaturesFor(subscription.PlanTier).ToArray();
+
+        return TypedResults.Ok(new PlanSummaryResponse(
+            tenantCode,
+            subscription.PlanTier.ToString(),
+            plan.SeatLimit,
+            seatsUsed,
+            modules,
+            features));
+    }
+
+    private static async Task<IResult> GetModuleAsync(
+        string tenantCode,
+        string moduleKey,
+        EntitlementsDbContext db,
+        IEntitlementAuditSink audit,
+        EntitlementsMetrics metrics,
+        CancellationToken ct)
+    {
+        var subscription = await db.Subscriptions.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantCode == tenantCode, ct);
+        if (subscription is null)
+        {
+            Emit(audit, metrics, tenantCode, EntitlementDecisionType.Module, moduleKey,
+                EntitlementOutcome.Deny, planTier: string.Empty);
+            return TypedResults.Ok(new ModuleEntitlementResponse(false, string.Empty, NoSubscription));
+        }
+
+        var entitled = await db.PlanModules.AsNoTracking()
+            .AnyAsync(m => m.PlanTier == subscription.PlanTier && m.ModuleKey == moduleKey, ct);
+
+        var planTier = subscription.PlanTier.ToString();
+        var reason = entitled ? "module licensed" : "module not in plan";
+        Emit(audit, metrics, tenantCode, EntitlementDecisionType.Module, moduleKey,
+            entitled ? EntitlementOutcome.Allow : EntitlementOutcome.Deny, planTier);
+
+        return TypedResults.Ok(new ModuleEntitlementResponse(entitled, planTier, reason));
+    }
+
+    private static async Task<IResult> GetFeatureAsync(
+        string tenantCode,
+        string featureKey,
+        EntitlementsDbContext db,
+        IFeatureGate featureGate,
+        IEntitlementAuditSink audit,
+        EntitlementsMetrics metrics,
+        CancellationToken ct)
+    {
+        var subscription = await db.Subscriptions.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantCode == tenantCode, ct);
+        if (subscription is null)
+        {
+            Emit(audit, metrics, tenantCode, EntitlementDecisionType.Feature, featureKey,
+                EntitlementOutcome.Deny, planTier: string.Empty);
+            return TypedResults.Ok(new FeatureEntitlementResponse(false, string.Empty, NoSubscription));
+        }
+
+        var enabled = await featureGate.IsEnabledAsync(featureKey, subscription.PlanTier, ct);
+        var planTier = subscription.PlanTier.ToString();
+        var reason = !FeatureCatalog.IsKnown(featureKey)
+            ? "unknown feature"
+            : enabled ? "feature enabled" : "feature disabled";
+
+        Emit(audit, metrics, tenantCode, EntitlementDecisionType.Feature, featureKey,
+            enabled ? EntitlementOutcome.Allow : EntitlementOutcome.Deny, planTier);
+
+        return TypedResults.Ok(new FeatureEntitlementResponse(enabled, planTier, reason));
+    }
+
+    private static async Task<IResult> ConsumeQuotaAsync(
+        string tenantCode,
+        string quotaKey,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ConsumeQuotaRequest? request,
+        EntitlementsDbContext db,
+        IEntitlementAuditSink audit,
+        EntitlementsMetrics metrics,
+        CancellationToken ct)
+    {
+        var amount = request is { Amount: > 0 } ? request.Amount : 1;
+
+        var subscription = await db.Subscriptions.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantCode == tenantCode, ct);
+        if (subscription is null)
+        {
+            EmitQuota(audit, metrics, tenantCode, quotaKey, EntitlementOutcome.Deny,
+                planTier: string.Empty, amount, used: 0, limit: 0, consumed: 0);
+            return TypedResults.Ok(new QuotaConsumeResponse(false, 0, 0, 0, NoSubscription));
+        }
+
+        var planTier = subscription.PlanTier.ToString();
+        var planQuota = await db.PlanQuotas.AsNoTracking()
+            .FirstOrDefaultAsync(q => q.PlanTier == subscription.PlanTier && q.QuotaKey == quotaKey, ct);
+        if (planQuota is null)
+        {
+            EmitQuota(audit, metrics, tenantCode, quotaKey, EntitlementOutcome.Deny,
+                planTier, amount, used: 0, limit: 0, consumed: 0);
+            return TypedResults.Ok(new QuotaConsumeResponse(false, 0, 0, 0, "quota not in plan"));
+        }
+
+        var limit = planQuota.Limit;
+        var period = UsageCounter.CurrentPeriod(DateTimeOffset.UtcNow);
+
+        // Optimistic-concurrency retry: two concurrent consumes may read the same Used;
+        // the xmin token (or the unique-index insert) makes the loser fail, so we reload
+        // and re-evaluate rather than over-granting quota.
+        for (var attempt = 1; ; attempt++)
+        {
+            var counter = await db.UsageCounters
+                .FirstOrDefaultAsync(
+                    u => u.TenantCode == tenantCode && u.QuotaKey == quotaKey && u.PeriodKey == period, ct);
+
+            var used = counter?.Used ?? 0;
+            var decision = QuotaDecision.Evaluate(limit, used, amount);
+
+            if (!decision.Allowed)
+            {
+                EmitQuota(audit, metrics, tenantCode, quotaKey, EntitlementOutcome.Deny,
+                    planTier, amount, decision.Used, decision.Limit, consumed: 0);
+                return TypedResults.Ok(new QuotaConsumeResponse(
+                    false, decision.Limit, decision.Used, decision.Remaining, decision.Reason));
+            }
+
+            if (counter is null)
+            {
+                db.UsageCounters.Add(new UsageCounter
+                {
+                    Id = Guid.NewGuid(),
+                    TenantCode = tenantCode,
+                    QuotaKey = quotaKey,
+                    PeriodKey = period,
+                    Used = decision.Used,
+                });
+            }
+            else
+            {
+                counter.Used = decision.Used;
+            }
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException) when (attempt < MaxConsumeAttempts)
+            {
+                db.ChangeTracker.Clear();
+                continue;
+            }
+
+            EmitQuota(audit, metrics, tenantCode, quotaKey, EntitlementOutcome.Allow,
+                planTier, amount, decision.Used, decision.Limit, consumed: amount);
+            return TypedResults.Ok(new QuotaConsumeResponse(
+                true, decision.Limit, decision.Used, decision.Remaining, decision.Reason));
+        }
+    }
+
+    private static async Task<IResult> GetSeatsAsync(
+        string tenantCode,
+        EntitlementsDbContext db,
+        IEntitlementAuditSink audit,
+        EntitlementsMetrics metrics,
+        CancellationToken ct)
+    {
+        var subscription = await db.Subscriptions.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantCode == tenantCode, ct);
+        if (subscription is null)
+        {
+            Emit(audit, metrics, tenantCode, EntitlementDecisionType.Seat, "seats",
+                EntitlementOutcome.Deny, planTier: string.Empty);
+            return TypedResults.Ok(new SeatSummaryResponse(string.Empty, 0, 0, 0));
+        }
+
+        var plan = await db.Plans.AsNoTracking().FirstAsync(p => p.Tier == subscription.PlanTier, ct);
+        var seatsUsed = await db.SeatAssignments.AsNoTracking()
+            .CountAsync(a => a.SubscriptionId == subscription.Id, ct);
+        var remaining = SeatMath.Remaining(plan.SeatLimit, seatsUsed);
+
+        Emit(audit, metrics, tenantCode, EntitlementDecisionType.Seat, "seats",
+            SeatMath.HasCapacity(plan.SeatLimit, seatsUsed) ? EntitlementOutcome.Allow : EntitlementOutcome.Deny,
+            subscription.PlanTier.ToString());
+
+        return TypedResults.Ok(new SeatSummaryResponse(
+            subscription.PlanTier.ToString(), plan.SeatLimit, seatsUsed, remaining));
+    }
+
+    private static void Emit(
+        IEntitlementAuditSink audit,
+        EntitlementsMetrics metrics,
+        string tenantCode,
+        EntitlementDecisionType type,
+        string key,
+        EntitlementOutcome outcome,
+        string planTier)
+    {
+        audit.Record(new EntitlementDecision(
+            tenantCode, type, key, outcome, planTier, Amount: null, Used: null, Limit: null,
+            DateTimeOffset.UtcNow));
+        metrics.RecordDecision(type.ToString().ToLowerInvariant(), outcome.ToString().ToLowerInvariant());
+    }
+
+    private static void EmitQuota(
+        IEntitlementAuditSink audit,
+        EntitlementsMetrics metrics,
+        string tenantCode,
+        string quotaKey,
+        EntitlementOutcome outcome,
+        string planTier,
+        long amount,
+        long used,
+        long limit,
+        long consumed)
+    {
+        audit.Record(new EntitlementDecision(
+            tenantCode, EntitlementDecisionType.Quota, quotaKey, outcome, planTier,
+            amount, used, limit, DateTimeOffset.UtcNow));
+        metrics.RecordDecision(
+            EntitlementDecisionType.Quota.ToString().ToLowerInvariant(),
+            outcome.ToString().ToLowerInvariant());
+        if (consumed > 0)
+        {
+            metrics.RecordQuotaConsumed(quotaKey, consumed);
+        }
+    }
+}

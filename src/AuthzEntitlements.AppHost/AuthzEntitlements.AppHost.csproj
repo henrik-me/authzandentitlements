@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\AuthzEntitlements.Bank.Api\AuthzEntitlements.Bank.Api.csproj" />
     <ProjectReference Include="..\AuthzEntitlements.Bank.Web\AuthzEntitlements.Bank.Web.csproj" />
+    <ProjectReference Include="..\AuthzEntitlements.Entitlements.Service\AuthzEntitlements.Entitlements.Service.csproj" />
   </ItemGroup>
 
 </Project>

@@ -55,6 +55,17 @@
     <PackageVersion Include="Microsoft.Build.Utilities.Core" Version="17.14.28" />
   </ItemGroup>
 
+  <!--
+    CS10 (Commercial / product entitlements). OpenFeature is the vendor-neutral
+    feature-flag SDK used for feature gates; the in-memory provider is the default,
+    deterministic path. Unleash.Client backs the optional config-gated Unleash
+    provider (Entitlements:FeatureProvider=Unleash) and is never on the tested path.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="OpenFeature" Version="2.14.0" />
+    <PackageVersion Include="Unleash.Client" Version="6.2.1" />
+  </ItemGroup>
+
   <!-- CS02: xUnit test stack for the pure-domain unit tests. -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />

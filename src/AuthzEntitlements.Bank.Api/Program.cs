@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using AuthzEntitlements.Bank.Api.Auth;
 using AuthzEntitlements.Bank.Api.Data;
 using AuthzEntitlements.Bank.Api.Endpoints;
+using AuthzEntitlements.Bank.Api.Entitlements;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +25,16 @@ builder.Services.AddDbContext<BankDbContext>(options =>
 // Serialize enums as their names so the wire contract is stable and readable.
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+// Commercial-entitlement enforcement calls the Entitlements.Service over HTTP. The
+// "https+http://entitlements-service" scheme is resolved by Aspire service discovery and
+// AddServiceDefaults already wraps every HttpClient in the standard resilience handler.
+builder.Services.AddHttpClient<IEntitlementsClient, EntitlementsClient>(client =>
+    client.BaseAddress = new Uri("https+http://entitlements-service"));
+
+// The enforcer is stateless (its only dependency is a singleton logger) and holds no
+// per-request state, so a single shared instance is safe.
+builder.Services.AddSingleton<EntitlementsEnforcer>();
 
 var app = builder.Build();
 
