@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AuthzEntitlements.Bank.Api\AuthzEntitlements.Bank.Api.csproj" />
+    <ProjectReference Include="..\AuthzEntitlements.Edge.Gateway\AuthzEntitlements.Edge.Gateway.csproj" />
     <ProjectReference Include="..\AuthzEntitlements.Bank.Web\AuthzEntitlements.Bank.Web.csproj" />
   </ItemGroup>
 
