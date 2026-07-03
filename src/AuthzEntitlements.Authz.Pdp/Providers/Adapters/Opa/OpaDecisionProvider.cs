@@ -11,9 +11,10 @@ namespace AuthzEntitlements.Authz.Pdp.Providers.Adapters.Opa;
 // {"result":{decision,reason,obligations}} back onto the shared AccessDecision contract, so the
 // Rego policy answers the SAME question shape as the in-process reference engine.
 //
-// The IAuthorizationDecisionProvider contract is synchronous. OPA is reached over HTTP, so this
-// provider does sync-over-HTTP via HttpClient.Send (NOT .Result/.Wait/.GetAwaiter().GetResult()) —
-// the contract note explicitly sanctions this for out-of-process adapters.
+// The IAuthorizationDecisionProvider contract is synchronous; its note says an out-of-process
+// adapter "may compute a result asynchronously internally and return it here". This provider
+// returns synchronously by issuing a synchronous HttpClient.Send, rather than blocking on an async
+// call (.Result / .Wait / .GetAwaiter().GetResult()).
 //
 // Fail-closed posture: any failure to obtain a well-formed Permit/Deny from OPA — transport error,
 // timeout, non-success status, an absent "result" (policy undefined for the input), a missing
