@@ -86,4 +86,27 @@ Provide persistent observability beyond the dev-time Aspire dashboard.
 
 ## Plan-vs-implementation review
 
-_Pending — completed at close-out per OPERATIONS.md § Plan-vs-implementation review (close-out gate). The GO/NEEDS-FIX outcome is recorded here before the active → done rename._
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-03T22:15:00Z
+**Outcome:** GO
+
+Round 1 returned **NEEDS-FIX**: the CS05 `authz-pdp` service (merged concurrently with CS12) used
+`AddServiceDefaults()` + a custom PDP-decision `ActivitySource`/`Meter` but was registered in the
+AppHost without `OTEL_EXPORTER_OTLP_ENDPOINT`, leaving deliverable D-2 incomplete. Fixed in PR #32
+(authz-pdp now fans OTLP out to the observability collector like the other four services). Round 2,
+after the fix, is **GO**.
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| D-1 — OTel Collector + Prometheus + Loki + Tempo + Grafana in the AppHost | match | The `grafana/otel-lgtm:0.28.0` bundle (per D1) contains all five components, exposed via OTLP gRPC/HTTP + Grafana endpoints, with a persistent `/data` volume and dashboard bind-mounts. |
+| D-2 — ServiceDefaults OTel fanned out to the collector | match | All five `AddServiceDefaults()` services (bank-api, entitlements-service, edge-gateway, bank-web, authz-pdp) inject `OTEL_EXPORTER_OTLP_ENDPOINT` + `WaitFor(observability)`; no other `AddProject` service uses ServiceDefaults unwired. |
+| D-3 — Baseline Grafana dashboards | match | `service-health.json` + `request-rates.json` provisioned read-only via `dashboards-provisioning.yaml`. |
+
+Test-coverage assessment: **sufficient**. CS12 is AppHost/container infra (not unit-testable in this
+repo's model). Build 0/0, full suite 279/279, `harness lint` 22/0, and standalone
+`grafana/otel-lgtm:0.28.0` verification (both dashboards provision on Grafana 13.0.1; Prometheus
+(default)/Loki/Tempo datasources present; admin/admin Basic Auth blocked) are adequate. The full
+`aspire run` end-to-end telemetry-flow check is a documented close-out follow-up (deferred: a parallel
+`aspire run` may be active + LRN-014), not an implementation mismatch.
