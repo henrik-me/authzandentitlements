@@ -78,7 +78,7 @@ Authoritative contract shared by all CS03 sub-agents. Aligns the Keycloak realm 
 
 ## Notes / Learnings
 
-**Delivered (content PR `cs03/content`):** Keycloak Aspire container + `authz-bank` realm import (`infra/keycloak/authz-bank-realm.json`); JWT bearer validation + role/scope/tenant authorization on Bank.Api (`Auth/` module, endpoints gated); Bank.Web OIDC login stub (`/`, `/login`, `/claims`, `/logout`); Entra ID mapping doc (`docs/identity/entra-id.md`); 18 new tests (7→25).
+**Delivered (content PR `cs03/content`):** Keycloak Aspire container + `authz-bank` realm import (`infra/keycloak/authz-bank-realm.json`); JWT bearer validation + role/scope/tenant authorization on Bank.Api (`Auth/` module, endpoints gated); Bank.Web OIDC login stub (`/`, `/login`, `/claims`, `/logout`); Entra ID mapping doc (`docs/identity/entra-id.md`); 21 new tests (7→28).
 
 **Sub-agents (Wave A, disjoint ownership):** `cs03-realm` (claude-opus-4.6), `cs03-bank-api-authz`, `cs03-bank-web`, `cs03-entra-doc` (claude-opus-4.8). AppHost integration + all runtime fixes by orchestrator `yoga-ae-c2` (claude-opus-4.8).
 

@@ -143,9 +143,18 @@ public static class TransactionEndpoints
             return TypedResults.Forbid();
         }
 
+        // Fail-closed token-tenant scoping, consistent with every other endpoint: the
+        // transaction is resolved only within the caller's token tenant, so a missing/
+        // unknown tenant claim (or a cross-tenant target) never decides an approval.
+        var callerTenantId = await user.ResolveCallerTenantIdAsync(db, ct);
+        if (callerTenantId is null)
+        {
+            return TypedResults.Forbid();
+        }
+
         var txn = await db.Transactions
             .Include(t => t.Approval)
-            .FirstOrDefaultAsync(t => t.Id == transactionId, ct);
+            .FirstOrDefaultAsync(t => t.Id == transactionId && t.TenantId == callerTenantId, ct);
 
         if (txn is null)
         {
