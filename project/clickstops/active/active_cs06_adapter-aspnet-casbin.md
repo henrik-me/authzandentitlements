@@ -34,10 +34,12 @@ Provide the .NET-native baselines (RBAC) as container-free adapters: ASP.NET Cor
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Implement ASP.NET policy adapter | pending | — | |
-| Implement Casbin adapter | pending | — | |
-| Map scenarios | pending | — | |
-| Verify lite profile | pending | — | |
+| Shared rule-evaluator foundation | done | yoga-ae-c4 | Orchestrator seam: FintechRuleEvaluator + IEngineRoleAuthorizer (per-action ordering + ABAC; role gate delegated to the engine) |
+| Implement ASP.NET policy adapter | in progress | sub-agent | agent-id=cs06-aspnet \| role=engine-adapter \| report-status=pending \| learnings=0 |
+| Implement Casbin adapter | in progress | sub-agent | agent-id=cs06-casbin \| role=engine-adapter \| report-status=pending \| learnings=0 |
+| Map scenarios (per-adapter catalog parity) | pending | sub-agent | Each adapter runs the 22-scenario FintechScenarioCatalog to green (decision + primary reason code) |
+| Register adapters + verify lite profile | pending | yoga-ae-c4 | AddPdp registers aspnet+casbin; default stays reference; no containers |
+| Adapter docs | pending | yoga-ae-c4 | docs/authz/adapters-aspnet-casbin.md + pointer from pdp-contract.md |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 
