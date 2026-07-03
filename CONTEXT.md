@@ -53,9 +53,23 @@ Boundary doc at `docs/architecture/coarse-vs-fine-boundary.md`. Build 0/0; gatew
 runtime-verified against live Keycloak (401 no-token; scope-differentiated allow/deny; 405 not audited). GPT-5.5
 rubber-duck (edge R1–R6) + Copilot reviewed. New learnings LRN-013..014.
 
-**Next claimable:** CS05 (AuthZEN-aligned PDP abstraction) and CS12 (observability stack) — Wave 2, depend on CS02
-(CS10 is active). CS04 (with CS03/CS06/CS10/CS11) advances toward CS14 (Blazor product UI) and, with CS05, CS18
-(security hardening). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
+**CS10 (commercial / product entitlements) complete** (PR #18, merged 2026-07-03). A new `AuthzEntitlements.Entitlements.Service`
+(ASP.NET Core minimal APIs, net10.0) owns the `entitlements` DB and models **commercial entitlements**: plan tiers
+(Standard/Professional/Enterprise) with module licensing (`wire`/`fx`/`treasury`), seat limits, feature gates, and usage
+quotas. Feature gates go through **OpenFeature 2.14.0** — an in-memory provider (seeded from a single `FeatureCatalog`) is the
+deterministic default; a config-gated `Unleash.Client` 6.2.1 provider + an `unleash` container (`WithExplicitStart`, off the
+critical path) are the managed-flag option. Quotas use a Postgres `UsageCounter` (`xmin` optimistic-concurrency consume) + an
+OTel `Meter`; **seat assignment enforces capacity atomically via a per-subscription Postgres advisory transaction lock**
+(`pg_advisory_xact_lock` — serializes rather than conflict-retries; 0-error / no over-allocation verified under 30-way
+concurrency). `Bank.Api` gains a typed, service-discovered **fail-closed** `IEntitlementsClient` + `EntitlementsEnforcer`
+gating `POST /api/transactions` (wire-module / high-value-transactions-feature / monthly-quota → 402/403/429; 503 when the
+service is unreachable). Every decision emits an **audit-ready** structured event (lower-case fields; Audit.Service ingests in
+CS13). `dotnet build` 0/0, full-solution `dotnet test` 140/140; runtime-verified against Postgres 17. GPT-5.5 rubber-duck
+R1–R9 + 5 Copilot rounds (all resolved). New learnings LRN-015..017.
+
+**Next claimable:** CS05 (AuthZEN-aligned PDP abstraction) and CS12 (observability stack) — Wave 2, depend on CS02.
+CS10's completion advances CS14 (Blazor product UI; needs CS03/CS04/CS06/CS10/CS11) and CS22 (compliance; needs
+CS11/CS12/CS13). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
 
 ## Constraints
 
