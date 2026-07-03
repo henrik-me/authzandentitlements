@@ -50,7 +50,7 @@ root, follow [INSTRUCTIONS.md](INSTRUCTIONS.md) (Session Start checklist), then 
 ready clickstop. Session sanity check + queue listing:
 
 ```sh
-npx -y github:henrik-me/agent-harness#v0.12.0 startup
+npx -y github:henrik-me/agent-harness#v0.13.0 startup
 ```
 
 - **What to build and in what order:** [CONTEXT.md](CONTEXT.md) — the clickstop dependency + lane map and parallelization waves. The queue lives in `project/clickstops/planned/` (27 clickstops; **CS01** first).

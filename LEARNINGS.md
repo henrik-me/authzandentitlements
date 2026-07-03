@@ -122,19 +122,17 @@ id: LRN-006
 date: 2026-07-03
 category: tooling
 source_cs: CS02
-status: open
+status: obsolete
 tags: [harness, review, cli, escalation]
 ```
 
 **Problem:** The `harness review <pr>` verb could not be used for the CS02 content review.
 
-**Finding:** `harness review <pr>` (agent-harness v0.12.0) non-dry-run path aborts with "Could not find clickstop file for CS02 under project/clickstops/{active,planned,done}" even though `active_cs02_fintech-domain-skeleton.md` exists on both the PR branch and `main`; the `--dry-run` variant succeeds. Worked around by dispatching the GPT-5.5 reviewer sub-agent directly with the canonical reviewer preamble (OPERATIONS.md § Reviewer dispatch) and recording the verdict manually in the PR Review log. This is a harness (`lib/`) bug — out of scope to fix in-band (Hard Rule §3); escalate to the harness maintainer (filed upstream as `henrik-me/agent-harness#407`).
+**Finding:** `harness review <pr>` (agent-harness v0.12.0) non-dry-run path aborted with "Could not find clickstop file for CS02 under project/clickstops/{active,planned,done}" even though `active_cs02_fintech-domain-skeleton.md` existed on both the PR branch and `main`; the `--dry-run` variant succeeded. Worked around by dispatching the GPT-5.5 reviewer sub-agent directly with the canonical reviewer preamble (OPERATIONS.md § Reviewer dispatch) and recording the verdict manually in the PR Review log. This was a harness (`lib/`) bug — out of scope to fix in-band (Hard Rule §3); escalated to the harness maintainer (filed upstream as `henrik-me/agent-harness#407`).
 
 **Evidence:** this session; `harness review 5 --rubber-duck-only --no-poll` → exit 2 with the lookup error; `--dry-run` variant → exit 0; file present via `git ls-files`.
 
-**Implications carried forward:**
-- Until fixed upstream, run content-PR rubber-duck reviews by dispatching the reviewer sub-agent directly (canonical preamble) rather than via `harness review`.
-- Tracked upstream at `henrik-me/agent-harness#407`; revisit this workaround once that issue is resolved and the harness pin is bumped.
+**Disposition:** obsolete — fixed upstream in **agent-harness v0.13.0** (CS93; `henrik-me/agent-harness#407` closed COMPLETED — `findClickstopFile` in `lib/review.mjs` now normalizes the padded/zero-stripped CS id on both sides and resolves directory-form + done-stage clickstops). This repo bumped its pin to v0.13.0 and removed the temporary `.github/copilot-instructions.md` workaround note; `harness review 5` verified working (exit 0, resolves `done_cs02_…`).
 
 ### LRN-007
 

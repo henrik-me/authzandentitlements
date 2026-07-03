@@ -187,26 +187,18 @@ unless its basename is declared in an optional `.harness-closeout-allow-drop` fi
 
 ### Claim steps
 
-`harness claim CS<NN>` (CS64) mechanizes this entire sequence: it runs the
-preflight + harvest gate, renders the claim plan as a dry-run by default,
-and on `--apply` cuts the branch, performs the `git mv`, and edits
-`WORKBOARD.md`. It NEVER commits and NEVER pushes — you own the commit
-message and the PR. The manual procedure below is preserved for triage and
-for environments where the verb is not yet installed.
-
-1. `git pull origin main --rebase` — sync with upstream.
-2. `git checkout -b cs<NN>/claim` — create claim branch.
-3. Edit `WORKBOARD.md`: add a row to Active Work with CS-Task ID, branch,
-   agent ID, state (`🟢 Active`), and last-updated timestamp.
-4. Rename the CS file:
-   ```
-   git mv project/clickstops/planned/planned_cs<NN>_<slug>.md \
-            project/clickstops/active/active_cs<NN>_<slug>.md
-   ```
-   *(Use the directory form for artifact-bearing CSs — see
-   [TRACKING.md § Clickstop lifecycle](TRACKING.md#clickstop-lifecycle).)*
-5. Commit: `Claim CS<NN>` with the `Co-authored-by: Copilot` trailer.
-6. Push; open PR labeled `workboard-only`; user reviews; squash-merge.
+**What:** move a planned CS into flight — run the preflight + harvest gate, cut
+the `cs<NN>/claim` branch, `git mv` the CS file `planned → active`, and add the
+WORKBOARD Active Work row. **When:** at the start of a CS, from an up-to-date
+`main`, before any implementation work. **How:** run `npx -y github:henrik-me/agent-harness#v0.13.0 claim CS<NN>`
+(dry-run by default; `--apply` executes the branch cut + rename + WORKBOARD
+edit). It NEVER commits and NEVER pushes — you own the commit message
+(`Claim CS<NN>` with the `Co-authored-by: Copilot` trailer) and the
+`workboard-only`-labelled claim PR (user reviews; squash-merge — see
+[§ Three-PR shape](#three-pr-shape)). The full preflights and executable steps
+live in `npx -y github:henrik-me/agent-harness#v0.13.0 claim --help`; use the directory form for
+artifact-bearing CSs (see
+[TRACKING.md § Clickstop lifecycle](TRACKING.md#clickstop-lifecycle)).
 
 ### Pre-claim harvest gate (CS04+)
 
@@ -221,7 +213,7 @@ before the workboard-claim PR lands.
 Before claiming any CS, verify no strategic planning content lives outside
 the canonical `project/clickstops/{planned,active,done}/**` arc:
 
-1. Run `npx -y github:henrik-me/agent-harness#v0.12.0 lint` — must exit 0 (it includes the
+1. Run `npx -y github:henrik-me/agent-harness#v0.13.0 lint` — must exit 0 (it includes the
    planning-locality check).
 2. If the orchestrator's session-state plan file (`~/.copilot/session-state/<id>/plan.md`)
    contains anything beyond (a) which CS this session is currently executing
@@ -689,7 +681,7 @@ the `sub-invaders-bootstrap-summary.md` misrouting
    - **Acceptance criteria:** how the consumer agent will know the
      work is complete.
    - **Verification steps:** which harness checks / lint commands to
-     run on the consumer side (e.g. `npx -y github:henrik-me/agent-harness#v0.12.0 lint`).
+     run on the consumer side (e.g. `npx -y github:henrik-me/agent-harness#v0.13.0 lint`).
    - **Relevant LRNs / docs:** links to applicable `LEARNINGS.md`
      entries and the harness `OPERATIONS.md` / `INSTRUCTIONS.md`
      sections that govern the handoff.
@@ -1214,7 +1206,7 @@ Run all of the following and include each result in SELF-CHECKS RUN:
 1. `git status --short` — only owned files appear; nothing staged.
 2. `git log --oneline -1` — must match preflight SHA.
 3. Text-encoding + line-ending validation (BOM + line endings; LRN-065,
-   LRN-074): `npx -y github:henrik-me/agent-harness#v0.12.0 lint` must exit 0. The encoding check
+   LRN-074): `npx -y github:henrik-me/agent-harness#v0.13.0 lint` must exit 0. The encoding check
    runs as part of the lint aggregate over the whole cwd (not just
    modified files); it catches CRLF/bare-\r line endings introduced by
    Windows core.autocrlf or stale editor settings.
@@ -1222,7 +1214,7 @@ Run all of the following and include each result in SELF-CHECKS RUN:
    (e.g. "23 → 27 tests; all pass").
 5. For any .mjs files authored: `node -c <file>` exits 0.
 6. If template files were modified (anything under `template/`),
-   `npx -y github:henrik-me/agent-harness#v0.12.0 lint` must exit 0 — the lint aggregate includes the
+   `npx -y github:henrik-me/agent-harness#v0.13.0 lint` must exit 0 — the lint aggregate includes the
    templates linter (LRN-049/050/051: no dot-notation placeholders, no
    relative-up paths, no self-referencing TODO/FIXME tokens in PR-template
    files).
@@ -1364,33 +1356,14 @@ review` table or in the PR body's `## Review log`. This closes #145 gap #3
 (PR #28's reviewer summary-passed YAML / package.json without per-file
 enumeration; the linter would have caught that).
 
-```
-harness review-output \
-  --review-output <path-to-reviewer-markdown> \
-  --round R1 \
-  --base <merge-base-sha> \
-  --head <pr-head-sha> \
-  [--prev-head <prior-head-sha>]   # required for --round Rn
-  [--repo <owner/repo> --pr <num> --reviewer-model <id>]   # independence guard
-  [--update-pr]   # idempotently appends a row to the PR body's ## Review log
-```
-
-What the linter checks (per CS40 C40-2/3/5):
-
-- Reviewer output has an `Analyzed HEAD: <40-char-sha>` line near top.
-- For `--round R1`, the per-file enumeration exactly matches `git diff
-  --name-only <base>..<head>` (missing files = error; extras = warning).
-- Each finding row matches `- [Blocking|Non-blocking|Suggestion] <file>:<line>: <desc>`.
-- Verdict line `Verdict: {Go|Needs-Fix|Block}` is present near end. Verdicts
-  ≠ Go require at least one finding row.
-- Optional independence-invariant guard: if `--repo`/`--pr`/`--reviewer-model`
-  are all provided, fetches the PR body via `gh` and asserts the reviewer
-  model is NOT in the implementer model set.
-
-Exit 0 = pass (warnings allowed); exit 1 = at least one error; exit 2 = bad
-usage. The aggregator `harness pr-evidence` does NOT include this gate (per
-C40-8 — it requires the reviewer-output file which is not available in CI);
-this is a standalone orchestrator-side step.
+The invocation (`--review-output`, `--round`, `--base`/`--head`,
+`--prev-head` for `Rn`, the `--repo`/`--pr`/`--reviewer-model` independence
+guard, and `--update-pr`), the validated predicates (Analyzed-HEAD line,
+per-file enumeration match, finding-row + verdict grammar), and the exit codes
+all live in `npx -y github:henrik-me/agent-harness#v0.13.0 review-output --help`. The aggregator
+`harness pr-evidence` does NOT include this gate (per C40-8 — it requires the
+reviewer-output file, which is unavailable in CI); this is a standalone
+orchestrator-side step.
 
 ### Sub-agent report shape (mandatory)
 
@@ -1526,25 +1499,21 @@ than letting a silent background task consume the coordination slot invisibly.
 
 For content PR review rounds, run the combined review orchestrator instead of
 hand-stitching the rubber-duck prompt, Copilot engagement, polling, and PR-body
-evidence updates:
+evidence updates.
 
-```
-harness review <pr> [--repo owner/name] [--model gpt-5.5|sonnet-4.6] [--round R<n>]
-```
+**What:** validate the target PR, refuse workboard-only or fork PRs, enforce the
+reviewer-model independence invariant, emit the manual MVP rubber-duck prompt,
+optionally trigger/poll Copilot, and idempotently update `## Review log` plus
+`## Model audit`. **How:** run `npx -y github:henrik-me/agent-harness#v0.13.0 review --help` for the full
+flag set (`--dry-run` to preview the round, `--no-poll` to dispatch only,
+`--rubber-duck-only` for local review without Copilot, `--copilot-only` for a
+Copilot retry after a valid local Go row exists, plus `--model` / `--round`) and
+the operationally-meaningful exit codes (`0` = Go / dispatch accepted, `1` =
+No-Go / unresolved Blocking finding, `2` = usage / policy / transport failure).
 
-The command validates the target PR, refuses workboard-only or fork PRs,
-enforces the reviewer-model independence invariant, emits the manual MVP
-rubber-duck prompt, optionally triggers/polls Copilot, and idempotently updates
-`## Review log` plus `## Model audit`. Use `--dry-run` to preview the planned
-round, `--no-poll` to dispatch only, `--rubber-duck-only` for local review
-without Copilot, and `--copilot-only` for a Copilot retry after a valid local
-Go row is already recorded.
-
-Exit codes are operationally meaningful: `0` means Go / dispatch accepted,
-`1` means No-Go or unresolved Blocking finding, and `2` means usage, policy, or
-transport failure. Do not merge a content PR until the latest row for the
-current HEAD has a Go verdict and Copilot review evidence satisfying the A5/A16
-ordering gates in REVIEWS.md.
+Do not merge a content PR until the latest row for the current HEAD has a Go
+verdict and Copilot review evidence satisfying the A5/A16 ordering gates in
+REVIEWS.md.
 
 ---
 
@@ -1567,38 +1536,25 @@ for the full transcript.
 
 ### Recommended invocation (CS41+):
 
-```
-harness copilot-engage <pr-number> [--repo owner/name] [--head <sha>] [--no-poll] [--poll-timeout 300] [--submitted-after <iso>]
-```
-
-The CLI:
-
-1. Auto-detects `--repo` from the current working directory's `git remote origin url`
-   when omitted. Errors with a clear message on detached/missing remotes.
-2. Resolves the Copilot reviewer's Bot node ID via the
-   `node(id: $id) { ... on Bot { databaseId login } }` GraphQL fragment with
-   the hardcoded Copilot Bot node ID `BOT_kgDOCnlnWA` (cached for 7 days
-   under `~/.cache/harness/copilot-id.json` per C41-2). The hardcoded ID is
-   required because `user(login: 'copilot-pull-request-reviewer')` returns
-   `null` per the CS37 GraphQL spike — see [LRN-009](LEARNINGS.md#lrn-009)
-   and [ADR-0004 § ADR4-2](docs/adr/0004-copilot-graphql-spike.md#adr4-2).
-3. Shells out to `gh pr edit <pr> --add-reviewer copilot-pull-request-reviewer` to
-   request the review (per ADR-0004 § ADR4-2 — `requestReviews` GraphQL rejects
-   Bot IDs).
-4. Polls the PR's reviews via GraphQL every 30s up to `--poll-timeout` (default 300s);
-   by default the poll HEAD is the PR's GitHub `headRefOid`, not the cwd's local
-   git HEAD. `--head <sha>` is an opt-in override, and the CLI warns when the
-   detected local HEAD differs from the PR head. The command exits 0 when at least
-   one Bot review by `copilot-pull-request-reviewer` with state ∈ {APPROVED,
-   COMMENTED, CHANGES_REQUESTED} is observed at the selected PR head AND submitted
-   at or after the engage-request timestamp (or the explicit `--submitted-after <iso>`
-   floor if provided). The submitted-after floor enforces the A5 ordering doctrine:
-   a stale Copilot review on the same HEAD that predates the latest local Go MUST NOT
-   satisfy the gate.
-5. Exits 0 immediately after the request when `--no-poll` is set (CI use case
-   where verification happens in a separate job).
-6. Exits 2 on fork PRs (`isCrossRepository == true`) with the maintainer-rerun
-   hint per ADR4-6.
+Run `npx -y github:henrik-me/agent-harness#v0.13.0 copilot-engage <pr-number>` to request the Copilot
+review and poll for a completed review at the PR head. **How:** the full flag
+set (`--repo`, auto-detected from the git remote when omitted; `--head`,
+`--no-poll`, `--poll-timeout`, `--submitted-after`, `--cache-dir`) and exit
+codes live in `npx -y github:henrik-me/agent-harness#v0.13.0 copilot-engage --help`. Key doctrine the
+help encodes: by default the poll HEAD is the PR's GitHub `headRefOid` (not the
+local checkout, with a warning when they differ); the `--submitted-after` floor
+enforces the A5 ordering doctrine so a stale Copilot review predating the latest
+local Go cannot satisfy the gate; `--no-poll` returns immediately after the
+request (CI split); and fork PRs (`isCrossRepository == true`) exit 2 with the
+maintainer-rerun hint (ADR4-6). The engage primitive is the REST-backed
+`gh pr edit --add-reviewer copilot-pull-request-reviewer` — never a
+`requestReviews` GraphQL mutation, because the Copilot reviewer is a `Bot`, not
+a `User`. The CLI resolves its Bot identity via the
+`node(id: $id) { ... on Bot { databaseId login } }` GraphQL fragment with the
+hardcoded Copilot Bot node ID `BOT_kgDOCnlnWA` (7-day identity cache per C41-2),
+required because `user(login: 'copilot-pull-request-reviewer')` returns `null`.
+See [LRN-009](LEARNINGS.md#lrn-009) and
+[ADR-0004 § ADR4-2](docs/adr/0004-copilot-graphql-spike.md#adr4-2).
 
 The poll predicate is identical to the A5+A16 gate
 (`scripts/check-copilot-review.mjs`) so "engage CLI says satisfied" =
@@ -1707,7 +1663,7 @@ two scripts would double the API spend without adding signal (per ADR4-3).
 ```sh
 PR_BODY=$(mktemp)
 gh pr view <num> --json body --jq .body > "$PR_BODY"
-npx -y github:henrik-me/agent-harness#v0.12.0 pr-evidence \
+npx -y github:henrik-me/agent-harness#v0.13.0 pr-evidence \
   --base "$(gh pr view <num> --json baseRefOid --jq .baseRefOid)" \
   --head "$(gh pr view <num> --json headRefOid --jq .headRefOid)" \
   --pr-body "$PR_BODY"
@@ -2006,6 +1962,40 @@ only the `template/**` generic sources and is package-name self-host gated. The
 `check-consumer-template-genericity` linter (registered in `harness lint`)
 enforces this invariant so the genericity cannot silently regress, as it did
 when those docs first reached consumers carrying dead harness anchors.
+
+### Consumer-doc clickstop-link durability invariant
+
+A **durable** repository doc — an `ARCHITECTURE.md`, a design note, an
+onboarding guide, anything meant to outlive a single clickstop — must never
+embed **transient** or **institutional** clickstop artefacts. Both failure
+modes below leave a durable doc broken the moment the referenced clickstop
+closes out:
+
+1. **No links into a transient `project/clickstops/active/` path.** A clickstop
+   file lives under `project/clickstops/active/` only while it is in flight;
+   close-out `git mv`s it to `project/clickstops/done/`. A durable doc that
+   hard-links an `active/` path — especially a **branch-pinned** absolute
+   permalink such as
+   `https://github.com/<owner>/<repo>/blob/<branch>/project/clickstops/active/…`
+   — therefore 404s as soon as that clickstop is done. Prefer, in order: **no
+   link** (name the decision inline); a **commit-SHA permalink**
+   (`…/blob/<40-char-sha>/…`, which pins the historical tree and keeps
+   resolving after the file moves); or a **stable `project/clickstops/done/`
+   pointer** once the clickstop has closed. The `clickstop-link-durability`
+   linter (run by `harness lint`) fails on a branch-pinned `active/` permalink
+   in a durable doc and passes a SHA-pinned one.
+
+2. **No duplicated clickstop decision tables or provenance tags.** Do not copy
+   a clickstop's decision table or its inline `(C<NN>-<n>)` provenance tags
+   into a durable doc — those are meaningful only inside the clickstop
+   workflow, and duplicated into an architecture doc they rot into unexplained
+   noise. Restate the decision in the doc's own voice, or reference a single
+   stable pointer, instead.
+
+This invariant holds wherever durable docs are **authored or seeded**,
+including the one-time bootstrap that scaffolds a new repository: seed durable
+docs from generic skeletons and never fold a live clickstop's transient links
+or decision provenance into them.
 
 ### Integration testing for templated outputs (LRN-057)
 
@@ -2381,7 +2371,7 @@ All file edits land on the `cs<NN>/content` branch:
 4. **Validate.** From the repo root:
 
    ```bash
-   npx -y github:henrik-me/agent-harness#v0.12.0 lint --quiet     # expect: 0 failed
+   npx -y github:henrik-me/agent-harness#v0.13.0 lint --quiet     # expect: 0 failed
    node --test tests/*.test.mjs        # expect: 0 failed
    ```
 
@@ -2518,7 +2508,7 @@ npm version <x.y.z> --no-git-tag-version
 #   then: sweep README pins v<prev> → v<x.y.z>
 
 # 4. Validate
-npx -y github:henrik-me/agent-harness#v0.12.0 lint --quiet
+npx -y github:henrik-me/agent-harness#v0.13.0 lint --quiet
 node --test tests/*.test.mjs
 
 # 5-7. Review + engage Copilot + merge

@@ -53,8 +53,8 @@ and escalate — do not fix it in-band.
 JSON schemas in `schemas/` define the canonical shape of every harness
 artefact. If your deliverable conflicts with a schema, fix the deliverable,
 not the schema, unless the CS plan explicitly assigns you a schema change.
-Run `npx -y github:henrik-me/agent-harness#v0.12.0 sync --mode=check` (validates your config against the
-schema) and `npx -y github:henrik-me/agent-harness#v0.12.0 lint` to confirm conformance before reporting
+Run `npx -y github:henrik-me/agent-harness#v0.13.0 sync --mode=check` (validates your config against the
+schema) and `npx -y github:henrik-me/agent-harness#v0.13.0 lint` to confirm conformance before reporting
 back.
 
 ### 5 — Mandatory briefing preamble (orchestrator-side)
@@ -190,7 +190,7 @@ PR-body linting and any other harness-registered checks. If `harness` is not
 on the PATH, invoke it via:
 
 ```
-npx -y github:henrik-me/agent-harness#v0.12.0 lint
+npx -y github:henrik-me/agent-harness#v0.13.0 lint
 ```
 
 ---
@@ -241,14 +241,6 @@ above are managed by the harness and will be overwritten on the next
 `composed.overrides[".github/copilot-instructions.md"].local_blocks`.
 
 <!-- harness:local-start id=copilot-instructions.harness -->
-### Known tooling constraints
-
-- **`harness review <pr>` is currently broken (`henrik-me/agent-harness#407`).**
-  Its non-dry-run path aborts with `Could not find clickstop file for CS<NN>`
-  even when the active clickstop file exists on the branch (`--dry-run`
-  succeeds). Until the harness pin is bumped past the fix, obtain the mandatory
-  content-PR rubber-duck review by **dispatching the reviewer sub-agent
-  directly** using the canonical reviewer preamble in `OPERATIONS.md`
-  (§ "Reviewer dispatch — canonical preamble"), then record the verdict in the
-  PR `## Review log` + `## Model audit` manually. Tracked downstream as LRN-006.
+_(Project-local agent instructions — repository-specific cross-repo
+procedures, model choices, and institutional citations. Empty by default.)_
 <!-- harness:local-end id=copilot-instructions.harness -->
