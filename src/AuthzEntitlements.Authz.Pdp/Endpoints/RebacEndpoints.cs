@@ -96,20 +96,64 @@ public static class RebacEndpoints
 
         // Reverse index — who can access an object: /who-can-access?type=account&id=acme-checking&relation=can_view
         group.MapGet("/who-can-access", async (
-            string type, string id, string relation, OpenFgaRebacService fga) =>
+            string? type, string? id, string? relation, OpenFgaRebacService fga) =>
         {
-            var users = await fga.WhoCanAccessAsync(type, id, relation);
+            var error = ValidateReverseQuery(type, relation, id, "id");
+            if (error is not null)
+            {
+                return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var users = await fga.WhoCanAccessAsync(type!, id!, relation!);
             return Results.Ok(new { @object = $"{type}:{id}", relation, users });
         });
 
         // Reverse index — what a user can access: /what-can-user-access?user=rm-anne&relation=can_view&type=account
         group.MapGet("/what-can-user-access", async (
-            string user, string relation, string type, OpenFgaRebacService fga) =>
+            string? user, string? relation, string? type, OpenFgaRebacService fga) =>
         {
-            var objects = await fga.WhatCanUserAccessAsync(user, relation, type);
+            var error = ValidateReverseQuery(type, relation, user, "user");
+            if (error is not null)
+            {
+                return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var objects = await fga.WhatCanUserAccessAsync(user!, relation!, type!);
             return Results.Ok(new { user = $"{RebacTypes.User}:{user}", relation, type, objects });
         });
 
         return app;
+    }
+
+    // The object types and computed relations the reverse-index endpoints answer: these queries ask
+    // who/what has can_view/can_transact on an account. Anything else is rejected with a clean 400
+    // (matching /api/authz/evaluate's fail-closed validation) rather than surfacing a 500 from an
+    // OpenFGA query against an unmodelled type/relation or a blank object.
+    private static readonly HashSet<string> QueryableTypes =
+        new(StringComparer.Ordinal) { RebacTypes.Account };
+
+    private static readonly HashSet<string> QueryableRelations =
+        new(StringComparer.Ordinal) { RebacRelations.CanView, RebacRelations.CanTransact };
+
+    // Returns a problem message for an invalid reverse-index query, or null when it is well-formed.
+    // principal is the required id/user; principalName names it for the message.
+    private static string? ValidateReverseQuery(string? type, string? relation, string? principal, string principalName)
+    {
+        if (string.IsNullOrWhiteSpace(principal))
+        {
+            return $"Query parameter '{principalName}' is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(type) || !QueryableTypes.Contains(type))
+        {
+            return $"Query parameter 'type' must be one of: {string.Join(", ", QueryableTypes)}.";
+        }
+
+        if (string.IsNullOrWhiteSpace(relation) || !QueryableRelations.Contains(relation))
+        {
+            return $"Query parameter 'relation' must be one of: {string.Join(", ", QueryableRelations)}.";
+        }
+
+        return null;
     }
 }
