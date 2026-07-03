@@ -22,8 +22,11 @@ public sealed class OpenFgaRebacService
     private readonly OpenFgaOptions _options;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    private OpenFgaClient? _client;
-    private bool _bootstrapped;
+    // Both volatile so the fast-path (pre-semaphore) read of _bootstrapped safely publishes _client:
+    // the volatile write of _client before the volatile write of _bootstrapped guarantees a thread
+    // that observes _bootstrapped==true also sees the fully-constructed client (no null publication).
+    private volatile OpenFgaClient? _client;
+    private volatile bool _bootstrapped;
 
     public OpenFgaRebacService(IOptions<OpenFgaOptions> options)
     {

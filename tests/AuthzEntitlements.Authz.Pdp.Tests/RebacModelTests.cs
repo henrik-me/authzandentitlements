@@ -10,7 +10,17 @@ namespace AuthzEntitlements.Authz.Pdp.Tests;
 // relations are present and internally consistent (schema 1.1, referenced types exist).
 public sealed class RebacModelTests
 {
-    private static JsonElement Model() => JsonDocument.Parse(RebacModel.Json).RootElement;
+    // Parse the embedded model once into a cloned element so the JsonDocument is disposed
+    // immediately (the clone outlives it); every helper below reads this cached root.
+    private static readonly JsonElement ModelRoot = ParseModelRoot();
+
+    private static JsonElement ParseModelRoot()
+    {
+        using var document = JsonDocument.Parse(RebacModel.Json);
+        return document.RootElement.Clone();
+    }
+
+    private static JsonElement Model() => ModelRoot;
 
     private static JsonElement TypeDef(string type) =>
         Model().GetProperty("type_definitions").EnumerateArray()

@@ -90,7 +90,8 @@ public sealed class RebacSeedTuplesTests
         }
     }
 
-    // Every "user:..." principal appearing anywhere in the graph (as a tuple user OR object).
+    // Every "user:..." principal appearing as a tuple user (subject side) in the seed graph;
+    // users never appear on the object side (objects are always account:/customer:/branch:/region:).
     private static HashSet<string> UserIds()
     {
         var set = new HashSet<string>(StringComparer.Ordinal);
