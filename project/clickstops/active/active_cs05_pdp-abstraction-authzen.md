@@ -35,10 +35,12 @@ Define the unified, AuthZEN-aligned PDP abstraction + scenario catalog so every 
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Design AuthZEN-aligned contract | pending | — | |
-| Implement Authz.Pdp host | pending | — | |
-| Author scenario catalog | pending | — | |
-| Wire audit/OTel hooks | pending | — | |
+| Design AuthZEN-aligned contract | done | yoga-ae-c2 | Orchestrator design from CS02/CS03 domain + enforcement map |
+| Implement Authz.Pdp host + contract + reference provider | done | sub-agent | agent-id=cs05-impl-core \| role=service-implementer \| report-status=complete \| learnings=3 |
+| Author scenario catalog | done | sub-agent | agent-id=cs05-impl-core \| role=service-implementer \| report-status=complete \| learnings=3 |
+| Wire audit/OTel hooks (contracts/hooks only) | done | sub-agent | agent-id=cs05-impl-core \| role=service-implementer \| report-status=complete \| learnings=3 |
+| PDP unit tests | done | sub-agent | agent-id=cs05-impl-tests \| role=test-author \| report-status=complete \| learnings=3 |
+| Document AuthZEN contract for CS06-CS09 | done | sub-agent | agent-id=cs05-impl-docs \| role=doc-author \| report-status=complete \| learnings=3 |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 

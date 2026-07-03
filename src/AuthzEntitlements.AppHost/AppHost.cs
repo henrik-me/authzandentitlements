@@ -89,4 +89,10 @@ builder.AddProject<Projects.AuthzEntitlements_Bank_Web>("bank-web")
     .WithEnvironment("Keycloak__ClientSecret", "bank-web-secret")
     .WithExternalHttpEndpoints();
 
+// CS05 — unified AuthZEN-aligned fine-grained PDP. A standalone in-process reference host
+// (no database, no WithReference): it answers the shared decision contract with the
+// deterministic reference engine. Wiring Bank.Api to call it is deliberately out of CS05
+// scope; the adapter engines (CS06-CS09) register behind its config-driven provider seam.
+builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-pdp");
+
 builder.Build().Run();

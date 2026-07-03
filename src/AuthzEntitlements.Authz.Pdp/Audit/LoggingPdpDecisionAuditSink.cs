@@ -1,0 +1,24 @@
+namespace AuthzEntitlements.Authz.Pdp.Audit;
+
+// Default audit sink: emit one structured ILogger event per PDP decision with every field
+// named, so a log/OTel pipeline captures a queryable trail without a live Audit.Service in
+// CS05. Mirrors BankAuthorizationAuditMiddleware's structured-emission style.
+public sealed class LoggingPdpDecisionAuditSink(ILogger<LoggingPdpDecisionAuditSink> logger)
+    : IPdpDecisionAuditSink
+{
+    public void Record(PdpDecisionAuditEvent decisionEvent) =>
+        logger.LogInformation(
+            "PDP decision {Decision} ({Reason}) provider={Provider} action={Action} " +
+            "resource={ResourceType}/{ResourceId} subject={SubjectId} tenant={Tenant} " +
+            "trace={TraceId} at {TimestampUtc}",
+            decisionEvent.Decision,
+            decisionEvent.Reason,
+            decisionEvent.Provider,
+            decisionEvent.Action,
+            decisionEvent.ResourceType,
+            decisionEvent.ResourceId,
+            decisionEvent.SubjectId,
+            decisionEvent.Tenant,
+            decisionEvent.TraceId,
+            decisionEvent.TimestampUtc);
+}
