@@ -75,6 +75,17 @@
     <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
   </ItemGroup>
 
+  <!--
+    CS06 (Adapters: ASP.NET Core policies + Casbin.NET). Casbin.NET is the in-process
+    RBAC/ABAC engine backing the "casbin" PDP adapter, part of the container-free "lite"
+    profile. 2.21.2 is the latest stable (targets netstandard2.0/2.1; forward-compatible
+    on the net10 runtime). The ASP.NET Core policy adapter needs no package — it uses the
+    Microsoft.AspNetCore.Authorization types from the shared framework (Web SDK).
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Casbin.NET" Version="2.21.2" />
+  </ItemGroup>
+
   <!-- CS02: xUnit test stack for the pure-domain unit tests. -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />

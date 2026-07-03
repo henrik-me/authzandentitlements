@@ -15,6 +15,8 @@ public static class PdpServiceCollectionExtensions
         services.Configure<PdpOptions>(configuration.GetSection(PdpOptions.SectionName));
 
         services.AddSingleton<IAuthorizationDecisionProvider, ReferenceDecisionProvider>();
+        services.AddSingleton<IAuthorizationDecisionProvider, Adapters.AspNetCore.AspNetCorePolicyProvider>();
+        services.AddSingleton<IAuthorizationDecisionProvider, Adapters.Casbin.CasbinDecisionProvider>();
 
         services.AddSingleton<AuthorizationDecisionProviderFactory>();
         services.AddSingleton<IPdpDecisionAuditSink, LoggingPdpDecisionAuditSink>();
