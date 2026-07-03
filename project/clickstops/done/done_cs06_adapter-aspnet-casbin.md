@@ -1,10 +1,10 @@
 # CS06 — Adapters: ASP.NET Core policies + Casbin.NET
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs06/content
 **Started:** 2026-07-03
-**Closed:** —
+**Closed:** 2026-07-03
 **Phase:** 2 — Fine-grained AuthZ
 **Lane:** Engines
 **Depends on:** CS05
