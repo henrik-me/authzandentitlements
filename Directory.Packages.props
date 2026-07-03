@@ -55,6 +55,15 @@
     <PackageVersion Include="Microsoft.Build.Utilities.Core" Version="17.14.28" />
   </ItemGroup>
 
+  <!--
+    CS04 (coarse-grained edge gateway). YARP reverse proxy for the Edge.Gateway that
+    enforces coarse-grained scope/audience/tenant checks in front of Bank.Api. 2.3.0 is
+    the latest stable release (targets net8.0+; forward-compatible on the net10 runtime).
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
+  </ItemGroup>
+
   <!-- CS02: xUnit test stack for the pure-domain unit tests. -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
