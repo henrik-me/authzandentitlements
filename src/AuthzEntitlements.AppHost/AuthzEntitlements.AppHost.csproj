@@ -12,4 +12,8 @@
     <PackageReference Include="Aspire.Hosting.PostgreSQL" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\AuthzEntitlements.Bank.Api\AuthzEntitlements.Bank.Api.csproj" />
+  </ItemGroup>
+
 </Project>

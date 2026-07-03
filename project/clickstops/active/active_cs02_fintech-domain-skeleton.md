@@ -34,22 +34,38 @@ Model the fintech back-office domain (accounts, transactions, approvals) that ex
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Define domain entities | in_progress | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=pending \| learnings=0 |
-| EF Core mapping + migrations | in_progress | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=pending \| learnings=0 |
-| Seed scenario data | in_progress | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=pending \| learnings=0 |
-| Expose minimal CRUD endpoints | in_progress | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=pending \| learnings=0 |
+| Define domain entities | done | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=complete \| learnings=3 — tenant/region/branch/role/maker-checker/SoD model |
+| EF Core mapping + migrations | done | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=complete \| learnings=3 — BankDbContext + InitialCreate |
+| Seed scenario data | done | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=complete \| learnings=3 — deterministic idempotent seed, 3 maker-checker paths |
+| Expose minimal CRUD endpoints | done | cs02-domain-impl | agent-id=cs02-domain-impl \| role=implementer \| report-status=complete \| learnings=3 — minimal APIs + approve/reject (SoD+role gate) |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and any feature docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; create planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- **Bank.Api** (`src/AuthzEntitlements.Bank.Api`, minimal APIs, net10.0) models the fintech
+  back-office domain: `Tenant → Region → Branch`, `User`/`Role`/`UserRole` (RBAC),
+  `Account`, `Transaction`, `Approval`. Money uses `decimal(18,2)`; enums persist as strings.
+- **Maker-checker + SoD** live on the entities as testable pure logic: `Transaction.Create`
+  applies the `BankPolicy.ApprovalThreshold` rule (≥ threshold ⇒ `Pending` + paired `Pending`
+  approval; below ⇒ `Posted`); `Approval.Decide` enforces `checker != maker`
+  (`SegregationOfDutiesViolationException`). Endpoints add checker-role eligibility
+  (BranchManager/ComplianceOfficer). Runtime-verified: teller→403, manager→200 Posted,
+  self-approve→409.
+- **EF stack** pinned to the .NET 10 RC1 line (`Npgsql.EntityFrameworkCore.PostgreSQL`
+  `10.0.0-rc.1`, EF Design `10.0.0-rc.1.25451.107`); plain Npgsql provider reads the
+  Aspire-injected `bank` connection string. Migrate + idempotent seed on startup.
+- **New advisory CVE-2025-55247** (GHSA-w3q9-fxm7-j8fq, MSBuild pulled transitively by EF
+  Core Design) was **remediated — not suppressed** — by pinning patched
+  `Microsoft.Build.Tasks.Core`/`Utilities.Core` `17.14.28` via CPM transitive pinning in
+  `Directory.Packages.props` (per LRN-003 "pin patched versions via CPM"). Drop the pin in
+  CS18 once EF Core Design ships against patched MSBuild. Full learnings filed at close-out.
 
 ## Model audit
 
 | Field | Value |
 |---|---|
-| Implementer models | claude-opus-4.8, claude-opus-4.7 |
+| Implementer models | claude-opus-4.8 |
 | Reviewer model | gpt-5.5 |
 | Implementer agent | yoga-ae |
 | Reviewer agent | copilot |
