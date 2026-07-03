@@ -7,9 +7,17 @@
 Bootstrap + pre-flight complete (2026-07-02). Git initialized on `main`; remote `origin` points to
 `github.com/henrik-me/authzandentitlements` (pushed to GitHub, private). **agent-harness
 v0.12.0 adopted** (process docs, review gates, linters, CI workflow). The full **27-CS plan**
-is authored in `project/clickstops/planned/` with explicit Phase / Lane / Depends-on. No
-product code yet - **CS01 (Aspire foundations)** is the first claimable clickstop. `harness
-lint` is fully green (21 passed, 0 failed); all 27 CSs carry an independent GPT-5.5 `## Plan review` attestation (hash-pinned).
+is authored in `project/clickstops/planned/` with explicit Phase / Lane / Depends-on.
+
+**CS01 (Aspire foundations) complete** (PR #2, merged 2026-07-03). The .NET Aspire solution
+skeleton is scaffolded: `AuthzEntitlements.AppHost` (orchestration) + `AuthzEntitlements.ServiceDefaults`
+(OTel/health/resilience) on **.NET 10 / Aspire 13**, with a single PostgreSQL resource exposing the
+five logical DBs (`bank`, `openfga`, `entitlements`, `governance`, `audit`), Central Package Management
+(`Directory.Packages.props`), shared `Directory.Build.props`, and a `global.json` pinning the .NET 10 SDK.
+`dotnet build` is 0/0 and `aspire run` brings up the dashboard + a healthy Postgres container. Known-vulnerable
+preview packages are handled with per-advisory `NuGetAuditSuppress` (tracked in LRN-003 for CS18).
+**Next claimable: CS02 (fintech domain skeleton).** `harness lint` is green; all 27 CSs carry an
+independent GPT-5.5 `## Plan review` attestation (hash-pinned).
 
 ## Constraints
 

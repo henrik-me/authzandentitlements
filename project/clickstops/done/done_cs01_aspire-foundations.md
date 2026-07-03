@@ -1,10 +1,10 @@
 # CS01 — Aspire solution foundations
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae
 **Branch:** cs01/content
 **Started:** 2026-07-03
-**Closed:** —
+**Closed:** 2026-07-03
 **Phase:** 0 — Foundations
 **Lane:** Foundation
 **Depends on:** None
@@ -70,4 +70,19 @@ Stand up the .NET Aspire solution skeleton that every other CS builds on.
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-03T01:11:20Z
+**Outcome:** GO
+
+Per-deliverable outcome (plan vs. merged content `b51efb6..85ad4f0`):
+
+| Deliverable / Exit criterion | Outcome | Rationale |
+|---|---|---|
+| Aspire AppHost + ServiceDefaults + solution + Central Package Management | match | Solution, both projects, and `Directory.Packages.props` exist; no `Version=` on any `PackageReference`. |
+| PostgreSQL integration + 5 logical DBs (bank, openfga, entitlements, governance, audit) | match | `AppHost.cs` defines one `postgres` resource + all five DBs, matching ARCHITECTURE.md Stores. |
+| Aspire dashboard verified via `aspire run` | match | Dashboard reachable at `:17254` (302→login); `launchSettings` supports it. |
+| Exit: `aspire run` starts AppHost + dashboard | match | Runtime evidence accepted. |
+| Exit: Postgres healthy + solution builds clean | match | `postgres:17.6` container healthy; `dotnet build` 0/0. |
+| global.json / Directory.Build.props / per-advisory NuGetAuditSuppress / `.aspire/` ignore | added | Not promised but positive: SDK-pin reproducibility, strict build defaults, narrow advisory suppression (new advisories still fail), no tracked local Aspire state. |
+
+**Test coverage:** sufficient — zero automated tests is acceptable for a pure-scaffolding foundations CS (no business logic); the meaningful checks are build + Aspire runtime smoke, both verified externally. Domain tests begin in CS02.
