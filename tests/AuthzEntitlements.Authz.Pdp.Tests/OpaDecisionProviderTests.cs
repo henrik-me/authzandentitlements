@@ -62,6 +62,18 @@ public sealed class OpaDecisionProviderTests
             };
     }
 
+    // Simulates the named HttpClient's configure delegate throwing when CreateClient runs — the
+    // shape a malformed Opa:BaseUrl (UriFormatException) or invalid Opa:TimeoutSeconds
+    // (ArgumentOutOfRangeException) takes at request time.
+    private sealed class ThrowingHttpClientFactory : IHttpClientFactory
+    {
+        private readonly Exception _toThrow;
+
+        public ThrowingHttpClientFactory(Exception toThrow) => _toThrow = toThrow;
+
+        public HttpClient CreateClient(string name) => throw _toThrow;
+    }
+
     // --- Fixtures -----------------------------------------------------------
 
     private static OpaDecisionProvider ProviderWith(StubHandler handler) =>
@@ -289,6 +301,19 @@ public sealed class OpaDecisionProviderTests
     public void FailClosed_OnUnparseableBody()
     {
         var provider = ProviderReturning("this is not json", out _);
+
+        AssertProviderUnavailable(provider.Evaluate(TransactionCreate()));
+    }
+
+    [Fact]
+    public void FailClosed_WhenClientConstructionThrows()
+    {
+        // A malformed Opa:BaseUrl / invalid Opa:TimeoutSeconds surfaces as a throw from the named
+        // HttpClient's configure delegate when CreateClient runs. The adapter must still fail closed
+        // rather than let the exception escape as a 500.
+        var provider = new OpaDecisionProvider(
+            new ThrowingHttpClientFactory(new UriFormatException("bad base url")),
+            Options.Create(new OpaOptions()));
 
         AssertProviderUnavailable(provider.Evaluate(TransactionCreate()));
     }

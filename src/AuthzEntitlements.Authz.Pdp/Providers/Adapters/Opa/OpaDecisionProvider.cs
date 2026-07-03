@@ -81,6 +81,16 @@ public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
         {
             return FailClosed($"OPA response could not be parsed as JSON: {ex.Message}");
         }
+        catch (Exception ex)
+        {
+            // Backstop: fail closed on ANY other error. Notably, a misconfigured Opa section
+            // surfaces here when the named HttpClient is built inside CreateClient — a malformed
+            // Opa:BaseUrl throws UriFormatException and a non-positive Opa:TimeoutSeconds throws
+            // ArgumentOutOfRangeException. An authorization PDP must never throw through to the
+            // caller: every failure to obtain a well-formed decision is a Deny, never a permit or
+            // an unhandled 500.
+            return FailClosed($"OPA evaluation failed ({ex.GetType().Name}): {ex.Message}");
+        }
     }
 
     private static AccessDecision MapDecision(OpaDecisionResult? result)
