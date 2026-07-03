@@ -80,8 +80,8 @@
     for the OpenFGA relationship-based authorization engine. It backs the config-gated
     "openfga" PDP provider (Pdp:Provider=openfga) and is never on the default tested path:
     the reference engine stays the default, and the client is built lazily only when the
-    openfga provider is actually exercised against a running server. 0.10.3 is the latest
-    stable release.
+    openfga provider is actually exercised against a running server. Pinned to 0.10.3 for
+    reproducible restores.
   -->
   <ItemGroup>
     <PackageVersion Include="OpenFga.Sdk" Version="0.10.3" />

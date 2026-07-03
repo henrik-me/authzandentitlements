@@ -146,12 +146,14 @@ public static class RebacEndpoints
 
         if (string.IsNullOrWhiteSpace(type) || !QueryableTypes.Contains(type))
         {
-            return $"Query parameter 'type' must be one of: {string.Join(", ", QueryableTypes)}.";
+            return $"Query parameter 'type' must be one of: " +
+                $"{string.Join(", ", QueryableTypes.OrderBy(t => t, StringComparer.Ordinal))}.";
         }
 
         if (string.IsNullOrWhiteSpace(relation) || !QueryableRelations.Contains(relation))
         {
-            return $"Query parameter 'relation' must be one of: {string.Join(", ", QueryableRelations)}.";
+            return $"Query parameter 'relation' must be one of: " +
+                $"{string.Join(", ", QueryableRelations.OrderBy(r => r, StringComparer.Ordinal))}.";
         }
 
         return null;

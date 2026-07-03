@@ -10,8 +10,9 @@ namespace AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
 //   * branch/region     — branch.manager inherits region.manager (hierarchy), and both flow
 //                         to accounts via account.branch and via customer.branch
 //   * delegation        — account.delegate grants a specific user can_view on one account
-// can_view composes all four (owner/delegate/can_view-from-customer/manager-from-branch);
-// can_transact is the tighter set (direct/owner/can_view-from-customer).
+// can_view composes a direct grant plus all four derived paths (this/owner/delegate/
+// can_view-from-customer/manager-from-branch); can_transact is the tighter set
+// (this/owner/can_view-from-customer).
 public static class RebacModel
 {
     public const string SchemaVersion = "1.1";
