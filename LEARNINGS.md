@@ -351,6 +351,58 @@ tags: [dotnet, http, fail-closed, entitlements]
 
 **Evidence:** PR #18; `src/AuthzEntitlements.Entitlements.Service/Endpoints/EntitlementsEndpoints.cs` `ConsumeQuotaAsync`; `src/AuthzEntitlements.Bank.Api/Entitlements/EntitlementsEnforcer.cs` + `EntitlementsContracts.cs`; Copilot PR review (rounds 1–4).
 
+### LRN-018
+
+```yaml
+id: LRN-018
+date: 2026-07-03
+category: process
+source_cs: CS10
+status: open
+tags: [git, ci, commit-trailers, windows]
+```
+
+**Problem:** Integrating `main` into a long-running CS content branch (to pick up a sibling CS) tripped the commit-trailer gates in two non-obvious ways.
+
+**Finding:** (1) The B1 commit-trailer gate enforces the `Co-authored-by: Copilot` trailer on **every** commit in the PR range, INCLUDING the merge commit — `git merge`'s auto-generated "Merge branch …" message has no trailer, so B1 / `harness lint` fail on content PRs (B1 skips only for `workboard-only`-labelled PRs). Fix: `git commit --amend` the merge commit to add the trailer. (2) After a `git rebase --continue` that resolved a conflict, `.git/COMMIT_EDITMSG` keeps the trailer FOLLOWED BY `# Conflicts:` + rebase comment lines; the local `commit-trailers` linter reads `.git/COMMIT_EDITMSG` and treats only the *trailing* run of `Key: Value` lines as the trailer block, so it reports a false "Missing Co-authored-by" even though the committed message is correct. Fix: `git commit --amend --no-edit` to refresh `COMMIT_EDITMSG`.
+
+**Evidence:** CS10 PR #18 merge commit `d6fb750` failed B1 (missing trailer) → amended to `ce39399`; close-out rebase left `# Conflicts:` in `COMMIT_EDITMSG` → local `commit-trailers` false-fail → `git commit --amend --no-edit` cleared it (`Total: 23 passed / 0 failed`).
+
+### LRN-019
+
+```yaml
+id: LRN-019
+date: 2026-07-03
+category: process
+source_cs: CS10
+status: open
+tags: [multi-agent, git, dotnet, aspire]
+claim_area: orchestration
+```
+
+**Problem:** With multiple orchestrators running CSs in parallel, a CS branch that spans several hours reliably hits merge conflicts as sibling CSs land on `main`.
+
+**Finding:** The recurring conflict surface is a small, predictable set of **shared integration files**: `AuthzEntitlements.sln`, `Directory.Packages.props`, `src/AuthzEntitlements.AppHost/AppHost.cs`, and `WORKBOARD.md` — CS10 conflicted with CS04 (all four) and then with the CS05 claim (`WORKBOARD.md`). Resolutions are almost always **additive** (keep both sides). Reusable techniques: for `.sln` conflicts, `git checkout --theirs -- AuthzEntitlements.sln` then `dotnet sln add <your new projects>` is safer than hand-merging Project GUIDs; for `AppHost.cs`, keep both service registrations and reconcile a single `var bankApi = …` when a sibling captured that resource into a variable; for `Directory.Packages.props`, keep both per-CS `<ItemGroup>`s. After resolving, expect a new HEAD → re-attest the latest review Go row against it (stale-diff A4) and re-engage Copilot (A16).
+
+**Evidence:** CS10 PR #18 (merged CS04: `.sln` / `Directory.Packages.props` / `AppHost.cs` / `AppHost.csproj` / `Program.cs`) + close-out PR #21 (`WORKBOARD.md` vs the CS05 claim); `.sln` resolved via `checkout --theirs` + `dotnet sln add`.
+
+### LRN-020
+
+```yaml
+id: LRN-020
+date: 2026-07-03
+category: process
+source_cs: CS10
+status: open
+tags: [review, copilot]
+```
+
+**Problem:** Copilot PR review, re-engaged after each fix HEAD, kept re-raising already-fixed comments and surfaced a new nit almost every round — risking an unbounded fix → re-engage loop.
+
+**Finding:** Copilot re-emits its FULL comment set on every re-review (it re-scans the whole diff), so previously-addressed items reappear as fresh threads even when the fix is in place; and each re-engage tends to find 1–2 additional (often cosmetic/edge-case) nits. Copilot `COMMENTED` (not `CHANGES_REQUESTED`) is non-blocking, and the A16 gate only needs a Copilot review on the current HEAD submitted after the latest local Go. Convergence tactic: fix the genuinely-substantive findings, then set a hard stop — do a final Copilot re-engage, RESOLVE all resulting threads (real + re-raised), and merge WITHOUT pushing further commits (each new commit resets the loop and re-triggers async review). Triage each thread as "false-positive re-raise of a fixed item" (resolve) vs "new substantive bug" (fix once, then re-enter the hard stop).
+
+**Evidence:** CS10 PR #18 — 5 Copilot rounds; the quota-500 + audit-casing comments were re-raised ~4× after being fixed; the one genuinely-new substantive finding each round (release-lock, quota-remaining off-by-one, transient-503 mislabel) was fixed and the rest resolved; merged after the final re-engage + full thread resolution.
+
 ## Applied
 
 _(no entries yet)_
