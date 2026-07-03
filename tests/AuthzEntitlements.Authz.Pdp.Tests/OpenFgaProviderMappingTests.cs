@@ -83,4 +83,31 @@ public sealed class OpenFgaProviderMappingTests
         Assert.False(OpenFgaRequestMapper.TryMap(request, out _, out var denial));
         Assert.Equal(RebacReasonCodes.MissingResourceId, denial.Reasons[0].Code);
     }
+
+    [Fact]
+    public void TryMap_NonAccountResource_FailsClosed_UnsupportedResourceType()
+    {
+        // The CS05 transaction shape (Resource.Type="transaction") has no queryable relation in the
+        // ReBAC model, so it must deny cleanly rather than build a "transaction:..." object OpenFGA rejects.
+        var request = Request(ActionNames.TransactionCreate, "rm-anne", "transaction", "txn-1");
+
+        var mapped = OpenFgaRequestMapper.TryMap(request, out _, out var denial);
+
+        Assert.False(mapped);
+        Assert.Equal(Decision.Deny, denial.Decision);
+        Assert.Equal(RebacReasonCodes.UnsupportedResourceType, denial.Reasons[0].Code);
+    }
+
+    [Fact]
+    public void TryMap_TransactionCreate_OnAccountResource_MapsTo_CanTransact()
+    {
+        // An account-shaped transaction request maps to can_transact on the account object.
+        var request = Request(ActionNames.TransactionCreate, "carol", "account", "personal-carol");
+
+        var mapped = OpenFgaRequestMapper.TryMap(request, out var check, out _);
+
+        Assert.True(mapped);
+        Assert.Equal(RebacRelations.CanTransact, check.Relation);
+        Assert.Equal("account:personal-carol", check.Object);
+    }
 }

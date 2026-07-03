@@ -13,4 +13,9 @@ public static class RebacReasonCodes
     // A ReBAC Check needs a concrete resource id ("account:acme-checking"); the request carried a
     // resource with no id, so it is denied at the boundary rather than checked against a blank object.
     public const string MissingResourceId = "MissingResourceId";
+
+    // The requested resource type has no queryable relation in the ReBAC model — the adapter answers
+    // account-relationship questions, so a non-account resource (e.g. the CS05 "transaction" shape) is
+    // denied at the boundary rather than issuing a Check against a type the model does not define.
+    public const string UnsupportedResourceType = "UnsupportedResourceType";
 }

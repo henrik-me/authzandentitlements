@@ -4,7 +4,7 @@ using Xunit;
 namespace AuthzEntitlements.Authz.Pdp.Tests;
 
 // Self-consistency tests for the ReBAC scenario catalog: ids are unique, relations are the two
-// the model computes, and every subject/object a scenario names is grounded in the seed graph.
+// relations the model computes, and every subject/object a scenario names is grounded in the seed graph.
 // These are structural (no server) — they catch a catalog that drifts from the model/tuples.
 public sealed class RebacScenarioCatalogTests
 {

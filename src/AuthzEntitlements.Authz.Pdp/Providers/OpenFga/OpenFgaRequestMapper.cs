@@ -8,8 +8,9 @@ public readonly record struct RebacCheck(string User, string Relation, string Ob
 
 // The pure AuthZEN-request -> OpenFGA-Check mapping, factored out of the provider so it is unit
 // testable with no client or server. Fails closed: an action with no ReBAC relation maps to an
-// UnknownAction deny, and a resource with no id maps to a MissingResourceId deny — a ReBAC Check
-// is never issued against an unknown relation or a blank object.
+// UnknownAction deny, a non-account resource maps to an UnsupportedResourceType deny, and a
+// resource with no id maps to a MissingResourceId deny — a ReBAC Check is never issued against an
+// unknown relation, an unmodelled object type, or a blank object.
 public static class OpenFgaRequestMapper
 {
     // Returns true with a populated check when the request maps to a concrete Check; false with a
@@ -27,6 +28,20 @@ public static class OpenFgaRequestMapper
             return false;
         }
 
+        // Both mapped relations (can_view / can_transact) are account relations in the ReBAC model,
+        // so the adapter only answers account-shaped questions. A non-account resource (e.g. the CS05
+        // "transaction" resource shape) is denied here rather than issuing a Check against an object
+        // type the model does not define — OpenFGA rejects such a Check, so mapping it would surface a
+        // 500 instead of a clean deny. Fail closed.
+        if (!string.Equals(request.Resource.Type, RebacTypes.Account, StringComparison.Ordinal))
+        {
+            denial = AccessDecision.Deny(new Reason(
+                RebacReasonCodes.UnsupportedResourceType,
+                $"The OpenFGA ReBAC adapter only evaluates '{RebacTypes.Account}' resources; " +
+                $"'{request.Resource.Type}' has no queryable relation in the model."));
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(request.Resource.Id))
         {
             denial = AccessDecision.Deny(new Reason(
@@ -38,7 +53,7 @@ public static class OpenFgaRequestMapper
         check = new RebacCheck(
             User: $"{RebacTypes.User}:{request.Subject.Id}",
             Relation: relation,
-            Object: $"{request.Resource.Type}:{request.Resource.Id}");
+            Object: $"{RebacTypes.Account}:{request.Resource.Id}");
         return true;
     }
 }
