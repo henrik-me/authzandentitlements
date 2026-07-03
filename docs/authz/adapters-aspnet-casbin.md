@@ -42,11 +42,12 @@ CS06 factors the decision accordingly:
   *sets* in that engine's native policy form (an ASP.NET policy, a Casbin RBAC policy) —
   which is what makes these genuine engine integrations rather than hard-coded role lists.
 
-So an adapter is thin by design — it supplies a role gate and defers everything else:
+So an adapter is thin by design — it supplies a role gate and defers everything else. Each
+shipped adapter implements `IEngineRoleAuthorizer` itself, so it passes `this`:
 
 ```csharp
 public AccessDecision Evaluate(AccessRequest request) =>
-    FintechRuleEvaluator.Evaluate(request, _roleAuthorizer);
+    FintechRuleEvaluator.Evaluate(request, this);
 ```
 
 This realizes the architecture's thesis directly: **the same question, a swappable engine.**
