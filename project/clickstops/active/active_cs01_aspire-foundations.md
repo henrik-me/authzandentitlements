@@ -1,9 +1,9 @@
 # CS01 — Aspire solution foundations
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae
+**Branch:** cs01/content
+**Started:** 2026-07-03
 **Closed:** —
 **Phase:** 0 — Foundations
 **Lane:** Foundation
@@ -39,7 +39,22 @@ Stand up the .NET Aspire solution skeleton that every other CS builds on.
 | Add PostgreSQL integration + logical DBs | pending | — | |
 | Add central package management | pending | — | |
 | Verify dashboard + build | pending | — | |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and any feature docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; create planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8, claude-opus-4.7 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae |
+| Reviewer agent | copilot |
+
+## Plan-vs-implementation review
+
+> _(filled at close-out per the gate)_
