@@ -81,7 +81,9 @@ public static class FintechRuleEvaluator
 
         if (!roleAuthorizer.IsRoleAuthorized(request.Action.Name, request.Subject.Roles))
         {
-            return RoleNotAuthorized("Creating a transaction requires a maker-eligible role.");
+            return RoleNotAuthorized(
+                $"Creating a transaction requires one of: {RoleNames.BranchManager}, " +
+                $"{RoleNames.ComplianceOfficer}, {RoleNames.Teller}.");
         }
 
         if (!SubjectIsMaker(request))
@@ -117,7 +119,9 @@ public static class FintechRuleEvaluator
 
         if (!roleAuthorizer.IsRoleAuthorized(request.Action.Name, request.Subject.Roles))
         {
-            return RoleNotAuthorized("Deciding an approval requires a checker-eligible role.");
+            return RoleNotAuthorized(
+                $"Deciding an approval requires one of: {RoleNames.BranchManager}, " +
+                $"{RoleNames.ComplianceOfficer}.");
         }
 
         if (!TenantMatches(request))
