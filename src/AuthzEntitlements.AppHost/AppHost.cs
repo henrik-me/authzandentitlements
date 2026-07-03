@@ -6,8 +6,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 // ephemeral dev-time Aspire dashboard. The instrumented services fan their OTLP telemetry
 // here (ServiceDefaults already gates its OTLP exporter on OTEL_EXPORTER_OTLP_ENDPOINT), the
 // bundled collector routes each signal to its backend, and Grafana visualizes them with the
-// baseline dashboards provisioned from infra/observability. A persistent container lifetime +
-// a /data volume keep telemetry across `aspire run` restarts. The tag is pinned for
+// baseline dashboards provisioned from infra/observability. A persistent container lifetime and
+// a /data volume let collected telemetry survive `aspire run` restarts. The tag is pinned for
 // determinism; this is a dev-loop backend (not a production deployment).
 var observability = builder.AddContainer("observability", "grafana/otel-lgtm", "0.28.0")
     .WithLifetime(ContainerLifetime.Persistent)
