@@ -75,6 +75,24 @@ public sealed class MakerCheckerTests
     }
 
     [Fact]
+    public void Create_StampsGivenTenantBranchCurrency_AndAppliesThreshold()
+    {
+        var (txn, approval) = Transaction.Create(
+            Tenant, Branch, Account, TransactionType.Transfer,
+            BankPolicy.ApprovalThreshold, "EUR", Maker, "derived", Now);
+
+        // The factory stamps exactly the tenant/branch/currency it is handed (the
+        // endpoint/seeder derive these from the account, never the caller).
+        Assert.Equal(Tenant, txn.TenantId);
+        Assert.Equal(Branch, txn.BranchId);
+        Assert.Equal(Account, txn.AccountId);
+        Assert.Equal("EUR", txn.Currency);
+        // Threshold rule still holds: at/above threshold produces a Pending approval.
+        Assert.NotNull(approval);
+        Assert.Equal(TransactionStatus.Pending, txn.Status);
+    }
+
+    [Fact]
     public void Create_BelowThreshold_PostsImmediately_NoApproval()
     {
         var (txn, approval) = Transaction.Create(

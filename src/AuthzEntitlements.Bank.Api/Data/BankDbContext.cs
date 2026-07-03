@@ -129,6 +129,17 @@ public sealed class BankDbContext(DbContextOptions<BankDbContext> options) : DbC
                 .WithMany()
                 .HasForeignKey(t => t.MakerId)
                 .OnDelete(DeleteBehavior.Restrict);
+            // Tenant/branch are trustworthy ABAC attributes derived from the account;
+            // enforce them with FKs. Restrict avoids multiple-cascade-path conflicts
+            // (Tenant/Branch already cascade to Account, which cascades to Transaction).
+            e.HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(t => t.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Branch>()
+                .WithMany()
+                .HasForeignKey(t => t.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Approval>(e =>
@@ -141,6 +152,13 @@ public sealed class BankDbContext(DbContextOptions<BankDbContext> options) : DbC
                 .WithOne(t => t.Approval)
                 .HasForeignKey<Approval>(a => a.TransactionId)
                 .OnDelete(DeleteBehavior.Cascade);
+            // Optimistic concurrency: two concurrent approve/reject calls both read
+            // Pending in memory and pass the domain guard; the xmin system-column
+            // token makes the second SaveChanges fail (DbUpdateConcurrencyException)
+            // instead of last-writer-wins, preserving the "decide once" invariant.
+            // (Npgsql maps a uint row-version property to the hidden xmin system
+            // column, so no real column is added.)
+            e.Property<uint>("xmin").IsRowVersion();
         });
     }
 }

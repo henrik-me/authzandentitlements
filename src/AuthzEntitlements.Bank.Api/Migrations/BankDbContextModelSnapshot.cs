@@ -105,6 +105,12 @@ namespace AuthzEntitlements.Bank.Api.Migrations
                     b.Property<Guid>("TransactionId")
                         .HasColumnType("uuid");
 
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("TransactionId")
@@ -268,7 +274,11 @@ namespace AuthzEntitlements.Bank.Api.Migrations
 
                     b.HasIndex("AccountId");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("MakerId");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("Transactions");
                 });
@@ -393,9 +403,21 @@ namespace AuthzEntitlements.Bank.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("AuthzEntitlements.Bank.Api.Domain.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("AuthzEntitlements.Bank.Api.Domain.User", "Maker")
                         .WithMany()
                         .HasForeignKey("MakerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AuthzEntitlements.Bank.Api.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 

@@ -64,12 +64,9 @@ public sealed record CreateAccountRequest(
     string Currency);
 
 public sealed record CreateTransactionRequest(
-    Guid TenantId,
-    Guid BranchId,
     Guid AccountId,
     TransactionType Type,
     decimal Amount,
-    string Currency,
     Guid MakerId,
     string? Reference);
 

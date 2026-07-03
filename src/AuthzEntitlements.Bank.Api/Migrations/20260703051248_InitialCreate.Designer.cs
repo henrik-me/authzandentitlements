@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AuthzEntitlements.Bank.Api.Migrations
 {
     [DbContext(typeof(BankDbContext))]
-    [Migration("20260703044854_InitialCreate")]
+    [Migration("20260703051248_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -107,6 +107,12 @@ namespace AuthzEntitlements.Bank.Api.Migrations
 
                     b.Property<Guid>("TransactionId")
                         .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id");
 
@@ -271,7 +277,11 @@ namespace AuthzEntitlements.Bank.Api.Migrations
 
                     b.HasIndex("AccountId");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("MakerId");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("Transactions");
                 });
@@ -396,9 +406,21 @@ namespace AuthzEntitlements.Bank.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("AuthzEntitlements.Bank.Api.Domain.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("AuthzEntitlements.Bank.Api.Domain.User", "Maker")
                         .WithMany()
                         .HasForeignKey("MakerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AuthzEntitlements.Bank.Api.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 

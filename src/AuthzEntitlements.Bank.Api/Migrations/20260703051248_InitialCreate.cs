@@ -169,6 +169,18 @@ namespace AuthzEntitlements.Bank.Api.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
+                        name: "FK_Transactions_Branches_BranchId",
+                        column: x => x.BranchId,
+                        principalTable: "Branches",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Transactions_Tenants_TenantId",
+                        column: x => x.TenantId,
+                        principalTable: "Tenants",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
                         name: "FK_Transactions_Users_MakerId",
                         column: x => x.MakerId,
                         principalTable: "Users",
@@ -211,7 +223,8 @@ namespace AuthzEntitlements.Bank.Api.Migrations
                     Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     DecisionReason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     RequestedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    DecidedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                    DecidedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -281,9 +294,19 @@ namespace AuthzEntitlements.Bank.Api.Migrations
                 column: "AccountId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Transactions_BranchId",
+                table: "Transactions",
+                column: "BranchId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Transactions_MakerId",
                 table: "Transactions",
                 column: "MakerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Transactions_TenantId",
+                table: "Transactions",
+                column: "TenantId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserRoles_RoleId",

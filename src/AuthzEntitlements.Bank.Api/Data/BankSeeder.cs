@@ -173,13 +173,18 @@ public static class BankSeeder
     }
 
     // Exercises all three maker-checker paths with the shared Transaction.Create
-    // factory so the seed data matches the runtime code path exactly.
+    // factory so the seed data matches the runtime code path exactly. Tenant, branch
+    // and currency are derived from each transaction's account, mirroring the Create
+    // endpoint (attributes are never trusted from the caller).
     private static void SeedTransactions(BankDbContext db)
     {
+        var checking = db.Accounts.Local.Single(a => a.Id == CheckingAccountId);
+        var savings = db.Accounts.Local.Single(a => a.Id == SavingsAccountId);
+
         // (a) Below threshold -> Posted immediately, no approval.
         var (posted, postedApproval) = Transaction.Create(
-            ContosoTenantId, NorthMainBranchId, CheckingAccountId, TransactionType.Debit,
-            250.00m, "USD", Teller1Id, "ATM withdrawal", SeedTime);
+            checking.TenantId, checking.BranchId, checking.Id, TransactionType.Debit,
+            250.00m, checking.Currency, Teller1Id, "ATM withdrawal", SeedTime);
         posted.Id = PostedTxnId;
         db.Transactions.Add(posted);
         // postedApproval is null by construction below threshold.
@@ -187,8 +192,8 @@ public static class BankSeeder
 
         // (b) At/above threshold -> Pending with a Pending approval (checker null).
         var (pending, pendingApproval) = Transaction.Create(
-            ContosoTenantId, NorthMainBranchId, SavingsAccountId, TransactionType.Transfer,
-            15_000.00m, "USD", Teller1Id, "Wire transfer", SeedTime);
+            savings.TenantId, savings.BranchId, savings.Id, TransactionType.Transfer,
+            15_000.00m, savings.Currency, Teller1Id, "Wire transfer", SeedTime);
         pending.Id = PendingTxnId;
         pendingApproval!.Id = PendingApprovalId;
         pendingApproval.TransactionId = pending.Id;
@@ -196,8 +201,8 @@ public static class BankSeeder
 
         // (c) At/above threshold, approved by manager1 (checker != maker -> SoD valid).
         var (approved, approvedApproval) = Transaction.Create(
-            ContosoTenantId, NorthMainBranchId, SavingsAccountId, TransactionType.Debit,
-            25_000.00m, "USD", Teller1Id, "Loan disbursement", SeedTime);
+            savings.TenantId, savings.BranchId, savings.Id, TransactionType.Debit,
+            25_000.00m, savings.Currency, Teller1Id, "Loan disbursement", SeedTime);
         approved.Id = ApprovedTxnId;
         approvedApproval!.Id = ApprovedApprovalId;
         approvedApproval.TransactionId = approved.Id;
