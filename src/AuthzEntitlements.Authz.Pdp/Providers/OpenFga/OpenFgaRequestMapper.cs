@@ -46,7 +46,8 @@ public static class OpenFgaRequestMapper
         {
             denial = AccessDecision.Deny(new Reason(
                 RebacReasonCodes.MissingResourceId,
-                "A ReBAC check requires a concrete resource id (e.g. \"account:acme-checking\")."));
+                "A ReBAC check requires a concrete resource id (the bare id without a type prefix, " +
+                "e.g. \"acme-checking\" — the adapter qualifies it as \"account:acme-checking\")."));
             return false;
         }
 
