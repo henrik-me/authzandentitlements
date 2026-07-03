@@ -216,14 +216,16 @@ public static class EntitlementsEndpoints
                     continue;
                 }
 
-                // Retries exhausted under sustained contention. Fail closed with a deny
-                // rather than throwing (HTTP 500): the endpoint contract is to always
-                // return an allow/deny payload, and a 500 would invite caller retry storms.
+                // Retries exhausted under sustained contention. This is a TRANSIENT store
+                // failure, not a business quota-exceeded decision, so fail closed with a
+                // graceful 503 (never an unhandled 500). The Bank.Api client maps the 503
+                // to its Unavailable sentinel and denies as "service unavailable", rather
+                // than mislabeling a transient failure as quota-exceeded (429).
                 EmitQuota(audit, metrics, tenantCode, quotaKey, EntitlementOutcome.Deny,
                     planTier, amount, used, limit, consumed: 0);
-                var remainingNow = limit < 0 ? EntitlementCatalog.Unlimited : Math.Max(0L, limit - used);
-                return TypedResults.Ok(new QuotaConsumeResponse(
-                    false, limit, used, remainingNow, "quota temporarily unavailable"));
+                return TypedResults.Problem(
+                    "The quota store is temporarily unavailable; retry the request.",
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
             }
 
             EmitQuota(audit, metrics, tenantCode, quotaKey, EntitlementOutcome.Allow,
