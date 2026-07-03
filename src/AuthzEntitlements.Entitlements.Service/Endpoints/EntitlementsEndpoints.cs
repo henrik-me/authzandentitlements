@@ -198,10 +198,22 @@ public static class EntitlementsEndpoints
             {
                 await db.SaveChangesAsync(ct);
             }
-            catch (DbUpdateException) when (attempt < MaxConsumeAttempts)
+            catch (DbUpdateException)
             {
                 db.ChangeTracker.Clear();
-                continue;
+                if (attempt < MaxConsumeAttempts)
+                {
+                    continue;
+                }
+
+                // Retries exhausted under sustained contention. Fail closed with a deny
+                // rather than throwing (HTTP 500): the endpoint contract is to always
+                // return an allow/deny payload, and a 500 would invite caller retry storms.
+                EmitQuota(audit, metrics, tenantCode, quotaKey, EntitlementOutcome.Deny,
+                    planTier, amount, used, limit, consumed: 0);
+                return TypedResults.Ok(new QuotaConsumeResponse(
+                    false, limit, used, QuotaDecision.Evaluate(limit, used, 0).Remaining,
+                    "quota temporarily unavailable"));
             }
 
             EmitQuota(audit, metrics, tenantCode, quotaKey, EntitlementOutcome.Allow,
@@ -316,6 +328,13 @@ public static class EntitlementsEndpoints
 
         var plan = await db.Plans.AsNoTracking().FirstAsync(p => p.Tier == subscription.PlanTier, ct);
 
+        // Take the same per-subscription advisory lock as AssignSeatAsync so seat
+        // operations are consistently serialized: the delete + recount reflect a
+        // serialized post-mutation state even under concurrent assign/release.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock(hashtextextended({subscription.Id.ToString()}, 0))", ct);
+
         var assignment = await db.SeatAssignments
             .FirstOrDefaultAsync(a => a.SubscriptionId == subscription.Id && a.UserId == request.UserId, ct);
         var found = assignment is not null;
@@ -325,8 +344,11 @@ public static class EntitlementsEndpoints
             await db.SaveChangesAsync(ct);
         }
 
-        var seatsUsed = await db.SeatAssignments.AsNoTracking()
+        var seatsUsed = await db.SeatAssignments
             .CountAsync(a => a.SubscriptionId == subscription.Id, ct);
+
+        await tx.CommitAsync(ct);
+
         var remaining = SeatMath.Remaining(plan.SeatLimit, seatsUsed);
 
         Emit(audit, metrics, tenantCode, EntitlementDecisionType.Seat, "seats",
