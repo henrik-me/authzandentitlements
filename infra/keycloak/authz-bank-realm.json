@@ -1,0 +1,389 @@
+{
+  "realm": "authz-bank",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "accessTokenLifespan": 3600,
+  "roles": {
+    "realm": [
+      {
+        "name": "Teller",
+        "description": "Front-line teller.",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "BranchManager",
+        "description": "Branch manager; may approve high-value transactions.",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "ComplianceOfficer",
+        "description": "Compliance officer; may approve high-value transactions.",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "Auditor",
+        "description": "Read-only auditor.",
+        "composite": false,
+        "clientRole": false
+      }
+    ]
+  },
+  "clientScopes": [
+    {
+      "name": "bank.read",
+      "description": "Read access to bank resources.",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "bank.transactions.write",
+      "description": "Create transactions.",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "bank.approvals.write",
+      "description": "Approve or reject high-value transactions.",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "bank-claims",
+      "description": "Emits tenant/branch/roles custom claims and bank-api audience into the access token.",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "tenant",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant",
+            "claim.name": "tenant",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false",
+            "aggregate.attrs": "false"
+          }
+        },
+        {
+          "name": "branch",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "branch",
+            "claim.name": "branch",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false",
+            "aggregate.attrs": "false"
+          }
+        },
+        {
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "true"
+          }
+        },
+        {
+          "name": "aud-bank-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "bank-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "preferred_username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "bank-web",
+      "name": "Bank Web (confidential OIDC client)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "bank-web-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "+"
+      },
+      "defaultClientScopes": [
+        "bank-claims",
+        "bank.read"
+      ],
+      "optionalClientScopes": [
+        "bank.transactions.write",
+        "bank.approvals.write"
+      ]
+    },
+    {
+      "clientId": "bank-api",
+      "name": "Bank API (resource server, bearer-only)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": true
+    },
+    {
+      "clientId": "bank-workload",
+      "name": "Bank Workload (service account / client credentials)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "bank-workload-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "bank-claims",
+        "bank.read"
+      ],
+      "optionalClientScopes": []
+    }
+  ],
+  "users": [
+    {
+      "id": "40000000-0000-0000-0000-000000000001",
+      "username": "teller1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "teller1@contoso.example",
+      "firstName": "Tara",
+      "lastName": "Teller",
+      "attributes": {
+        "tenant": [
+          "CONTOSO"
+        ],
+        "branch": [
+          "NM01"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Teller"
+      ]
+    },
+    {
+      "id": "40000000-0000-0000-0000-000000000002",
+      "username": "manager1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "manager1@contoso.example",
+      "firstName": "Mona",
+      "lastName": "Manager",
+      "attributes": {
+        "tenant": [
+          "CONTOSO"
+        ],
+        "branch": [
+          "NM01"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "BranchManager"
+      ]
+    },
+    {
+      "id": "40000000-0000-0000-0000-000000000003",
+      "username": "compliance1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "compliance1@contoso.example",
+      "firstName": "Colin",
+      "lastName": "Compliance",
+      "attributes": {
+        "tenant": [
+          "CONTOSO"
+        ],
+        "branch": [
+          "NM01"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ComplianceOfficer"
+      ]
+    },
+    {
+      "id": "40000000-0000-0000-0000-000000000004",
+      "username": "auditor1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "auditor1@contoso.example",
+      "firstName": "Alan",
+      "lastName": "Auditor",
+      "attributes": {
+        "tenant": [
+          "CONTOSO"
+        ],
+        "branch": [
+          "NM01"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Auditor"
+      ]
+    },
+    {
+      "id": "40000000-0000-0000-0000-000000000005",
+      "username": "teller1-fabrikam",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "teller1@fabrikam.example",
+      "firstName": "Felix",
+      "lastName": "Fabrikam",
+      "attributes": {
+        "tenant": [
+          "FABRIKAM"
+        ],
+        "branch": [
+          "FH01"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Teller"
+      ]
+    },
+    {
+      "username": "service-account-bank-workload",
+      "enabled": true,
+      "emailVerified": true,
+      "serviceAccountClientId": "bank-workload",
+      "attributes": {
+        "tenant": [
+          "CONTOSO"
+        ]
+      }
+    }
+  ]
+}

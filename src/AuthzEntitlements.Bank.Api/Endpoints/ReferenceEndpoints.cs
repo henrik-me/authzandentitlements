@@ -1,3 +1,4 @@
+using AuthzEntitlements.Bank.Api.Auth;
 using AuthzEntitlements.Bank.Api.Contracts;
 using AuthzEntitlements.Bank.Api.Data;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +11,7 @@ public static class ReferenceEndpoints
 {
     public static IEndpointRouteBuilder MapReferenceEndpoints(this IEndpointRouteBuilder app)
     {
-        var tenants = app.MapGroup("/api/tenants");
+        var tenants = app.MapGroup("/api/tenants").RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
         tenants.MapGet("/", async (BankDbContext db, CancellationToken ct) =>
             TypedResults.Ok(
@@ -25,14 +26,16 @@ public static class ReferenceEndpoints
             return tenant is null ? TypedResults.NotFound() : TypedResults.Ok(tenant.ToDto());
         });
 
-        app.MapGroup("/api/branches").MapGet("/", async (BankDbContext db, CancellationToken ct) =>
+        app.MapGroup("/api/branches").RequireAuthorization(AuthorizationSetup.ScopeReadPolicy)
+            .MapGet("/", async (BankDbContext db, CancellationToken ct) =>
             TypedResults.Ok(
                 await db.Branches.AsNoTracking()
                     .OrderBy(b => b.Code)
                     .Select(b => b.ToDto())
                     .ToListAsync(ct)));
 
-        app.MapGroup("/api/users").MapGet("/", async (BankDbContext db, CancellationToken ct) =>
+        app.MapGroup("/api/users").RequireAuthorization(AuthorizationSetup.ScopeReadPolicy)
+            .MapGet("/", async (BankDbContext db, CancellationToken ct) =>
             TypedResults.Ok(
                 (await db.Users.AsNoTracking()
                     .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)

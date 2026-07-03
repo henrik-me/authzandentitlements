@@ -1,3 +1,4 @@
+using AuthzEntitlements.Bank.Api.Auth;
 using AuthzEntitlements.Bank.Api.Contracts;
 using AuthzEntitlements.Bank.Api.Data;
 using AuthzEntitlements.Bank.Api.Domain;
@@ -7,6 +8,8 @@ namespace AuthzEntitlements.Bank.Api.Endpoints;
 
 // CRUD for accounts (the primary authz resource). Create is minimal in CS02: it
 // validates referential integrity and persists; richer rules land in later CSs.
+// CS03: account creation is a privileged write, gated to the BranchManager role
+// (interim rule — a dedicated account-lifecycle scope arrives with later authz CSs).
 public static class AccountEndpoints
 {
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
@@ -18,13 +21,14 @@ public static class AccountEndpoints
                 await db.Accounts.AsNoTracking()
                     .OrderBy(a => a.AccountNumber)
                     .Select(a => a.ToDto())
-                    .ToListAsync(ct)));
+                    .ToListAsync(ct)))
+            .RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
         accounts.MapGet("/{id:guid}", async Task<IResult> (Guid id, BankDbContext db, CancellationToken ct) =>
         {
             var account = await db.Accounts.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id, ct);
             return account is null ? TypedResults.NotFound() : TypedResults.Ok(account.ToDto());
-        });
+        }).RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
         accounts.MapPost("/", async Task<IResult> (
             CreateAccountRequest request, BankDbContext db, CancellationToken ct) =>
@@ -59,7 +63,7 @@ public static class AccountEndpoints
             db.Accounts.Add(account);
             await db.SaveChangesAsync(ct);
             return TypedResults.Created($"/api/accounts/{account.Id}", account.ToDto());
-        });
+        }).RequireAuthorization(RoleNames.BranchManager);
 
         return app;
     }

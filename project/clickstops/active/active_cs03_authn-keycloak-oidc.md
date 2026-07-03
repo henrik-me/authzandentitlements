@@ -78,13 +78,27 @@ Authoritative contract shared by all CS03 sub-agents. Aligns the Keycloak realm 
 
 ## Notes / Learnings
 
-_Populated during implementation and close-out._
+**Delivered (content PR `cs03/content`):** Keycloak Aspire container + `authz-bank` realm import (`infra/keycloak/authz-bank-realm.json`); JWT bearer validation + role/scope/tenant authorization on Bank.Api (`Auth/` module, endpoints gated); Bank.Web OIDC login stub (`/`, `/login`, `/claims`, `/logout`); Entra ID mapping doc (`docs/identity/entra-id.md`); 18 new tests (7→25).
+
+**Sub-agents (Wave A, disjoint ownership):** `cs03-realm` (claude-opus-4.6), `cs03-bank-api-authz`, `cs03-bank-web`, `cs03-entra-doc` (claude-opus-4.8). AppHost integration + all runtime fixes by orchestrator `yoga-ae-c2` (claude-opus-4.8).
+
+**Integration fixes found only via runtime verification** (candidate learnings for close-out):
+1. **Keycloak 26 `organization` feature** (default-on) crashes service-account import with "Session not bound to a realm" → AppHost sets `KC_FEATURES_DISABLED=organization`.
+2. **Aspire `WithRealmImport` enforces `<realm>-realm.json`** naming (a bare directory import is lenient; Aspire's is not) → realm file is `authz-bank-realm.json`.
+3. **Aspire/Keycloak proxy issuer instability** — a dynamic/proxied Keycloak endpoint makes the `iss` differ per access path, so JWT issuer validation fails → Keycloak pinned to a fixed host port (8088) with one explicit stable `Keycloak:Authority` shared by bank-api + bank-web.
+4. **`JwtBearer.MapInboundClaims` defaults to true**, remapping Keycloak's `roles` claim to the legacy `ClaimTypes.Role` URI while `RoleClaimType="roles"` → `RequireRole` silently always failed (401/403). Fixed with `MapInboundClaims=false` (bank-api + bank-web). The synthetic-principal unit tests missed this (they bypass the JWT handler); added `AuthenticationSetupTests` as a regression guard. Reinforces LRN-007 (verify review/tests against the running system).
+5. **Built-in Keycloak client scopes (`basic`/`profile`/`email`) are not auto-seeded** when a realm export supplies its own `clientScopes` → `sub`/`preferred_username`/`email` were absent. Fixed by adding those mappers to the applied `bank-claims` scope; bank-web requests only `openid`+`bank.read` (identity claims come from the default `bank-claims`). Client default-scope lists cleaned to reference only defined scopes.
+6. **`POST /api/accounts` was unauthenticated** (missed in the sub-agent brief) → gated to the `BranchManager` role (interim; a dedicated account-lifecycle scope arrives with later authz CSs).
+
+**Verification (runtime, real Keycloak):** token claims correct for all 5 users incl. `sub`=Bank.Api `User.Id` (standalone Keycloak); bank-api authorization matrix — 10/10 scenarios (401 no/bad token, 200 read, 403 wrong scope/role, 403 cross-tenant, 201 authorized write); **full `aspire run` e2e** — Keycloak imports cleanly, bank-api 200/201, bank-web `/claims` 302→Keycloak login. Build 0 warnings; 25 tests pass; `harness lint` 0 failed.
+
+**Dev-only realm posture:** `sslRequired=none`, fixed lab passwords (`Passw0rd!`), permissive `redirectUris`/`webOrigins`. Not for non-local use.
 
 ## Model audit
 
 | Field | Value |
 |---|---|
-| Implementer models | claude-opus-4.8 |
+| Implementer models | claude-opus-4.8, claude-opus-4.6 |
 | Reviewer model | gpt-5.5 |
 | Implementer agent | yoga-ae-c2 |
 | Reviewer agent | copilot |

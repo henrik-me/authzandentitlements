@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using AuthzEntitlements.Bank.Api.Auth;
 using AuthzEntitlements.Bank.Api.Contracts;
 using AuthzEntitlements.Bank.Api.Data;
 using AuthzEntitlements.Bank.Api.Domain;
@@ -20,7 +22,8 @@ public static class TransactionEndpoints
                     .Include(t => t.Approval)
                     .OrderBy(t => t.CreatedAt)
                     .Select(t => t.ToDto())
-                    .ToListAsync(ct)));
+                    .ToListAsync(ct)))
+            .RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
         transactions.MapGet("/{id:guid}", async Task<IResult> (
             Guid id, BankDbContext db, CancellationToken ct) =>
@@ -29,10 +32,10 @@ public static class TransactionEndpoints
                 .Include(t => t.Approval)
                 .FirstOrDefaultAsync(t => t.Id == id, ct);
             return txn is null ? TypedResults.NotFound() : TypedResults.Ok(txn.ToDto());
-        });
+        }).RequireAuthorization(AuthorizationSetup.ScopeReadPolicy);
 
         transactions.MapPost("/", async Task<IResult> (
-            CreateTransactionRequest request, BankDbContext db, CancellationToken ct) =>
+            CreateTransactionRequest request, ClaimsPrincipal user, BankDbContext db, CancellationToken ct) =>
         {
             if (request.Amount <= 0m)
             {
@@ -49,6 +52,18 @@ public static class TransactionEndpoints
                 return TypedResults.Problem(
                     $"Account {request.AccountId} does not exist.",
                     statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            // Token-level defence in depth: the caller's tenant claim must match the
+            // resolved account's tenant Code. The domain never trusts the caller's
+            // tenant (it derives it from the account); this is an additional gate.
+            var accountTenant = await db.Tenants.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == account.TenantId, ct);
+            if (accountTenant is not null && !user.MatchesTenant(accountTenant.Code))
+            {
+                return TypedResults.Problem(
+                    "Caller tenant claim does not match the account tenant.",
+                    statusCode: StatusCodes.Status403Forbidden);
             }
 
             var maker = await db.Users.AsNoTracking()
@@ -80,15 +95,17 @@ public static class TransactionEndpoints
 
             await db.SaveChangesAsync(ct);
             return TypedResults.Created($"/api/transactions/{txn.Id}", txn.ToDto());
-        });
+        }).RequireAuthorization(AuthorizationSetup.TransactionCreatePolicy);
 
         transactions.MapPost("/{id:guid}/approve", (
             Guid id, DecideRequest request, BankDbContext db, CancellationToken ct) =>
-            DecideAsync(id, request, approve: true, db, ct));
+            DecideAsync(id, request, approve: true, db, ct))
+            .RequireAuthorization(AuthorizationSetup.ApprovalDecidePolicy);
 
         transactions.MapPost("/{id:guid}/reject", (
             Guid id, DecideRequest request, BankDbContext db, CancellationToken ct) =>
-            DecideAsync(id, request, approve: false, db, ct));
+            DecideAsync(id, request, approve: false, db, ct))
+            .RequireAuthorization(AuthorizationSetup.ApprovalDecidePolicy);
 
         return app;
     }
