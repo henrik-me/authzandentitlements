@@ -1,5 +1,4 @@
 using System.Text.Json;
-using AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
 using Microsoft.Extensions.Options;
 using OpenFga.Sdk.Client;
 using OpenFga.Sdk.Client.Model;
@@ -125,9 +124,9 @@ public sealed class OpenFgaRebacService
         if (string.IsNullOrWhiteSpace(_options.ApiUrl))
         {
             throw new InvalidOperationException(
-                "OpenFGA ApiUrl is not configured. Start the 'openfga' container and set " +
-                "\"Pdp:Provider\" to \"openfga\" (the AppHost injects Pdp__OpenFga__ApiUrl when the " +
-                "container runs).");
+                "OpenFGA ApiUrl is not configured. Set \"Pdp:OpenFga:ApiUrl\" (and \"Pdp:Provider\" " +
+                "to \"openfga\"); under `aspire run` the AppHost injects it as Pdp__OpenFga__ApiUrl " +
+                "once the 'openfga' container is started.");
         }
 
         return new OpenFgaClient(new ClientConfiguration { ApiUrl = _options.ApiUrl });
@@ -169,10 +168,17 @@ public sealed class OpenFgaRebacService
     {
         var existing = await ReadAllTupleKeysAsync(client, cancellationToken).ConfigureAwait(false);
 
-        var missing = RebacSeedTuples.Tuples
-            .Where(t => existing.Add(TupleKey(t.User, t.Relation, t.Object)))
-            .Select(t => new ClientTupleKey { User = t.User, Relation = t.Relation, Object = t.Object })
-            .ToList();
+        // Explicit loop rather than a side-effecting LINQ Where: existing.Add returns false when the
+        // key is already present (in the store or an earlier seed tuple), so only genuinely-new
+        // tuples are queued — OpenFGA's Write is not idempotent and errors on a duplicate.
+        var missing = new List<ClientTupleKey>();
+        foreach (var t in RebacSeedTuples.Tuples)
+        {
+            if (existing.Add(TupleKey(t.User, t.Relation, t.Object)))
+            {
+                missing.Add(new ClientTupleKey { User = t.User, Relation = t.Relation, Object = t.Object });
+            }
+        }
 
         if (missing.Count == 0)
         {
