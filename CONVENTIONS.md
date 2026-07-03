@@ -194,21 +194,24 @@ time; they have repeatedly been review blockers (LRN-011, LRN-017):
   `[JsonIgnore]` so a wire payload can never inject them; only the local `Unavailable(…)`
   factory sets them.
 - **Emit audit-ready decision events.** Every authz/entitlement decision emits a structured
-  event with stable, matchable **lower-case** fields; ingestion may be deferred
-  (Audit.Service, CS13) but emission is not.
+  event with stable, matchable fields — the decision-type/outcome **values** are lower-cased
+  for stable matching; ingestion may be deferred (Audit.Service, CS13) but emission is not.
 
 ### Concurrency (Postgres + EF Core)
 
-- **Hard caps use a pessimistic per-subject lock, not `Serializable` + retry.** For
-  capacity/quota/grant limits (seats, quotas, JIT grants) enforce the
-  count → check → insert atomically with a Postgres **advisory transaction lock** —
-  `SELECT pg_advisory_xact_lock(hashtextextended(<id>, 0))` issued inside the EF
-  transaction via `db.Database.ExecuteSqlInterpolatedAsync(…)`. It serializes (blocks)
-  rather than conflict-retrying, so it does not thrash/500 under contention; a
-  `Serializable`-isolation + retry loop exhausts and 500s (LRN-015, verified to 30-way).
+- **Hard capacity caps use a pessimistic per-subject lock, not `Serializable` + retry.** For a
+  `count → check → insert` capacity cap (seats today; and new grant/capacity work such as JIT
+  grants) enforce it atomically with a Postgres **advisory transaction lock** —
+  `SELECT pg_advisory_xact_lock(hashtextextended(<id>, 0))` issued inside the EF transaction
+  via `db.Database.ExecuteSqlInterpolatedAsync(…)`. It serializes (blocks) rather than
+  conflict-retrying, so it does not thrash/500 under contention; a `Serializable`-isolation +
+  retry loop exhausts and 500s (LRN-015, verified to 30-way concurrency on seat assignment).
 - **Decide-once / last-writer races use `xmin` optimistic concurrency.** Map the Postgres
   system column with `entity.Property<uint>("xmin").IsRowVersion()`
-  (`UseXminAsConcurrencyToken()` was removed in Npgsql 10 rc1) for approve/reject and
-  quota-consume; surface a **409** on the losing writer instead of last-writer-wins, and
-  verify the generated SQL adds no physical column (LRN-004).
+  (`UseXminAsConcurrencyToken()` was removed in Npgsql 10 rc1); verify the generated SQL adds
+  no physical column (LRN-004). **Approve/reject** (maker-checker decide-once) surfaces a
+  **409** on the losing writer instead of last-writer-wins. **Quota-consume** instead uses an
+  `xmin` **retry** loop (re-read + re-evaluate) and, on sustained-contention retry exhaustion,
+  fails closed with a transient **503** (never a 200 business deny or a 429), per the
+  fail-closed convention above (LRN-017).
 <!-- harness:local-end id=conventions.project -->
