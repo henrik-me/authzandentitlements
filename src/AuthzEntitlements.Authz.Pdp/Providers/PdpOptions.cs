@@ -8,5 +8,9 @@ public sealed class PdpOptions
 {
     public const string SectionName = "Pdp";
 
-    public string Provider { get; set; } = "reference";
+    // The default engine name — the deterministic in-process reference provider. Centralized so
+    // the factory can fall back to it when configuration leaves the provider name blank.
+    public const string DefaultProvider = "reference";
+
+    public string Provider { get; set; } = DefaultProvider;
 }

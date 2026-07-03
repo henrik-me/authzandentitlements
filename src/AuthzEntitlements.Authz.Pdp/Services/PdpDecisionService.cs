@@ -31,17 +31,29 @@ public sealed class PdpDecisionService
         using var activity = PdpTelemetry.StartDecisionActivity(_provider.Name, request.Action.Name);
 
         var decision = _provider.Evaluate(request);
-        var reasonCode = decision.Reasons.Count > 0 ? decision.Reasons[0].Code : ReasonCodes.Permit;
+
+        // Reasons[0] is the contractual primary reason. If a provider violates the contract and
+        // returns no reason, fall back to the decision's own name rather than a hardcoded
+        // "Permit" — a reasonless Deny must never be mislabelled as a permit in audit/telemetry.
+        var reasonCode = decision.Reasons.Count > 0
+            ? decision.Reasons[0].Code
+            : decision.Decision.ToString();
         var decisionName = decision.Decision.ToString();
 
         activity?.SetTag("pdp.decision", decisionName);
         activity?.SetTag("pdp.reason", reasonCode);
 
-        PdpTelemetry.RecordDecision(_provider.Name, request.Action.Name, decisionName, reasonCode);
+        // Metric tags must stay low-cardinality: action.name is caller-supplied and may be an
+        // arbitrary/unknown verb, so normalize it to the bounded vocabulary for the counter. The
+        // raw action stays on the span (above) and the audit event (below) for debugging.
+        PdpTelemetry.RecordDecision(
+            _provider.Name, ActionNames.ForMetric(request.Action.Name), decisionName, reasonCode);
 
         _audit.Record(new PdpDecisionAuditEvent(
             TimestampUtc: DateTimeOffset.UtcNow,
-            TraceId: Activity.Current?.TraceId.ToString() ?? string.Empty,
+            // Prefer the decision span's trace id so the audit event and the pdp.evaluate span
+            // correlate; fall back to the ambient activity, then empty when nothing is sampling.
+            TraceId: (activity?.TraceId ?? Activity.Current?.TraceId)?.ToString() ?? string.Empty,
             Provider: _provider.Name,
             SubjectId: request.Subject.Id,
             Action: request.Action.Name,

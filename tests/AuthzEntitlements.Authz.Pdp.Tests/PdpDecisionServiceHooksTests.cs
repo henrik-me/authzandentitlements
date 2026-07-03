@@ -24,6 +24,16 @@ public sealed class PdpDecisionServiceHooksTests
         public void Record(PdpDecisionAuditEvent decisionEvent) => Events.Add(decisionEvent);
     }
 
+    // A provider with a unique, caller-chosen name that returns a fixed decision — lets a
+    // metric test isolate its own measurement by the (never-normalized) provider tag.
+    private sealed class FixedDenyProvider(string name) : IAuthorizationDecisionProvider
+    {
+        public string Name => name;
+
+        public AccessDecision Evaluate(AccessRequest request) =>
+            AccessDecision.Deny(new Reason(ReasonCodes.TenantMismatch, "fixed deny for metric test"));
+    }
+
     private static PdpDecisionService CreateService(IPdpDecisionAuditSink sink) =>
         new(
             new AuthorizationDecisionProviderFactory(
@@ -126,9 +136,11 @@ public sealed class PdpDecisionServiceHooksTests
     [Fact]
     public void Evaluate_IncrementsDecisionCounter_WithProviderActionDecisionReasonTags()
     {
-        // A unique probe action keeps this test's measurement unambiguous even if another
-        // test emits on the same shared counter concurrently.
-        var probeAction = $"bank.metric.probe.{Guid.NewGuid():N}";
+        // Isolate by a unique PROVIDER name: the action tag is normalized to a bounded
+        // vocabulary (so it can no longer serve as a per-test discriminator), but the provider
+        // tag passes through unchanged and stays unambiguous under the shared, process-wide
+        // counter. A known action (AccountRead) is used so the action tag passes through.
+        var providerName = $"probe-{Guid.NewGuid():N}";
         var gate = new object();
         var captured = new List<KeyValuePair<string, object?>[]>();
         var total = 0L;
@@ -146,7 +158,7 @@ public sealed class PdpDecisionServiceHooksTests
             listener.SetMeasurementEventCallback<long>((_, measurement, tags, _) =>
             {
                 var copy = tags.ToArray();
-                if (copy.Any(t => t.Key == "action" && (string?)t.Value == probeAction))
+                if (copy.Any(t => t.Key == "provider" && (string?)t.Value == providerName))
                 {
                     lock (gate)
                     {
@@ -157,23 +169,27 @@ public sealed class PdpDecisionServiceHooksTests
             });
             listener.Start();
 
-            var service = CreateService(new CapturingAuditSink());
+            var service = new PdpDecisionService(
+                new AuthorizationDecisionProviderFactory(
+                    [new FixedDenyProvider(providerName)],
+                    Options.Create(new PdpOptions { Provider = providerName })),
+                new CapturingAuditSink());
             var request = PdpRequests.For(
                 PdpRequests.User("user-teller1", PdpRequests.Contoso, RoleNames.Teller),
-                probeAction,
+                ActionNames.AccountRead,
                 new Resource("account", Tenant: PdpRequests.Contoso),
                 ScopeNames.Read);
 
             var decision = service.Evaluate(request);
-            Assert.Equal(Decision.Deny, decision.Decision); // unknown action fails closed
+            Assert.Equal(Decision.Deny, decision.Decision);
         }
 
         Assert.Equal(1L, total);
         var tags = Assert.Single(captured);
-        Assert.Contains(tags, t => t.Key == "provider" && (string?)t.Value == "reference");
-        Assert.Contains(tags, t => t.Key == "action" && (string?)t.Value == probeAction);
+        Assert.Contains(tags, t => t.Key == "provider" && (string?)t.Value == providerName);
+        Assert.Contains(tags, t => t.Key == "action" && (string?)t.Value == ActionNames.AccountRead);
         Assert.Contains(tags, t => t.Key == "decision" && (string?)t.Value == "Deny");
-        Assert.Contains(tags, t => t.Key == "reason" && (string?)t.Value == ReasonCodes.UnknownAction);
+        Assert.Contains(tags, t => t.Key == "reason" && (string?)t.Value == ReasonCodes.TenantMismatch);
     }
 
     [Fact]

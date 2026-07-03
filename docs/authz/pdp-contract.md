@@ -445,7 +445,7 @@ CS13 replaces or augments.
 
 - **Span:** one `pdp.evaluate` span per decision, tagged `pdp.provider`, `pdp.action`,
   `pdp.decision`, `pdp.reason`.
-- **Counter:** `pdp.decisions.total`, tagged `provider`, `action`, `decision`, `reason`.
+- **Counter:** `pdp.decisions.total`, tagged `provider`, `action` (normalized to a known verb or `unknown` so caller-supplied action names cannot blow up metric label cardinality), `decision`, `reason`.
 
 `Program.cs` registers this source/meter on the OpenTelemetry pipeline from `ServiceDefaults`. The
 observability **stack** that consumes them (collector, Grafana/Prometheus dashboards) is **CS12**

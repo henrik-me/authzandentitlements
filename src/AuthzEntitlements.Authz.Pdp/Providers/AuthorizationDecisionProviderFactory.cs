@@ -19,7 +19,9 @@ public sealed class AuthorizationDecisionProviderFactory
         IOptions<PdpOptions> options)
     {
         _providers = providers.ToList();
-        _configuredProvider = options.Value.Provider;
+        _configuredProvider = string.IsNullOrWhiteSpace(options.Value.Provider)
+            ? PdpOptions.DefaultProvider
+            : options.Value.Provider;
     }
 
     public IAuthorizationDecisionProvider GetActiveProvider()
