@@ -1,0 +1,17 @@
+# CS12 — Grafana dashboard provisioning for the grafana/otel-lgtm stack.
+# Mounted (read-only) into the container at:
+#   /otel-lgtm/grafana/conf/provisioning/dashboards/custom.yaml
+# It provisions every dashboard JSON found under the `custom/` sibling directory
+# (the infra/observability/grafana/dashboards/ folder, mounted to
+#  /otel-lgtm/grafana/conf/provisioning/dashboards/custom).
+apiVersion: 1
+
+providers:
+  - name: "CS12 baseline dashboards"
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /otel-lgtm/grafana/conf/provisioning/dashboards/custom
+      foldersFromFilesStructure: false

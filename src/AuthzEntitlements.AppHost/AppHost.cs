@@ -1,5 +1,36 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
+// CS12 — Persistent observability stack. `grafana/otel-lgtm` bundles the OpenTelemetry
+// Collector + Prometheus (metrics) + Tempo (traces) + Loki (logs) + Grafana into a single
+// container: the standard Aspire persistent-observability backend, going beyond the
+// ephemeral dev-time Aspire dashboard. The instrumented services fan their OTLP telemetry
+// here (ServiceDefaults already gates its OTLP exporter on OTEL_EXPORTER_OTLP_ENDPOINT), the
+// bundled collector routes each signal to its backend, and Grafana visualizes them with the
+// baseline dashboards provisioned from infra/observability. A persistent container lifetime +
+// a /data volume keep telemetry across `aspire run` restarts. The tag is pinned for
+// determinism; this is a dev-loop backend (not a production deployment).
+var observability = builder.AddContainer("observability", "grafana/otel-lgtm", "0.28.0")
+    .WithLifetime(ContainerLifetime.Persistent)
+    .WithVolume("authz-observability-data", "/data")
+    .WithBindMount(
+        "../../infra/observability/grafana/dashboards",
+        "/otel-lgtm/grafana/conf/provisioning/dashboards/custom",
+        isReadOnly: true)
+    .WithBindMount(
+        "../../infra/observability/grafana/dashboards-provisioning.yaml",
+        "/otel-lgtm/grafana/conf/provisioning/dashboards/custom.yaml",
+        isReadOnly: true)
+    // Anonymous admin so the lab's Grafana needs no login.
+    .WithEnvironment("GF_AUTH_ANONYMOUS_ENABLED", "true")
+    .WithEnvironment("GF_AUTH_ANONYMOUS_ORG_ROLE", "Admin")
+    .WithHttpEndpoint(targetPort: 3000, name: "grafana")
+    .WithEndpoint(targetPort: 4317, name: "otlp-grpc", scheme: "http")
+    .WithEndpoint(targetPort: 4318, name: "otlp-http", scheme: "http")
+    .WithExternalHttpEndpoints();
+
+// The OTLP/gRPC endpoint every instrumented service exports to.
+var otlpEndpoint = observability.GetEndpoint("otlp-grpc");
+
 var postgres = builder.AddPostgres("postgres")
     .WithDataVolume();
 
@@ -55,7 +86,9 @@ var entitlementsService = builder.AddProject<Projects.AuthzEntitlements_Entitlem
     .WaitFor(entitlementsDb)
     .WithEnvironment("Entitlements__FeatureProvider", "InMemory")
     .WithEnvironment("Entitlements__Unleash__Url", unleash.GetEndpoint("http"))
-    .WithEnvironment("Entitlements__Unleash__ApiToken", "*:development.unleash-insecure-client-token");
+    .WithEnvironment("Entitlements__Unleash__ApiToken", "*:development.unleash-insecure-client-token")
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WaitFor(observability);
 
 var bankApi = builder.AddProject<Projects.AuthzEntitlements_Bank_Api>("bank-api")
     .WithReference(bankDb)
@@ -64,7 +97,9 @@ var bankApi = builder.AddProject<Projects.AuthzEntitlements_Bank_Api>("bank-api"
     .WaitFor(keycloak)
     .WithReference(entitlementsService)
     .WithEnvironment("Keycloak__Authority", keycloakAuthority)
-    .WithEnvironment("Keycloak__Audience", "bank-api");
+    .WithEnvironment("Keycloak__Audience", "bank-api")
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WaitFor(observability);
 
 // CS04 — coarse-grained edge gateway (YARP). Fronts Bank.Api and enforces coarse
 // token/audience/scope/tenant checks before routing. Shares the same stable Keycloak
@@ -80,6 +115,8 @@ builder.AddProject<Projects.AuthzEntitlements_Edge_Gateway>("edge-gateway")
     .WithEnvironment(
         "ReverseProxy__Clusters__bank-api__Destinations__bank-api__Address",
         bankApi.GetEndpoint("http"))
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WaitFor(observability)
     .WithExternalHttpEndpoints();
 
 builder.AddProject<Projects.AuthzEntitlements_Bank_Web>("bank-web")
@@ -87,6 +124,8 @@ builder.AddProject<Projects.AuthzEntitlements_Bank_Web>("bank-web")
     .WaitFor(keycloak)
     .WithEnvironment("Keycloak__Authority", keycloakAuthority)
     .WithEnvironment("Keycloak__ClientSecret", "bank-web-secret")
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WaitFor(observability)
     .WithExternalHttpEndpoints();
 
 builder.Build().Run();
