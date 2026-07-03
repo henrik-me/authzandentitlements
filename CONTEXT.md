@@ -29,9 +29,20 @@ token. `dotnet build` 0/0, `dotnet test` 7/7; runtime-verified against Postgres 
 (CVE-2025-55247, MSBuild via EF Core Design) was **remediated via a patched-version CPM transitive pin**
 (LRN-005; drop in CS18). New learnings LRN-004..007 filed.
 
-**Next claimable (Wave 2 — all depend on CS02):** CS03 (AuthN via Keycloak OIDC), CS05 (AuthZEN-aligned PDP
-abstraction), CS10 (commercial entitlements), CS12 (observability stack). `harness lint` is green; all 27 CSs
-carry an independent GPT-5.5 `## Plan review` attestation (hash-pinned).
+**CS03 (AuthN via Keycloak OIDC) complete** (PR #12, merged 2026-07-03). A Keycloak Aspire container
+(fixed host port, `WithRealmImport`, `KC_FEATURES_DISABLED=organization`) imports the `authz-bank` realm
+whose roles/users/branches/tenants/claims/clients mirror the CS02 seed (Keycloak user id = Bank.Api
+`User.Id`, so JWT `sub` correlates). `AuthzEntitlements.Bank.Api` validates Keycloak JWTs
+(`MapInboundClaims=false`, env-gated HTTPS metadata) and enforces role/scope/tenant authorization as an
+**outer gate** over the CS02 maker-checker/SoD/tenant rules: reads are tenant-scoped, writes are scope+role
+gated, and maker/checker + tenant are **bound to the token** (never caller-supplied) and fail-closed.
+`AuthzEntitlements.Bank.Web` is an OIDC (code+PKCE) login stub; `docs/identity/entra-id.md` maps the setup to
+Microsoft Entra ID. `dotnet build` 0/0, `dotnet test` 28/28; runtime-verified end-to-end against real Keycloak
+(token claims for all 5 users + authz matrix + full `aspire run`). New learnings LRN-008..012 filed.
+
+**Next claimable:** CS05 (AuthZEN-aligned PDP abstraction), CS10 (commercial entitlements), CS12 (observability
+stack) — Wave 2, depend on CS02. CS03's completion unblocks **CS04** (coarse-grained edge gateway, Identity
+lane). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
 
 ## Constraints
 
