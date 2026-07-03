@@ -25,12 +25,18 @@ var observability = builder.AddContainer("observability", "grafana/otel-lgtm", "
     .WithEnvironment("GF_AUTH_ANONYMOUS_ENABLED", "true")
     .WithEnvironment("GF_AUTH_ANONYMOUS_ORG_ROLE", "Editor")
     .WithHttpEndpoint(targetPort: 3000, name: "grafana")
-    .WithEndpoint(targetPort: 4317, name: "otlp-grpc", scheme: "http")
-    .WithEndpoint(targetPort: 4318, name: "otlp-http", scheme: "http")
+    // OTLP ingest stays internal: model 4317/4318 as tcp (not http) endpoints so
+    // WithExternalHttpEndpoints() marks ONLY the Grafana UI external — the OTLP ports are
+    // reachable by the host-run services but not exposed off-box (no telemetry-injection surface).
+    .WithEndpoint(targetPort: 4317, name: "otlp-grpc")
+    .WithEndpoint(targetPort: 4318, name: "otlp-http")
     .WithExternalHttpEndpoints();
 
-// The OTLP/gRPC endpoint every instrumented service exports to.
-var otlpEndpoint = observability.GetEndpoint("otlp-grpc");
+// The OTLP/gRPC endpoint every instrumented service exports to. The endpoint is a tcp resource
+// (kept internal), so build the http:// exporter URL the .NET OTLP exporter expects explicitly.
+var otlpGrpc = observability.GetEndpoint("otlp-grpc");
+var otlpEndpoint = ReferenceExpression.Create(
+    $"http://{otlpGrpc.Property(EndpointProperty.Host)}:{otlpGrpc.Property(EndpointProperty.Port)}");
 
 var postgres = builder.AddPostgres("postgres")
     .WithDataVolume();
