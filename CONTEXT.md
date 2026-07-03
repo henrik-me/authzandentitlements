@@ -16,8 +16,22 @@ five logical DBs (`bank`, `openfga`, `entitlements`, `governance`, `audit`), Cen
 (`Directory.Packages.props`), shared `Directory.Build.props`, and a `global.json` pinning the .NET 10 SDK.
 `dotnet build` is 0/0 and `aspire run` brings up the dashboard + a healthy Postgres container. Known-vulnerable
 preview packages are handled with per-advisory `NuGetAuditSuppress` (tracked in LRN-003 for CS18).
-**Next claimable: CS02 (fintech domain skeleton).** `harness lint` is green; all 27 CSs carry an
-independent GPT-5.5 `## Plan review` attestation (hash-pinned).
+
+**CS02 (fintech domain skeleton) complete** (PR #5, merged 2026-07-03). `AuthzEntitlements.Bank.Api`
+(ASP.NET Core minimal APIs, net10.0) implements the fintech back-office domain — `Tenant → Region → Branch`,
+`User`/`Role`/`UserRole` (RBAC), `Account`, `Transaction`, `Approval` — on **EF Core 10 (RC1) + Npgsql**
+against the `bank` DB, with an `InitialCreate` migration, an idempotent deterministic seeder
+(teller/manager/compliance/auditor users + posted / pending / manager-approved transaction scenarios), and
+minimal CRUD + approve/reject endpoints. **Maker-checker + segregation-of-duties** are enforced (threshold
+→ `Pending` + `Approval`; `checker != maker`; checker-role eligibility; tenant-scoped checker); tenant/branch
+attributes are derived-from-account + FK-enforced; approval decisions use an `xmin` optimistic-concurrency
+token. `dotnet build` 0/0, `dotnet test` 7/7; runtime-verified against Postgres 17. A new transitive advisory
+(CVE-2025-55247, MSBuild via EF Core Design) was **remediated via a patched-version CPM transitive pin**
+(LRN-005; drop in CS18). New learnings LRN-004..007 filed.
+
+**Next claimable (Wave 2 — all depend on CS02):** CS03 (AuthN via Keycloak OIDC), CS05 (AuthZEN-aligned PDP
+abstraction), CS10 (commercial entitlements), CS12 (observability stack). `harness lint` is green; all 27 CSs
+carry an independent GPT-5.5 `## Plan review` attestation (hash-pinned).
 
 ## Constraints
 
