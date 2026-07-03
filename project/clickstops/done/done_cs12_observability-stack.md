@@ -1,10 +1,10 @@
 # CS12 — Persistent observability stack
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae
 **Branch:** cs12/content
 **Started:** 2026-07-03
-**Closed:** —
+**Closed:** 2026-07-03
 **Phase:** 4 — Observability + audit
 **Lane:** Observability
 **Depends on:** CS02
