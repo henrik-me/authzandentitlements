@@ -33,7 +33,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS20 | CS20 — Migration & portability (extensibility) | 🟢 Active | yoga-ae-c4 | cs20/content | 2026-07-04 | — |
 | CS14 | CS14 — Blazor fintech product UI | 🟢 Active | yoga-ae-c2 | cs14/content | 2026-07-04 | — |
 | CS24 | CS24 — Performance benchmark + tracking | 🟢 Active | yoga-ae-c3 | cs24/content | 2026-07-04 | — |
 

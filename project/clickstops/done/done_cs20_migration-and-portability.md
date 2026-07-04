@@ -1,10 +1,10 @@
 # CS20 — Migration & portability (extensibility)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs20/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
 **Depends on:** CS05, CS06, CS07, CS08
