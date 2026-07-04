@@ -71,6 +71,17 @@ var unleash = builder.AddContainer("unleash", "unleashorg/unleash-server", "6")
     .WaitFor(unleashDb)
     .WithExplicitStart();
 
+// CS08 — OPA/Rego adapter engine. OPA runs as an out-of-process REST decision server,
+// bind-mounting the Rego bundle from infra/opa/policy. Kept OFF the default `aspire run`
+// critical path with .WithExplicitStart() and NO WaitFor, tag pinned for determinism —
+// the in-process reference provider stays the default so build/test/aspire-run never need
+// Docker or OPA. To exercise OPA: start this container and set Pdp__Provider=opa on authz-pdp.
+var opa = builder.AddContainer("opa", "openpolicyagent/opa", "1.18.2-static")
+    .WithHttpEndpoint(targetPort: 8181, name: "http")
+    .WithBindMount("../../infra/opa/policy", "/policy", isReadOnly: true)
+    .WithArgs("run", "--server", "--addr=0.0.0.0:8181", "--log-level=error", "/policy")
+    .WithExplicitStart();
+
 // CS03 — AuthN via Keycloak OIDC. Keycloak is pinned to a fixed host port so the
 // OIDC issuer is stable and identical across the browser (bank-web login), bank-web,
 // and bank-api. A dynamic/proxied endpoint makes Keycloak stamp a different issuer
@@ -184,6 +195,10 @@ var openfga = builder.AddContainer("openfga", openfgaImage, openfgaImageTag)
 builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-pdp")
     .WithEnvironment("Pdp__OpenFga__ApiUrl", openfga.GetEndpoint("http"))
     .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    // CS08 — OPA coordinates for the config-gated `opa` provider. Injected unconditionally (like the
+    // Unleash coordinates) so Pdp__Provider=opa works without further wiring; no WaitFor(opa) keeps
+    // the deterministic reference provider off OPA's critical path.
+    .WithEnvironment("Opa__BaseUrl", opa.GetEndpoint("http"))
     .WaitFor(observability);
 
 builder.Build().Run();

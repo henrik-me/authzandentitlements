@@ -12,7 +12,7 @@ namespace AuthzEntitlements.Authz.Pdp.Tests;
 // The CS06 exit criterion: both engine adapters are selectable at runtime alongside the
 // reference provider. (a) a real DI container built via AddPdp resolves the configured adapter
 // by "Pdp:Provider"; (b) AddPdp registers every engine (reference + aspnet + casbin, plus the
-// CS07 openfga adapter merged in later); (c) the selection factory picks each adapter by name.
+// CS08 opa and CS07 openfga adapters merged in later); (c) the selection factory picks each adapter by name.
 public sealed class AdapterProviderSelectionTests
 {
     private static ServiceProvider BuildProvider(string configuredProvider)
@@ -62,7 +62,7 @@ public sealed class AdapterProviderSelectionTests
             .OrderBy(n => n, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(new[] { "aspnet", "casbin", "openfga", "reference" }, names);
+        Assert.Equal(new[] { "aspnet", "casbin", "opa", "openfga", "reference" }, names);
     }
 
     [Theory]
