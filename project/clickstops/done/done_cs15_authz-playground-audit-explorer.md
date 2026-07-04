@@ -1,10 +1,10 @@
 # CS15 — AuthZ playground + audit explorer
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c2
 **Branch:** cs15/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** 5 — Product + playground
 **Lane:** Product
 **Depends on:** CS06, CS07, CS08, CS09, CS13
@@ -36,8 +36,8 @@ Provide the side-by-side engine comparison surface plus an audit explorer.
 | Audit query: single-entry (`?sequence=`) filter | done | yoga-ae-c2 | agent-id=cs15-audit-filter \| role=implementer \| report-status=complete \| learnings=0 — closes the ingest Location-header gap, +11 audit tests |
 | Bank.Web UI: Playground + Audit Explorer pages, clients, replay+verify, AppHost wiring | done | yoga-ae-c2 | agent-id=cs15-bankweb-ui \| role=implementer \| report-status=complete \| learnings=1 — 2 InteractiveServer pages + clients; +26 Bank.Web tests (incl. orchestrator preset fix) |
 | Docs: playground + audit-explorer feature doc | done | yoga-ae-c2 | agent-id=cs15-docs \| role=implementer \| report-status=complete \| learnings=0 — `docs/product/authz-playground-and-audit-explorer.md` + bank-web.md pointer |
-| Close-out: docs + restart state | pending | yoga-ae-c2 | Update WORKBOARD, CONTEXT.md, and feature docs so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | yoga-ae-c2 | File/disposition LEARNINGS.md entries; open planned follow-up CSs for unresolved issues |
+| Close-out: docs + restart state | done | yoga-ae-c2 | WORKBOARD row removed; CONTEXT.md CS15-done entry + next-claimable; `docs/product/authz-playground-and-audit-explorer.md` is the restart surface |
+| Close-out: learnings + follow-ups | done | yoga-ae-c2 | LEARNINGS.md LRN-053..057 filed; faithful-replay follow-up recorded as open architectural learning (LRN-057) |
 
 ## Notes / Learnings
 
@@ -90,4 +90,18 @@ it to `AuditApi`. File at close-out.
 
 ## Plan-vs-implementation review
 
-_Pending — completed at the close-out gate (GPT-5.5 rubber-duck) against `git diff main..cs15/content` before the `active → done` rename._
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T19:47:13Z
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| D1 — Playground fan-out across all engines (result/latency/reason/explanation/trace) | match | `POST /api/authz/playground/fanout` validates request + engine names and fans one `AccessRequest` across the resolved providers, returning per-engine decision/reasons/obligations/explanation/latency/traceId/availability + `allAgree` over available engines; `/playground` renders comparable rows. Trace deep-linking is best-effort (conditional on `Observability:BaseUrl`), as documented. |
+| D2 — Audit Explorer (filter/search, replay, chain-verify) | diverged (documented) | Filter/search via `/api/audit/entries` (incl. `sequence`) + chain verification via `/api/audit/verify`; `/audit` renders filters, results, hash-verify badge, and "Replay in Playground". Replay intentionally diverges from literal 1:1: it opens the Playground pre-filled with the captured audit fields + recorded decision, because CS13 rows omit ABAC inputs. Documented + justified. |
+| Exit criteria — single decision fans out + comparable results; audit explorable + replayable | match | Side-by-side cross-engine fan-out + explorable audit with replay links under the documented pre-fill semantics. No genuine unmet exit criterion. |
+
+**Test coverage:** targeted CS15 tests pass (PDP Playground 30, audit sequence-filter 12, Bank.Web Playground/Audit client + input 27); full solution `dotnet test` 1132/1132 on the merged state.
+
+**Outcome GO:** the implementation satisfies the CS15 deliverables + exit criteria; the only material divergence is the intentional, documented replay-fidelity trade-off (the audit row lacks the full original request snapshot — faithful 1:1 replay deferred, LRN-057).
