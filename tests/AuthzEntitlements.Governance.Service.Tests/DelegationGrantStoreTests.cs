@@ -264,4 +264,17 @@ public sealed class DelegationGrantStoreTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new DelegationGrantStore(maxGrants: 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => new DelegationGrantStore(maxGrants: -1));
     }
+
+    [Fact]
+    public void Create_NormalizesWhitespaceOnStoredIds()
+    {
+        // Leading/trailing whitespace on the ids is trimmed so it never persists or skews the Ordinal
+        // matching (and so a trailing-space self-delegation is still caught).
+        var grant = NewStore().Create(
+            "  user-manager1 ", " user-delegate1  ", "  CONTOSO ", ["agent.bank.read"], 60, DateTimeOffset.UtcNow);
+
+        Assert.Equal("user-manager1", grant.ManagerId);
+        Assert.Equal("user-delegate1", grant.DelegateId);
+        Assert.Equal("CONTOSO", grant.TenantCode);
+    }
 }

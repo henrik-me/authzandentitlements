@@ -44,10 +44,10 @@ public sealed class BreakGlassGrantStore
         int durationMinutes,
         DateTimeOffset now)
     {
-        Require(principalId, nameof(principalId));
-        Require(tenantCode, nameof(tenantCode));
-        Require(action, nameof(action));
-        Require(justification, nameof(justification));
+        principalId = Require(principalId, nameof(principalId));
+        tenantCode = Require(tenantCode, nameof(tenantCode));
+        action = Require(action, nameof(action));
+        justification = Require(justification, nameof(justification));
         if (durationMinutes <= 0)
         {
             throw new ArgumentOutOfRangeException(
@@ -100,8 +100,8 @@ public sealed class BreakGlassGrantStore
     // silently overwriting the first, accountable review.
     public BreakGlassGrant Review(Guid id, string reviewedBy, string outcome, DateTimeOffset now)
     {
-        Require(reviewedBy, nameof(reviewedBy));
-        Require(outcome, nameof(outcome));
+        reviewedBy = Require(reviewedBy, nameof(reviewedBy));
+        outcome = Require(outcome, nameof(outcome));
 
         lock (_gate)
         {
@@ -187,11 +187,16 @@ public sealed class BreakGlassGrantStore
         ReviewOutcome = g.ReviewOutcome,
     };
 
-    private static void Require(string value, string name)
+    // Validates a required string is non-blank and returns it TRIMMED, so stored ids/fields are
+    // normalized: accidental leading/trailing whitespace never persists or skews the Ordinal matching
+    // the PDP + store rely on (e.g. "user-1 " would otherwise never match "user-1").
+    private static string Require(string value, string name)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new ArgumentException($"{name} is required", name);
         }
+
+        return value.Trim();
     }
 }

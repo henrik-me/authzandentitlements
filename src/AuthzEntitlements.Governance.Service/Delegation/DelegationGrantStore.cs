@@ -46,9 +46,9 @@ public sealed class DelegationGrantStore
         int durationMinutes,
         DateTimeOffset now)
     {
-        Require(managerId, nameof(managerId));
-        Require(delegateId, nameof(delegateId));
-        Require(tenantCode, nameof(tenantCode));
+        managerId = Require(managerId, nameof(managerId));
+        delegateId = Require(delegateId, nameof(delegateId));
+        tenantCode = Require(tenantCode, nameof(tenantCode));
         if (string.Equals(managerId, delegateId, StringComparison.Ordinal))
         {
             throw new ArgumentException("delegateId must differ from managerId", nameof(delegateId));
@@ -105,7 +105,7 @@ public sealed class DelegationGrantStore
     // re-stamping the revocation over stale state.
     public DelegationGrant Revoke(Guid id, string revokedBy, DateTimeOffset now)
     {
-        Require(revokedBy, nameof(revokedBy));
+        revokedBy = Require(revokedBy, nameof(revokedBy));
 
         lock (_gate)
         {
@@ -207,11 +207,16 @@ public sealed class DelegationGrantStore
         return result;
     }
 
-    private static void Require(string value, string name)
+    // Validates a required string is non-blank and returns it TRIMMED, so stored ids/fields are
+    // normalized: accidental leading/trailing whitespace never persists or skews the Ordinal matching
+    // the PDP + store rely on (e.g. "user-1 " would otherwise never match "user-1").
+    private static string Require(string value, string name)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new ArgumentException($"{name} is required", name);
         }
+
+        return value.Trim();
     }
 }

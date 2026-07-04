@@ -301,4 +301,16 @@ public sealed class BreakGlassGrantStoreTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new BreakGlassGrantStore(maxGrants: 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => new BreakGlassGrantStore(maxGrants: -1));
     }
+
+    [Fact]
+    public void Issue_NormalizesWhitespaceOnStoredFields()
+    {
+        // Leading/trailing whitespace is trimmed so it never persists or skews the Ordinal matching.
+        var grant = NewStore().Issue("  user-1  ", "  CONTOSO ", " bank.account.read ", "  incident 42 ", 30, Now);
+
+        Assert.Equal("user-1", grant.PrincipalId);
+        Assert.Equal("CONTOSO", grant.TenantCode);
+        Assert.Equal("bank.account.read", grant.Action);
+        Assert.Equal("incident 42", grant.Justification);
+    }
 }
