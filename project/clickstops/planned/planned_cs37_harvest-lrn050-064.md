@@ -1,11 +1,11 @@
-# CS35 — Weekly harvest: consolidate LRN-050..064 into project doc blocks
+# CS37 — Weekly harvest: consolidate LRN-050..064 into project doc blocks
 
 **Status:** planned
 **Owner:** —
 **Branch:** —
 **Started:** —
 **Closed:** —
-**Filed by:** yoga-ae-c3 — 2026-07-04, weekly LRN harvest: dispositioning the post-CS33 open batch (LRN-050..064, filed by CS15/CS19/CS22/CS23/CS25) into project doc blocks + a follow-up code CS.
+**Filed by:** yoga-ae-c3 — 2026-07-04, weekly LRN harvest: dispositioning the post-CS33 open batch (LRN-050..064, filed by CS15/CS19/CS22/CS23/CS25) into project doc blocks + a follow-up code CS. (Renumbered from CS35 → CS37 on 2026-07-04 after a same-number filing collision with yoga-ae-c5's CS35 "Review & PR merge-gate hardening", PR #125; the GPT-5.5 plan-review attestation `5c301b582b81` over `## Decisions`+`## Deliverables` is unchanged by the renumber.)
 **Depends on:** none
 
 ## Goal
