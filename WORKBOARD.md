@@ -33,7 +33,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS22 | CS22 — Compliance mapping (SOX/PCI-DSS/GDPR) | 🟢 Active | yoga-ae-c4 | cs22/content | 2026-07-04 | — |
 | CS15 | CS15 — AuthZ playground + audit explorer | 🟢 Active | yoga-ae-c2 | cs15/content | 2026-07-04 | — |
 | CS19 | CS19 — Agent + non-agent access | 🟢 Active | yoga-ae | cs19/content | 2026-07-04 | — |
 
