@@ -184,13 +184,15 @@ hash-chained store that ingests them (see the audit-ready decision-events note i
 
 ## Known issue — LRN-014 (empty-body 500 under `aspire run`)
 
-[LEARNINGS.md](../../LEARNINGS.md) **LRN-014** records an open issue where `Bank.Api` returned
+[LEARNINGS.md](../../LEARNINGS.md) **LRN-014** records an issue where `Bank.Api` returned
 an empty-body HTTP 500 on every request under `aspire run`, suspected to be an Aspire/OTLP
 export interaction (the same service served correctly when run standalone without the
-Aspire-injected OTLP env). Because CS12 introduces a real OTLP collector, it is the candidate
-**triage home** for LRN-014: whether routing service OTLP at the lgtm collector changes that
-behaviour is a question this stack lets us test. This issue is **not** claimed fixed here; the
-orchestrator records triage findings at CS12 close-out.
+Aspire-injected OTLP env). **CS32 triaged this** — see
+[aspire-run-500-triage.md](./aspire-run-500-triage.md): the OTLP exporter is proven
+**request-path isolated** (an unreachable collector cannot 500 a request), all OTLP-exporting
+services already declare `WaitFor(observability)` (7/7), and the most-likely root cause is an
+early release-candidate environmental interaction now mitigated by the current toolchain plus
+the CS12 real collector. A full clean `aspire run` remains the outstanding confirmation step.
 
 ## References
 
@@ -202,5 +204,7 @@ orchestrator records triage findings at CS12 close-out.
   `ConfigureOpenTelemetry` / `AddOpenTelemetryExporters`, gated on `OTEL_EXPORTER_OTLP_ENDPOINT`.
 - [coarse-vs-fine boundary](../architecture/coarse-vs-fine-boundary.md) — audit-ready decision
   events vs. OTel telemetry.
+- [aspire-run-500-triage.md](./aspire-run-500-triage.md) — the CS32 LRN-014 triage:
+  root-cause analysis, offline evidence, mitigation state, and the full-run confirmation runbook.
 - [CS12 plan](../../project/clickstops/active/active_cs12_observability-stack.md) — deliverables,
   exit criteria, and design decisions D1–D5.

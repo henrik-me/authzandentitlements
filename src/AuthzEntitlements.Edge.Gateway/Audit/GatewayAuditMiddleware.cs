@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using AuthzEntitlements.Edge.Gateway.Auth;
 using AuthzEntitlements.Edge.Gateway.Telemetry;
+using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
 
 namespace AuthzEntitlements.Edge.Gateway.Audit;
@@ -56,9 +57,14 @@ public sealed class GatewayAuditMiddleware(
         var tenant = user.GetTenant();
         var (decision, reason) = ClassifyDecision(statusCode, tenant is not null, edgeAuthorized);
 
-        var routeConfig = context.Features.Get<IReverseProxyFeature>()?.Route.Config;
-        var routeId = routeConfig?.RouteId;
-        var requiredScope = MapPolicyToScope(routeConfig?.AuthorizationPolicy);
+        // Resolve the matched route's id + required scope. On an edge allow/routed the
+        // IReverseProxyFeature is set (the proxy pipeline ran); on a short-circuit 401/403
+        // deny it is UNSET (UseAuthorization short-circuited before the proxy), so fall
+        // back to the matched endpoint's YARP route metadata — routing has already run,
+        // so context.GetEndpoint() still carries the RouteModel even on a deny (LRN-013).
+        var (routeId, requiredScope) = ResolveRouteMetadata(
+            context.Features.Get<IReverseProxyFeature>()?.Route.Config,
+            context.GetEndpoint());
 
         var traceId = Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier;
 
@@ -110,6 +116,25 @@ public sealed class GatewayAuditMiddleware(
     public static bool ShouldAudit(bool edgeAuthorized, int statusCode)
         => edgeAuthorized
             || statusCode is StatusCodes.Status401Unauthorized or StatusCodes.Status403Forbidden;
+
+    // Resolves the matched route's id + required scope for the audit event from the two
+    // sources that can carry it, in priority order:
+    //   1. the YARP IReverseProxyFeature route config — present on an edge allow/routed
+    //      (the proxy pipeline ran and forwarded the request), OR
+    //   2. the matched endpoint's YARP RouteModel metadata — the fallback for a
+    //      short-circuit 401/403 deny, where UseAuthorization short-circuited before the
+    //      proxy so the feature is unset, but routing already matched the route so the
+    //      endpoint (and its RouteModel) is still on the context (LRN-013).
+    // An unmatched 404 (null endpoint) or a method-mismatch 405 (ASP.NET's synthetic
+    // endpoint carries no RouteModel) yields (null, null) — but those are skipped by
+    // ShouldAudit before this runs, so a non-decision never reaches an audit event.
+    public static (string? RouteId, string? RequiredScope) ResolveRouteMetadata(
+        RouteConfig? proxyRouteConfig, Endpoint? endpoint)
+    {
+        var routeConfig = proxyRouteConfig
+            ?? endpoint?.Metadata.GetMetadata<RouteModel>()?.Config;
+        return (routeConfig?.RouteId, MapPolicyToScope(routeConfig?.AuthorizationPolicy));
+    }
 
     // Pure, unit-testable classification of a request into the coarse
     // decision/reason vocabulary. The primary discriminator is whether the request
