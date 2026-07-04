@@ -1,0 +1,127 @@
+:root {
+    --bg: #f6f8fa;
+    --ink: #1f2328;
+    --muted: #57606a;
+    --line: #d0d7de;
+    --brand: #0b5fff;
+    --notice-bg: #fff8e6;
+    --notice-line: #e6c200;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.5;
+}
+
+.page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 1rem 3rem;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+}
+
+.brand {
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.nav {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.nav-link {
+    color: var(--muted);
+    text-decoration: none;
+}
+
+.nav-link:hover,
+.nav-link.active {
+    color: var(--brand);
+}
+
+.nav-user {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.content {
+    padding-top: 1.5rem;
+}
+
+a {
+    color: var(--brand);
+}
+
+.button {
+    display: inline-block;
+    padding: 0.4rem 0.9rem;
+    background: var(--brand);
+    color: #fff;
+    border-radius: 6px;
+    text-decoration: none;
+}
+
+.grid {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.75rem 0 1.5rem;
+    background: #fff;
+}
+
+.grid th,
+.grid td {
+    border: 1px solid var(--line);
+    padding: 0.5rem 0.7rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.grid thead th {
+    background: #eef1f4;
+}
+
+.grid .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Highlight rows awaiting a decision (do NOT reuse .num — that right-aligns). */
+.grid tr.pending td {
+    background: var(--notice-bg);
+    font-weight: 600;
+}
+
+.notice {
+    background: var(--notice-bg);
+    border: 1px solid var(--notice-line);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+}
+
+.hint {
+    color: var(--muted);
+}
+
+.layers {
+    color: var(--ink);
+}

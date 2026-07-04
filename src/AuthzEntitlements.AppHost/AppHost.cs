@@ -127,7 +127,7 @@ var bankApi = builder.AddProject<Projects.AuthzEntitlements_Bank_Api>("bank-api"
 // token/audience/scope/tenant checks before routing. Shares the same stable Keycloak
 // authority/audience as Bank.Api; the bank-api destination address is injected into the
 // YARP cluster config at runtime so the proxy target tracks Aspire's assigned endpoint.
-builder.AddProject<Projects.AuthzEntitlements_Edge_Gateway>("edge-gateway")
+var edgeGateway = builder.AddProject<Projects.AuthzEntitlements_Edge_Gateway>("edge-gateway")
     .WithReference(keycloak)
     .WaitFor(keycloak)
     .WithReference(bankApi)
@@ -137,15 +137,6 @@ builder.AddProject<Projects.AuthzEntitlements_Edge_Gateway>("edge-gateway")
     .WithEnvironment(
         "ReverseProxy__Clusters__bank-api__Destinations__bank-api__Address",
         bankApi.GetEndpoint("http"))
-    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
-    .WaitFor(observability)
-    .WithExternalHttpEndpoints();
-
-builder.AddProject<Projects.AuthzEntitlements_Bank_Web>("bank-web")
-    .WithReference(keycloak)
-    .WaitFor(keycloak)
-    .WithEnvironment("Keycloak__Authority", keycloakAuthority)
-    .WithEnvironment("Keycloak__ClientSecret", "bank-web-secret")
     .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
     .WaitFor(observability)
     .WithExternalHttpEndpoints();
@@ -227,11 +218,25 @@ var authzPdp = builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-p
 // governance.access.request) — the SoD verdict is identical whether the PDP runs the deterministic
 // reference engine (default) or the opt-in OPA container (Pdp__Provider=opa). The SoD call is
 // fail-closed, so no hard WaitFor(authz-pdp) is needed to keep the default `aspire run` deterministic.
-builder.AddProject<Projects.AuthzEntitlements_Governance_Service>("governance-service")
+var governanceService = builder.AddProject<Projects.AuthzEntitlements_Governance_Service>("governance-service")
     .WithReference(governanceDb)
     .WaitFor(governanceDb)
     .WithReference(authzPdp)
     .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
     .WaitFor(observability);
+
+// CS14 — Bank.Web calls edge-gateway (coarse), entitlements, governance, and authz-pdp via service discovery.
+builder.AddProject<Projects.AuthzEntitlements_Bank_Web>("bank-web")
+    .WithReference(keycloak)
+    .WaitFor(keycloak)
+    .WithReference(edgeGateway)
+    .WithReference(entitlementsService)
+    .WithReference(governanceService)
+    .WithReference(authzPdp)
+    .WithEnvironment("Keycloak__Authority", keycloakAuthority)
+    .WithEnvironment("Keycloak__ClientSecret", "bank-web-secret")
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WaitFor(observability)
+    .WithExternalHttpEndpoints();
 
 builder.Build().Run();

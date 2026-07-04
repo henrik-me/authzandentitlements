@@ -33,10 +33,10 @@ Build the Blazor fintech product demonstrating the layers in real workflows.
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Scaffold Blazor + auth | pending | — | |
-| Account/transaction UI | pending | — | |
-| Maker-checker flow | pending | — | |
-| Entitlement/JIT UX | pending | — | |
+| Scaffold Blazor + auth (shell, typed clients, AppHost wiring, read slice) | done | yoga-ae-c2 | agent-id=cs14-foundation \| role=foundation \| report-status=complete \| learnings=1 |
+| Account/transaction UI (maker create-transaction) | done | yoga-ae-c2 | agent-id=cs14-maker \| role=maker-page \| report-status=complete \| learnings=1 (BL0008) |
+| Maker-checker flow (checker approvals) | done | yoga-ae-c2 | agent-id=cs14-checker \| role=checker-page \| report-status=complete \| learnings=1 (RoleNames path) |
+| Entitlement/JIT UX (gates + interactive island + JIT access requests) | done | yoga-ae-c2 | agent-id=cs14-entitlements \| role=entitlements-page \| report-status=complete \| learnings=2 (CS0542, RenderMode) |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 
@@ -48,10 +48,10 @@ _None yet — populated during implementation and close-out._
 
 | Field | Value |
 |---|---|
-| Implementer models | claude-opus-4.8 |
+| Implementer models | claude-opus-4.8, claude-opus-4.7, claude-opus-4.6 |
 | Reviewer model | gpt-5.5 |
-| Implementer agent | yoga-ae-c2 |
-| Reviewer agent | copilot |
+| Implementer agent | yoga-ae-c2 (sub-agents: cs14-foundation, cs14-maker, cs14-checker, cs14-entitlements) |
+| Reviewer agent | rubber-duck (gpt-5.5) + copilot |
 
 ## Plan-vs-implementation review
 

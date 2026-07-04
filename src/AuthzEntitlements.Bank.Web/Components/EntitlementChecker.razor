@@ -1,0 +1,87 @@
+@rendermode RenderMode.InteractiveServer
+@using AuthzEntitlements.Bank.Web.ViewModels
+@inject IEntitlementsClient Entitlements
+
+@* Interactive Server component: the one genuinely interactive widget in the product UI.
+   It re-checks a feature over the live SignalR circuit WITHOUT a full page reload. An
+   interactive circuit has NO per-event HttpContext, so ICurrentUser (which reads the
+   HttpContext claims) is NOT usable here — the tenant is read from the cascaded
+   AuthenticationState instead. This is safe precisely because Entitlements.Service is
+   anonymous (no bearer token forwarding is needed), unlike the Bank.Api write pages which
+   must stay static SSR to keep the token in scope. Fail-closed: a null tenant or a null
+   response renders as DISABLED with a clear reason, never a silent allow. *@
+
+<div class="notice" role="group" aria-label="Live feature check">
+    @if (_tenant is null)
+    {
+        <p role="note">No tenant on your identity — cannot resolve entitlements
+            (fail-closed).</p>
+    }
+    else
+    {
+        <p>
+            <label>Feature key<br />
+                <select @bind="_featureKey">
+                    @foreach (var key in EntitlementsModel.DemoFeatureKeys)
+                    {
+                        <option value="@key">@key</option>
+                    }
+                </select>
+            </label>
+        </p>
+        <button type="button" class="button" @onclick="CheckAsync" disabled="@_checking">
+            @(_checking ? "Checking…" : "Check")
+        </button>
+
+        @if (_result is not null)
+        {
+            <table class="grid">
+                <tbody>
+                    <tr><th>Feature</th><td>@_result.Key</td></tr>
+                    <tr><th>Result</th><td>@EntitlementsModel.GateLabel(_result.Enabled)</td></tr>
+                    <tr><th>Plan tier</th><td>@_result.PlanTier</td></tr>
+                    <tr><th>Reason</th><td>@_result.Reason</td></tr>
+                </tbody>
+            </table>
+        }
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private string? _tenant;
+    private string _featureKey = EntitlementsModel.DemoFeatureKeys[0];
+    private bool _checking;
+    private EntitlementsModel.FeatureGateView? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is not null)
+        {
+            var state = await AuthState;
+            var value = state.User.FindFirst("tenant")?.Value;
+            _tenant = string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+    }
+
+    private async Task CheckAsync()
+    {
+        if (_tenant is null)
+        {
+            return;
+        }
+
+        _checking = true;
+        try
+        {
+            var resp = await Entitlements.GetFeatureAsync(_tenant, _featureKey);
+            _result = EntitlementsModel.FromResponse(_featureKey, resp);
+        }
+        finally
+        {
+            _checking = false;
+        }
+    }
+}

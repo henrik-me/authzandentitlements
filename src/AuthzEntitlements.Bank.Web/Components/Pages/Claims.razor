@@ -1,0 +1,49 @@
+@page "/claims"
+@attribute [Authorize]
+
+@* Static SSR: reads the authenticated ClaimsPrincipal from the current request. Razor
+   auto-HTML-encodes every value below. *@
+
+<PageTitle>Your claims</PageTitle>
+
+<h1>Your claims</h1>
+
+<AuthorizeView>
+    <Authorized Context="auth">
+        <h2>Identity</h2>
+        <table class="grid">
+            <tbody>
+                <tr><th>preferred_username</th><td>@First(auth.User, "preferred_username")</td></tr>
+                <tr><th>name</th><td>@First(auth.User, "name")</td></tr>
+                <tr><th>tenant</th><td>@First(auth.User, "tenant")</td></tr>
+                <tr><th>branch</th><td>@First(auth.User, "branch")</td></tr>
+                <tr><th>roles</th><td>@All(auth.User, "roles")</td></tr>
+                <tr><th>scope</th><td>@First(auth.User, "scope")</td></tr>
+            </tbody>
+        </table>
+
+        <h2>All claims</h2>
+        <table class="grid">
+            <thead>
+                <tr><th>Type</th><th>Value</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var claim in auth.User.Claims)
+                {
+                    <tr><td>@claim.Type</td><td>@claim.Value</td></tr>
+                }
+            </tbody>
+        </table>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private static string First(ClaimsPrincipal user, string type) =>
+        user.FindFirst(type)?.Value ?? "(none)";
+
+    private static string All(ClaimsPrincipal user, string type)
+    {
+        var values = user.FindAll(type).Select(c => c.Value).ToArray();
+        return values.Length == 0 ? "(none)" : string.Join(", ", values);
+    }
+}

@@ -1,0 +1,45 @@
+@page "/"
+
+<PageTitle>Contoso Bank — Product demo</PageTitle>
+
+<h1>Contoso Bank back-office</h1>
+
+<p>
+    This product UI demonstrates one fintech workflow travelling through four
+    authorization layers, each with a visible outcome:
+</p>
+
+<ol class="layers">
+    <li><strong>AuthN</strong> — Keycloak OIDC sign-in issues an access token carrying
+        your roles, tenant, and scopes.</li>
+    <li><strong>Coarse gateway</strong> — the edge gateway checks token + scope + tenant
+        before routing to the domain API.</li>
+    <li><strong>Fine PDP</strong> — Bank.Api enforces maker-checker, segregation of
+        duties, and tenant scoping on each resource.</li>
+    <li><strong>Entitlements</strong> — commercial plan / feature gates decide what the
+        tenant is licensed to do.</li>
+</ol>
+
+<AuthorizeView>
+    <Authorized>
+        <p class="notice">
+            Signed in as <strong>@context.User.Identity?.Name</strong>.
+            Explore <a href="accounts">Accounts</a> to see the read path end to end, or
+            <a href="claims">your claims</a>.
+        </p>
+        <p><a class="button" href="logout">Log out</a></p>
+    </Authorized>
+    <NotAuthorized>
+        <p class="notice">You are not signed in.</p>
+        <p><a class="button" href="login">Log in</a></p>
+    </NotAuthorized>
+</AuthorizeView>
+
+<h2>Explore</h2>
+<ul>
+    <li><a href="accounts">Accounts</a> — read vertical slice (AuthN → coarse → read).</li>
+    <li><a href="transactions/new">New Transaction</a> — maker create flow.</li>
+    <li><a href="approvals">Approvals</a> — maker-checker decisions.</li>
+    <li><a href="entitlements">Entitlements</a> — plan / feature-gate UX.</li>
+    <li><a href="access-requests">Access Requests</a> — JIT access flow.</li>
+</ul>
