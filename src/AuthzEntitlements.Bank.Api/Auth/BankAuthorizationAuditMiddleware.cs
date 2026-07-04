@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Claims;
+using AuthzEntitlements.ServiceDefaults;
 
 namespace AuthzEntitlements.Bank.Api.Auth;
 
@@ -78,14 +79,14 @@ public sealed class BankAuthorizationAuditMiddleware(
             "Bank fine decision {Decision} ({Reason}) for {Method} {Path} " +
             "status={StatusCode} subject={Subject} tenant={Tenant} " +
             "trace={TraceId} at {TimestampUtc}",
-            auditEvent.Decision,
-            auditEvent.Reason,
-            auditEvent.Method,
-            auditEvent.Path,
+            LogSanitizer.Clean(auditEvent.Decision),
+            LogSanitizer.Clean(auditEvent.Reason),
+            LogSanitizer.Clean(auditEvent.Method),
+            LogSanitizer.Clean(auditEvent.Path),
             auditEvent.StatusCode,
-            auditEvent.Subject,
-            auditEvent.Tenant,
-            auditEvent.TraceId,
+            LogSanitizer.Clean(auditEvent.Subject),
+            LogSanitizer.Clean(auditEvent.Tenant),
+            LogSanitizer.Clean(auditEvent.TraceId),
             auditEvent.TimestampUtc);
 
         var activity = Activity.Current;
