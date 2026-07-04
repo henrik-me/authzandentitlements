@@ -12,6 +12,9 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 |----------|---------|-------------|--------|-----------|
 | yoga-ae-c3 | yoga | C:\src\authzandentitlements_copilot3 | 🟢 Active | 2026-07-04 |
 | yoga-ae-c4 | yoga | C:\src\authzandentitlements_copilot4 | 🟢 Active | 2026-07-04 |
+| yoga-ae-c5 | yoga | C:\src\authzandentitlements_copilot5 | 🟢 Active | 2026-07-04 |
+
+> **Repo-health / DevEx maintenance (yoga-ae-c5 · 2026-07-04, no CS):** yoga-ae-c5 is hardening branch protection and CI merge-gating — wiring required build+test status checks into the "push to main" ruleset so PRs can't merge while CI is red, adding `.github/dependabot.yml`, and triaging the 15 open Dependabot alerts (2 HIGH + 13 medium on MessagePack / OpenTelemetry). Tracked as maintenance, not a clickstop. Other orchestrators: please don't duplicate this — ping yoga-ae-c5 before touching branch-protection, Dependabot, or `.github/workflows/`.
 
 ## Active Work
 
