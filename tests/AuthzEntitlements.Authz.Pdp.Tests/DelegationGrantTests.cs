@@ -57,6 +57,22 @@ public sealed class DelegationGrantTests
         Assert.Equal(ReasonCodes.Permit, decision.Reasons[0].Code);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Delegation_Denies_WhenGrantIdBlank(string blankId)
+    {
+        // Fail-closed: a delegation grant with no correlation id is unauditable (DelegationId could not
+        // be tied back), so it must not authorize even with a matching manager/delegate and the scope.
+        var decision = Evaluate(
+            DelegatedManager(Delegate(AgentScopeNames.Read)),
+            ActionNames.AccountRead, Account(),
+            new DelegationGrant(blankId, Manager1, Delegate1, Active), Now, ScopeNames.Read);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.DelegationNotActive, decision.Reasons[0].Code);
+    }
+
     // ---- Fail-closed: DelegationNotActive on expiry / mismatch / null clock ----
 
     [Fact]

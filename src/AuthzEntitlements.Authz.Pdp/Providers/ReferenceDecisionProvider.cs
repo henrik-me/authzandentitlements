@@ -173,10 +173,14 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
 
     // A break-glass grant is active + matching for this request when it names this subject and action
     // and has not expired against the INJECTED decision clock (Context.Now). Fail-closed: a blank grant
-    // subject, a blank request subject, a null clock, or Now >= ExpiresAt all mean "not active". Expiry
-    // uses strict '<' so the exact expiry instant is already expired.
+    // subject, a blank request subject, a null clock, or Now >= ExpiresAt all mean "not active". It also
+    // fails closed on a blank GrantId or Justification — break-glass is an ACCOUNTABLE control, so an
+    // unauditable grant (no correlation id / no recorded reason) must never elevate. Expiry uses strict
+    // '<' so the exact expiry instant is already expired.
     private static bool IsActiveBreakGlass(BreakGlassGrant grant, AccessRequest request) =>
-        !string.IsNullOrWhiteSpace(grant.SubjectId)
+        !string.IsNullOrWhiteSpace(grant.GrantId)
+        && !string.IsNullOrWhiteSpace(grant.Justification)
+        && !string.IsNullOrWhiteSpace(grant.SubjectId)
         && !string.IsNullOrWhiteSpace(request.Subject.Id)
         && string.Equals(grant.SubjectId, request.Subject.Id, StringComparison.Ordinal)
         && string.Equals(grant.Action, request.Action.Name, StringComparison.Ordinal)
@@ -185,10 +189,12 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
 
     // A delegation grant is active + matching when it names this manager (the human Subject) and this
     // delegate (the Actor) and has not expired against the injected clock. Fail-closed on a blank
-    // manager/delegate id, a missing Actor, a null clock, or Now >= ExpiresAt. Strict '<' so the expiry
-    // instant is already expired.
+    // GrantId (an unauditable grant — DelegationId could not be tied back), a blank manager/delegate id,
+    // a missing Actor, a null clock, or Now >= ExpiresAt. Strict '<' so the expiry instant is already
+    // expired.
     private static bool IsActiveDelegation(DelegationGrant grant, AccessRequest request) =>
         request.Subject.Actor is { } actor
+        && !string.IsNullOrWhiteSpace(grant.GrantId)
         && !string.IsNullOrWhiteSpace(grant.ManagerId)
         && !string.IsNullOrWhiteSpace(request.Subject.Id)
         && string.Equals(grant.ManagerId, request.Subject.Id, StringComparison.Ordinal)

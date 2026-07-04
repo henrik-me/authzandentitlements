@@ -340,6 +340,38 @@ public sealed class BreakGlassTests
         Assert.Equal(ReasonCodes.MissingScope, decision.Reasons[0].Code);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void BreakGlass_NoElevation_WhenGrantIdBlank(string blankId)
+    {
+        // Fail-closed: break-glass is an accountable control, so an unauditable grant (no correlation
+        // id for the audit trail / mandatory review) must never elevate.
+        var decision = Evaluate(
+            Teller(), ActionNames.AccountRead, Account(),
+            new BreakGlassGrant(blankId, "user-teller1", ActionNames.AccountRead, Active, "Incident #42."),
+            Now);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.MissingScope, decision.Reasons[0].Code);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void BreakGlass_NoElevation_WhenJustificationBlank(string blankJustification)
+    {
+        // Fail-closed: a break-glass grant with no recorded reason is not accountable, so it must not
+        // elevate — the justification is surfaced on the permit reason and the audit trail.
+        var decision = Evaluate(
+            Teller(), ActionNames.AccountRead, Account(),
+            new BreakGlassGrant("bg-1", "user-teller1", ActionNames.AccountRead, Active, blankJustification),
+            Now);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.MissingScope, decision.Reasons[0].Code);
+    }
+
     // ---- Human path: no BreakGlass in context is byte-identical to today's behaviour ----
 
     [Fact]
