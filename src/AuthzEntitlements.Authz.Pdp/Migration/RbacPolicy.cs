@@ -29,9 +29,11 @@ public sealed class RbacPolicy
 
     public IReadOnlyDictionary<string, IReadOnlyList<string>> UserRoles => _userRoles;
 
-    // Fail-closed factory: every role referenced by a grant or an assignment must be a declared
-    // role, and every granted permission must be a declared permission. A dangling reference is a
-    // policy authoring bug, so it throws here rather than silently evaluating to a wrong decision.
+    // Fail-closed factory: the roles/permissions lists must each be non-empty and free of
+    // duplicates; every role referenced by a grant or an assignment must be a declared role,
+    // and every granted permission must be a declared permission. A degenerate (empty/duplicate)
+    // or dangling input is a policy authoring bug, so it throws here rather than silently
+    // emitting an invalid policy that evaluates to a wrong decision.
     public static RbacPolicy Create(
         IReadOnlyList<string> roles,
         IReadOnlyList<string> permissions,
@@ -43,8 +45,36 @@ public sealed class RbacPolicy
         ArgumentNullException.ThrowIfNull(rolePermissions);
         ArgumentNullException.ThrowIfNull(userRoles);
 
+        // A policy with no roles or no permissions grants nothing meaningful and is almost
+        // certainly a construction bug (e.g. a mechanical build that dropped its members).
+        // Fail closed at authoring time rather than emit an empty, always-deny policy.
+        if (roles.Count == 0)
+        {
+            throw new ArgumentException("The policy must declare at least one role.", nameof(roles));
+        }
+
+        if (permissions.Count == 0)
+        {
+            throw new ArgumentException(
+                "The policy must declare at least one permission.", nameof(permissions));
+        }
+
+        // Duplicate members would collapse into a single set entry and silently mask the
+        // authoring mistake (e.g. a copy-paste or a merge that double-added a role). Reject
+        // them so the declared lists match the effective sets one-to-one. Ordinal to match
+        // the HashSet comparers used for the cross-reference checks below.
         var roleSet = new HashSet<string>(roles, StringComparer.Ordinal);
+        if (roleSet.Count != roles.Count)
+        {
+            throw new ArgumentException("The roles list contains duplicate entries.", nameof(roles));
+        }
+
         var permissionSet = new HashSet<string>(permissions, StringComparer.Ordinal);
+        if (permissionSet.Count != permissions.Count)
+        {
+            throw new ArgumentException(
+                "The permissions list contains duplicate entries.", nameof(permissions));
+        }
 
         foreach (var (role, grants) in rolePermissions)
         {

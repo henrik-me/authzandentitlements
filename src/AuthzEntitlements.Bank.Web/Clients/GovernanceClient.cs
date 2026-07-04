@@ -3,8 +3,10 @@ using System.Net.Http.Json;
 namespace AuthzEntitlements.Bank.Web.Clients;
 
 // Typed client for the access-governance service (access packages + JIT access
-// requests/grants). The service is anonymous and called intra-cluster, so NO token
-// handler is attached. Reads fail closed to empty/null; writes capture the outcome into
+// requests/grants). As of CS29 the access-request endpoints (create/list/get/approve/reject)
+// are tenant-scoped and require the user's Keycloak token, so AccessTokenHandler is attached at
+// registration (Program.cs) to forward it; the anonymous read endpoints (access-packages,
+// principals) simply ignore it. Reads fail closed to empty/null; writes capture the outcome into
 // an ApiResult (including the segregation-of-duties deny path) without throwing.
 public interface IGovernanceClient
 {
