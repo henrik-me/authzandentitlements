@@ -1,6 +1,8 @@
 using AuthzEntitlements.Authz.Pdp.Audit;
 using AuthzEntitlements.Authz.Pdp.Contracts;
+using AuthzEntitlements.Authz.Pdp.Providers.Adapters.Opa;
 using AuthzEntitlements.Authz.Pdp.Services;
+using Microsoft.Extensions.Options;
 
 namespace AuthzEntitlements.Authz.Pdp.Providers;
 
@@ -17,6 +19,19 @@ public static class PdpServiceCollectionExtensions
         services.AddSingleton<IAuthorizationDecisionProvider, ReferenceDecisionProvider>();
         services.AddSingleton<IAuthorizationDecisionProvider, Adapters.AspNetCore.AspNetCorePolicyProvider>();
         services.AddSingleton<IAuthorizationDecisionProvider, Adapters.Casbin.CasbinDecisionProvider>();
+
+        // OPA adapter (CS08): an out-of-process Rego engine reached over its REST data API. Bind
+        // its options, register a named HttpClient (base address + timeout from config), and add
+        // the provider. Selection stays config-driven — "Pdp:Provider" defaults to "reference", so
+        // registering this adapter does not require a live OPA for builds/tests/`aspire run`.
+        services.Configure<OpaOptions>(configuration.GetSection(OpaOptions.SectionName));
+        services.AddHttpClient(OpaDecisionProvider.HttpClientName, (sp, client) =>
+        {
+            var opa = sp.GetRequiredService<IOptions<OpaOptions>>().Value;
+            client.BaseAddress = new Uri(opa.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(opa.TimeoutSeconds);
+        });
+        services.AddSingleton<IAuthorizationDecisionProvider, Adapters.Opa.OpaDecisionProvider>();
 
         services.AddSingleton<AuthorizationDecisionProviderFactory>();
         services.AddSingleton<IPdpDecisionAuditSink, LoggingPdpDecisionAuditSink>();
