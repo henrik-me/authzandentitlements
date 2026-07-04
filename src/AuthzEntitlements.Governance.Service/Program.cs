@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
 using AuthzEntitlements.Governance.Service.Auth;
+using AuthzEntitlements.Governance.Service.BreakGlass;
 using AuthzEntitlements.Governance.Service.Data;
+using AuthzEntitlements.Governance.Service.Delegation;
 using AuthzEntitlements.Governance.Service.Endpoints;
 using AuthzEntitlements.Governance.Service.Metering;
 using AuthzEntitlements.Governance.Service.Sod;
@@ -28,6 +30,12 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 builder.Services.AddSingleton<GovernanceMetrics>();
 builder.Services.AddSingleton<IGovernanceAuditSink, LoggingGovernanceAuditSink>();
+
+// CS21 — break-glass and delegation grants are in-memory, time-boxed stores (no EF migration,
+// no Postgres) so they must be process-wide singletons to be the system-of-record across
+// requests. They mirror the AccessGrant.IsActive(now) read-time-expiry pattern.
+builder.Services.AddSingleton<BreakGlassGrantStore>();
+builder.Services.AddSingleton<DelegationGrantStore>();
 
 // CS29 — JWT bearer authentication for the tenant-scoped access-request endpoints. Those
 // endpoints bind their tenant boundary to the caller's validated token (never a caller-
@@ -80,9 +88,15 @@ app.MapGet("/", () => TypedResults.Ok(new
         "/api/governance/principals/{id}/access",
         "/api/governance/grants/{id}/revoke",
         "/api/governance/review-campaigns",
+        "/api/governance/break-glass",
+        "/api/governance/break-glass/pending-review",
+        "/api/governance/break-glass/{id}/review",
+        "/api/governance/delegations",
+        "/api/governance/delegations/{id}/revoke",
     },
 }));
 
 app.MapGovernanceEndpoints();
+app.MapBreakGlassDelegationEndpoints();
 
 app.Run();
