@@ -170,6 +170,24 @@ accounted for.
   `Directory.Packages.props`; `.csproj` `<PackageReference>` entries omit `Version`.
 - `Directory.Build.props` sets **`TreatWarningsAsErrors=true`** — build **0 warnings**.
   LF line endings, no BOM (the harness text-encoding gate rejects CRLF/BOM).
+- **NuGet audit under warnings-as-errors:** suppress a *specific* advisory with a per-ID
+  `<NuGetAuditSuppress Include="https://github.com/advisories/GHSA-…" />` in
+  `Directory.Build.props` — never a blanket `NoWarn=NU1902;NU1903`, which would also mask
+  future advisories. Prefer *remediation* (pin the patched version via CPM transitive
+  pinning: `CentralPackageTransitivePinningEnabled=true` + a `<PackageVersion>` entry) over
+  suppression — remediation clears `dotnet list package --vulnerable`, suppression does not
+  (LRN-002).
+- **Line endings are gated by `harness lint` (text-encoding) + `.gitattributes eol=lf`, NOT
+  `dotnet format`.** The file-authoring tool writes CRLF for new `.cs` on Windows and the
+  text-encoding gate does not always flag it — convert authored files explicitly
+  (`(Get-Content -Raw) -replace "\r\n","\n"` written UTF-8 no-BOM) before committing. Treat
+  the dotnet-profile `dotnet format --verify-no-changes` self-check as advisory until a repo
+  `.editorconfig` with `end_of_line = lf` exists (LRN-036).
+- **Cross-SDK project references:** `<FrameworkReference Include="Microsoft.AspNetCore.App" />`
+  does **not** propagate transitively from a referenced `Sdk.Web` project to a plain
+  `Microsoft.NET.Sdk` console/test project — any project that touches ASP.NET-Core types must
+  declare it itself. Freeze a shared reflection-based `JsonSerializerOptions` with
+  `MakeReadOnly(populateMissingResolver: true)` — the parameterless overload throws (LRN-046).
 
 ### Fail-closed authorization + entitlements (security)
 
@@ -230,4 +248,108 @@ guidance per engine/decision; the companion evidence lives in the comparison mat
 (`docs/eval/comparison-matrix.md`) and market survey (`docs/eval/market-survey.md`). ADRs
 are **retrospective** where they formalize an already-shipped decision — each records the
 realizing clickstop in its metadata line (`Realized in: CS<NN>`).
+
+### Aspire + project scaffolding
+
+- **Add Aspire integrations with `dotnet add package Aspire.Hosting.<X>`**, not `aspire add`
+  — the Aspire CLI aborts (exit 5, "Interactive input is not supported") in a
+  non-interactive agent shell even with `--non-interactive`. The `aspire-apphost` template
+  emits `AppHost.cs` (not `Program.cs`); normalize `dotnet new` CRLF output to LF/no-BOM for
+  the text-encoding gate (LRN-001).
+- **Adding an Aspire service edits BOTH `AppHost.cs` AND `AppHost.csproj`** — the AppHost SDK
+  source-generates the `Projects.<Name>` type from the csproj `<ProjectReference>`, so
+  `AppHost.cs` cannot compile without it. A sub-agent adding a service must own
+  `AppHost.csproj` (and, for a brand-new project, the `.sln` + `Directory.Packages.props`)
+  alongside `AppHost.cs` (LRN-016).
+
+### Keycloak, OIDC & JWT wiring
+
+- **Keycloak 26 realm import with a service-account client** crashes on the default-on
+  `organization` feature — disable it with `KC_FEATURES_DISABLED=organization`. Aspire's
+  `WithRealmImport` enforces the `<realm>-realm.json` filename convention (name the file
+  `authz-bank-realm.json`, not `authz-realm.json`) (LRN-008).
+- **Pin Keycloak to a fixed host port (`AddKeycloak(name, port)`) and inject ONE explicit
+  `Keycloak:Authority`** shared by every service and the browser — a dynamic/proxied Aspire
+  endpoint stamps a different `iss` per access path, breaking JWT issuer validation (LRN-009).
+- **Set `JwtBearerOptions.MapInboundClaims=false` for custom claim names** (e.g. Keycloak's
+  top-level `roles`) — the default `true` remaps `roles`→legacy `ClaimTypes.Role` (and
+  `sub`→nameidentifier), silently breaking `RequireRole`/`IsInRole`. Synthetic-principal unit
+  tests bypass the JWT handler and never catch this — add an options-level regression test
+  (LRN-010).
+- **A hand-authored realm export that supplies its own `clientScopes`** does not auto-seed
+  the built-in `basic`/`profile`/`email`/`roles` scopes, so `sub` (moved to `basic` in
+  KC 24+), `preferred_username`, and `email` go missing and requesting undefined scopes fails
+  the PAR authorization with "Invalid scopes". Carry the required OIDC claims via a custom
+  applied default scope and request only defined client scopes (LRN-012).
+
+### Blazor Web App (token-protected UI)
+
+For a .NET-10 Blazor Web App that calls token-protected APIs (LRN-048):
+
+- Token-forwarding pages MUST be **static SSR** (no `@rendermode InteractiveServer`) so
+  `IHttpContextAccessor.HttpContext` / `GetTokenAsync` are available on the request; an
+  interactive component reads identity from the cascaded **`AuthenticationState`**, not
+  `IHttpContextAccessor` (a circuit has no per-event `HttpContext`).
+- `app.MapStaticAssets()` is **required before `MapRazorComponents`**, or
+  `_framework/blazor.web.js` (and `wwwroot/*`) 404 and interactive islands never hydrate.
+- Under warnings-as-errors: **BL0008** forbids a property initializer on a
+  `[SupplyParameterFromForm]` property (use `= default!` + `??= new()` in `OnInitialized`);
+  **CS0542** fires when an `@page` last segment matches an `@inject` member name (name the
+  member distinctly); `@rendermode InteractiveServer` shorthand needs
+  `@using static Microsoft.AspNetCore.Components.Web.RenderMode`; multiple static-SSR
+  `<EditForm>` on one page each need a unique `FormName`.
+
+### PDP engine adapters (parity, fail-closed, reason codes)
+
+Engine adapters are compared against the CS05 reference provider via the shared scenario
+catalog (`ScenarioCatalogRunner`), which passes a provider only when it returns the exact
+`Decision` AND primary reason code (`Reasons[0].Code`) in the reference's per-action order:
+
+- **Replicate the reference's ordered checks** (scope → role → subject-is-maker → tenant →
+  pending → SoD), not just the predicate *set* — combined-failure scenarios diverge on the
+  reason code otherwise (LRN-021).
+- **Factor RBAC-only engines** (ASP.NET Core policies, Casbin) so a shared
+  `FintechRuleEvaluator` owns per-action ordering + ABAC + obligations and delegates ONLY
+  role eligibility via `IEngineRoleAuthorizer`; let richer engines (OPA/Rego, Cedar) own the
+  FULL decision natively rather than forcing the role-gate split (LRN-026).
+- **Out-of-process adapters fail closed on ANY engine error:** `catch` (never throw), return
+  a Deny with a provider-local reason code and a **stable, non-sensitive** message (log the
+  cause; never surface network/config detail to anonymous callers), and wrap the WHOLE request
+  flow — a singleton bootstrapped once makes "only the first call fails" reasoning wrong.
+  Validate the engine's returned reason code against the bounded `ReasonCodes` vocabulary
+  (fail closed on unknown). Sync `HttpClient.Send` works through ServiceDefaults'
+  `AddStandardResilienceHandler` on .NET 10, so no `.GetAwaiter().GetResult()` is needed
+  (LRN-027, LRN-030).
+- **Declarative engines (Cedar):** build the `PolicySet` from explicit `Policy(source, id)`
+  objects (not `ParsePolicies`, which renumbers ids) so `GetReason()` yields stable, semantic
+  ids; model each action as a broad `permit` + one annotated `forbid` per deny reason and
+  select the lowest-`Precedence` determining forbid to reproduce the reference's first-failing
+  order for ANY input (LRN-032).
+- **A new UNTRUSTED wire boundary** (e.g. AuthZEN `/evaluation`) that reuses a lenient internal
+  mapper is fail-**open**: a present-but-unparseable `amount`→null→$0 bypasses the threshold; a
+  missing `maker_id`→SoD self-approval bypass. Add action-aware fail-closed input validation
+  BEFORE evaluation; harden the boundary, do not tighten the shared reference provider
+  (LRN-034).
+- **Telemetry test isolation:** the PDP `ActivitySource`/`Meter`/`Counter` are process-wide
+  statics — isolate a metric-counter assertion by an untransformed tag (register a stub
+  provider with a `Guid`-based `Name` and filter on the `provider` tag), never the normalized
+  metric `action` (bounded to a known-verb/`unknown` vocabulary); span tests may isolate by the
+  raw `pdp.action` tag (LRN-022).
+- **Rego authoring/testing:** run `opa fmt -w infra/opa/policy` BEFORE any `opa fmt --list`
+  gate; validate edits with the standalone `opa_windows_amd64.exe` download (runs with no
+  install/PATH change; delete after) rather than the mocked C# adapter tests. Avoid C# raw
+  *interpolated* strings with trailing braces (`$$"""…}}"""` → CS9007) for JSON test fixtures
+  — use concatenation (LRN-029, LRN-037).
+
+### Dev observability & async channels
+
+- **Anonymous-Editor Grafana kiosk** (`grafana/otel-lgtm`) needs the anonymous settings PLUS
+  the default-admin auth paths closed: `GF_AUTH_ANONYMOUS_ENABLED=true` +
+  `GF_AUTH_ANONYMOUS_ORG_ROLE=Editor` + `GF_AUTH_DISABLE_LOGIN_FORM=true` +
+  `GF_AUTH_BASIC_ENABLED=false` — disabling the login form alone still leaves
+  `curl -u admin:admin` Basic Auth open. Model non-UI ingest ports (OTLP 4317/4318) as `tcp`
+  so `WithExternalHttpEndpoints()` marks only the Grafana UI external (LRN-024).
+- **Non-blocking, drop-counting `Channel<T>` producer:** use `BoundedChannelFullMode.Wait` +
+  `TryWrite` (returns `false` when the buffer is full → an observable, countable drop), NOT
+  `DropWrite` (under which `TryWrite` always returns `true` and drops silently) (LRN-041).
 <!-- harness:local-end id=conventions.project -->
