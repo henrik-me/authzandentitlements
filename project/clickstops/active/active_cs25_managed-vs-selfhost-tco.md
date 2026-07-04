@@ -36,8 +36,8 @@ Analyze managed-vs-self-host trade-offs and what changes moving to the cloud.
 | Cost/ops analysis | done | tco-scribe | agent-id=tco-scribe \| role=implementer \| report-status=complete \| learnings=1 |
 | Cloud-move considerations | done | tco-scribe | agent-id=tco-scribe \| role=implementer \| report-status=complete \| learnings=0 — Azure cloud-move section feeding CS27 |
 | ADR | done | cs25-crossref | ADR `docs/adr/0007-self-host-first-authz-with-managed-optionality.md` authored + cross-refs wired after CS23 merged (PR #111); agent-id=cs25-crossref \| role=implementer \| report-status=complete \| learnings=0 |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and the TCO/cloud-move docs so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; open follow-up CSs for unresolved TCO/cloud-move gaps |
+| Close-out: docs + restart state | done | yoga-ae-c4 | WORKBOARD row removed + CONTEXT.md CS25-complete entry added in the close-out PR; TCO doc + ADR 0007 live on main |
+| Close-out: learnings + follow-ups | done | yoga-ae-c4 | Filed the pricing-model eval-doc learning in LEARNINGS.md; no unresolved gaps (matrix/ADR cross-refs completed in-PR) |
 
 ## Notes / Learnings
 
@@ -56,4 +56,15 @@ Analyze managed-vs-self-host trade-offs and what changes moving to the cloud.
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T22:03:29Z
+**Outcome:** GO
+
+Independent GPT-5.5 plan-vs-implementation review of the CS25 plan against the merged content (`git show d311d1a`) + final files. Docs-only CS (no code/tests); merged scope is docs + the CS clickstop file only. All deliverables match; no blocking gaps.
+
+| Deliverable | Outcome | Notes |
+|---|---|---|
+| D1 managed-vs-selfhost TCO comparison | match | All five managed offerings (Auth0/Okta FGA, AuthZed Cloud, Oso Cloud, Permit.io, AVP) + self-hosted OSS, each with pricing model/meter, ops burden, lock-in, cloud/region fit, and lab-engine mapping; plus an at-a-glance table. |
+| D2 Azure cloud-move guidance (feeds CS27) | match | ACA vs AKS, Azure Database for PostgreSQL Flexible Server, OTLP/Azure Monitor/Managed Grafana, and the explicit AVP-AWS-only constraint; CS27 framed forward-looking. |
+| E1 cross-referenced to matrix + ADRs | match | Bidirectional links resolve: TCO doc ↔ comparison-matrix.md; ADR 0007 in the ADR index + related-eval-material; ADR 0007 ↔ TCO doc/matrix. |
+| ADR 0007 (was deferred) | match | Present + Accepted, no longer deferred; `Realized in` shipped-only (CS05–CS10, CS20, CS25), Azure/CS27 marked forward. |
