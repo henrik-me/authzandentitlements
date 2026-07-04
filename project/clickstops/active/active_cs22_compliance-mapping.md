@@ -1,9 +1,9 @@
 # CS22 — Compliance mapping (SOX/PCI-DSS/GDPR)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c4
+**Branch:** cs22/content
+**Started:** 2026-07-04
 **Closed:** —
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
@@ -37,7 +37,22 @@ Map the lab’s controls to regulatory frameworks and surface evidence.
 | Retention + evidence | pending | — | |
 | SoD + certification reports | pending | — | |
 | Compliance dashboards | pending | — | |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and feature docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; open planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c4 |
+| Reviewer agent | rubber-duck |
+
+## Plan-vs-implementation review
+
+_Pending — populated at close-out per OPERATIONS.md § Plan-vs-implementation review (close-out gate). NEEDS-FIX blocks close-out._
