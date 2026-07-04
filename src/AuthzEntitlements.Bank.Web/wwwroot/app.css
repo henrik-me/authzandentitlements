@@ -105,6 +105,12 @@ a {
     font-variant-numeric: tabular-nums;
 }
 
+/* Highlight rows awaiting a decision (do NOT reuse .num — that right-aligns). */
+.grid tr.pending td {
+    background: var(--notice-bg);
+    font-weight: 600;
+}
+
 .notice {
     background: var(--notice-bg);
     border: 1px solid var(--notice-line);

@@ -187,12 +187,12 @@ public class BankApiClientTests
     {
         var handler = new StubHttpMessageHandler(HttpStatusCode.Conflict, "already decided");
         var client = new BankApiClient(Client(handler));
+        var id = new Guid("60000000-0000-0000-0000-000000000002");
 
-        var result = await client.RejectTransactionAsync(
-            Guid.NewGuid(), new DecideRequest(Guid.NewGuid(), null));
+        var result = await client.RejectTransactionAsync(id, new DecideRequest(Guid.NewGuid(), null));
 
-        Assert.Equal($"{handler.LastRequest!.RequestUri!.AbsolutePath}", handler.LastRequest!.RequestUri!.AbsolutePath);
-        Assert.EndsWith("/reject", handler.LastRequest!.RequestUri!.AbsolutePath);
+        Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
+        Assert.Equal($"/api/transactions/{id}/reject", handler.LastRequest!.RequestUri!.AbsolutePath);
         Assert.False(result.IsSuccess);
         Assert.Equal(409, result.StatusCode);
     }

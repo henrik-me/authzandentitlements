@@ -127,7 +127,7 @@ else
             <tbody>
                 @foreach (var request in _requests)
                 {
-                    <tr class="@(AccessRequestsModel.IsPending(request) ? "num" : null)">
+                    <tr class="@(AccessRequestsModel.IsPending(request) ? "pending" : null)">
                         <td>@request.Id</td>
                         <td>@request.PrincipalId</td>
                         <td><code>@request.AccessPackageCode</code></td>
@@ -263,8 +263,16 @@ else
 
     private async Task ApproveAsync()
     {
-        if (_principal is null || ApproveForm.RequestId == Guid.Empty)
+        if (_principal is null)
         {
+            return;
+        }
+
+        if (ApproveForm.RequestId == Guid.Empty)
+        {
+            _result = ApiResult<AccessRequestResponse>.Failure(400, "Select a pending request to approve.");
+            _resultTitle = "Approval denied";
+            _resultDetail = _result.Error;
             return;
         }
 
@@ -284,8 +292,16 @@ else
 
     private async Task RejectAsync()
     {
-        if (_principal is null || RejectForm.RequestId == Guid.Empty)
+        if (_principal is null)
         {
+            return;
+        }
+
+        if (RejectForm.RequestId == Guid.Empty)
+        {
+            _result = ApiResult<AccessRequestResponse>.Failure(400, "Select a pending request to reject.");
+            _resultTitle = "Rejection denied";
+            _resultDetail = _result.Error;
             return;
         }
 

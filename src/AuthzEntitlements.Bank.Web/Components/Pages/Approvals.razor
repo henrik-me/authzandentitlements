@@ -172,6 +172,14 @@ else
 
     private async Task DecideAsync(Guid transactionId, string? reason, bool approve)
     {
+        // Fail closed with a visible message if no pending transaction was selected
+        // (the default select option is Guid.Empty) rather than posting an empty id.
+        if (transactionId == Guid.Empty)
+        {
+            _result = ApiResult<TransactionDto>.Failure(400, "Select a pending transaction to decide.");
+            return;
+        }
+
         // The checker is the authenticated subject, resolved from the token — never a
         // caller-chosen value. Bank.Api rejects (403) if CheckerId != token sub.
         var checkerId = await CurrentUser.ResolveBankUserIdAsync();
