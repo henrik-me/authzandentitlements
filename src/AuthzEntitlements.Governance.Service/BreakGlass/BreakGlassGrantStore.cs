@@ -17,11 +17,12 @@ public sealed class BreakGlassGrantStore
     private readonly Dictionary<Guid, BreakGlassGrant> _grants = [];
     private readonly int _maxGrants;
 
-    // Bounded-retention cap. There is no background sweeper, so the store is capped on write:
-    // once the map exceeds _maxGrants, the least-valuable grants are evicted (terminal ones —
-    // reviewed or expired — oldest-first, then the oldest still-active grant). This keeps the
-    // anonymous ListAll() footprint bounded (memory / payload-size / DoS guard). The DI singleton
-    // uses the parameterless default; tests can pass a small cap.
+    // Bounded-retention cap. There is no background sweeper, so the store is capped on write: once the
+    // map exceeds _maxGrants, grants are evicted by EvictionRank (reviewed first, then still-active, and
+    // expired-but-UNREVIEWED grants LAST — those still owe a mandatory post-review), oldest-first within
+    // each rank. This keeps the anonymous ListAll() footprint bounded (memory / payload-size / DoS guard)
+    // while never silently dropping a grant that still requires review. The DI singleton uses the
+    // parameterless default; tests can pass a small cap.
     public BreakGlassGrantStore(int maxGrants = 5000)
     {
         if (maxGrants <= 0)
