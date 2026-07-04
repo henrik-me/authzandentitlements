@@ -18,4 +18,10 @@ public static class RebacReasonCodes
     // account-relationship questions, so a non-account resource (e.g. the CS05 "transaction" shape) is
     // denied at the boundary rather than issuing a Check against a type the model does not define.
     public const string UnsupportedResourceType = "UnsupportedResourceType";
+
+    // The OpenFGA engine could not be reached or errored (not configured, unreachable, or an SDK
+    // failure) while answering a forward Check; the provider fails CLOSED with this Deny instead of
+    // throwing a 500 through /api/authz/evaluate — an authorization PDP never permits or throws on
+    // engine failure.
+    public const string EngineUnavailable = "EngineUnavailable";
 }

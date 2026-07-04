@@ -31,7 +31,7 @@ public static class RebacEndpoints
                 // OpenFGA unavailable (not configured, or the server unreachable during bootstrap) —
                 // an actionable 503 rather than a raw 500. Bootstrap is the first OpenFGA call, so a
                 // connection failure surfaces here before the scenario loops run.
-                return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+                return UnavailableProblem(ex);
             }
 
             var results = new List<object>();
@@ -125,7 +125,7 @@ public static class RebacEndpoints
             }
             catch (Exception ex) when (IsOpenFgaUnavailable(ex))
             {
-                return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+                return UnavailableProblem(ex);
             }
         });
 
@@ -146,7 +146,7 @@ public static class RebacEndpoints
             }
             catch (Exception ex) when (IsOpenFgaUnavailable(ex))
             {
-                return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+                return UnavailableProblem(ex);
             }
         });
 
@@ -192,6 +192,17 @@ public static class RebacEndpoints
 
         return null;
     }
+
+    // The 503 body for an unavailable engine. The crafted not-configured guidance (an
+    // InvalidOperationException our service throws) is safe to return; a reachability failure's
+    // exception text can carry internal host/port/config detail, so a stable message is returned
+    // instead (mirrors the OPA adapter's non-sensitive fail-closed message).
+    private static IResult UnavailableProblem(Exception ex) =>
+        Results.Problem(
+            ex is InvalidOperationException
+                ? ex.Message
+                : "The OpenFGA engine is unavailable; ensure the 'openfga' container is running and reachable.",
+            statusCode: StatusCodes.Status503ServiceUnavailable);
 
     // OpenFGA is "unavailable" when it is not configured (blank ApiUrl → InvalidOperationException
     // from the service) or the SDK cannot reach the server (its ApiException base, or a raw

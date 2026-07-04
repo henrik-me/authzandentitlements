@@ -99,4 +99,24 @@ public sealed class OpenFgaRegistrationTests
         Assert.NotNull(openfga);
         Assert.NotNull(provider.GetRequiredService<OpenFgaRebacService>());
     }
+
+    [Fact]
+    public void Evaluate_FailsClosed_WhenEngineUnavailable()
+    {
+        // With a blank ApiUrl the service throws when the provider issues its Check; Evaluate must
+        // DENY (fail closed) with a stable reason, never throw a 500 through /api/authz/evaluate.
+        using var provider = Build("openfga", apiUrl: "");
+        var openfga = provider.GetServices<IAuthorizationDecisionProvider>().Single(p => p.Name == "openfga");
+
+        var request = new AccessRequest(
+            new Subject("user", "carol", []),
+            new ActionRequest(ActionNames.AccountRead),
+            new Resource("account", Id: "personal-carol"),
+            new EvaluationContext([]));
+
+        var decision = openfga.Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(RebacReasonCodes.EngineUnavailable, decision.Reasons[0].Code);
+    }
 }
