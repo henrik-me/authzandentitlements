@@ -64,9 +64,19 @@ public sealed record BenchmarkRun(
 // indented output, and enum-as-string (defensive — the model uses string status constants today).
 public static class BenchmarkJson
 {
-    public static JsonSerializerOptions Options { get; } = new(JsonSerializerDefaults.Web)
+    public static JsonSerializerOptions Options { get; } = CreateOptions();
+
+    // Built once and frozen (MakeReadOnly) so this shared instance — which defines the on-disk
+    // contract (Web camelCase, indented, enum-as-string) — cannot be mutated by any caller and
+    // silently break persistence/round-tripping.
+    private static JsonSerializerOptions CreateOptions()
     {
-        WriteIndented = true,
-        Converters = { new JsonStringEnumConverter() },
-    };
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true,
+            Converters = { new JsonStringEnumConverter() },
+        };
+        options.MakeReadOnly(populateMissingResolver: true);
+        return options;
+    }
 }

@@ -37,6 +37,8 @@ public static class RegressionDetector
     {
         ArgumentNullException.ThrowIfNull(baseline);
         ArgumentNullException.ThrowIfNull(current);
+        ArgumentOutOfRangeException.ThrowIfNegative(relativeTolerance);
+        ArgumentOutOfRangeException.ThrowIfNegative(absoluteFloorMs);
 
         var baselineByName = new Dictionary<string, EngineBenchmark>(StringComparer.OrdinalIgnoreCase);
         foreach (var e in baseline.Engines.Where(e => e.Status == BenchmarkStatus.Measured))

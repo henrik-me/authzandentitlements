@@ -41,6 +41,20 @@ public sealed class RegressionDetectorTests
     }
 
     [Fact]
+    public void Detect_NegativeRelativeTolerance_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RegressionDetector.Detect(Measured("reference", 1.0), Measured("reference", 1.0), relativeTolerance: -0.1));
+    }
+
+    [Fact]
+    public void Detect_NegativeAbsoluteFloor_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RegressionDetector.Detect(Measured("reference", 1.0), Measured("reference", 1.0), absoluteFloorMs: -0.1));
+    }
+
+    [Fact]
     public void Detect_LargeIncreaseBeyondToleranceAndFloor_Regresses()
     {
         var baseline = Measured("reference", 1.0);
