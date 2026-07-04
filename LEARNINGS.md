@@ -631,6 +631,47 @@ tags: [openfga, rebac, sdk, csharp, aspire, followups]
 **Implications carried forward:**
 - Follow-ups (deferred, non-blocking dev-loop hardening): make the OpenFGA authorization-model id configurable/pinned to avoid per-boot model-version growth on a persistent shared store; use a targeted tuple-existence reconciliation instead of read-all (fine for the dedicated tiny-seed store today); adopt `Assert.Skip` for the integration tests when the repo moves to xUnit v3 (currently a soft `return` skip, since 2.9.3 has no dynamic skip and adding `Xunit.SkippableFact` was out of scope).
 
+### LRN-032
+
+```yaml
+id: LRN-032
+date: 2026-07-04
+category: architectural
+source_cs: CS09
+status: open
+tags: [pdp, adapter, cedar, monocloud, dotnet10, parity]
+```
+
+**Problem:** CS09 integrates Cedar (in-process, `MonoCloud.Cedar` native bindings) as a fifth engine that must answer the shared 22-scenario `FintechScenarioCatalog` with the SAME `Decision` AND primary reason code as the reference — but Cedar is a declarative permit/forbid engine with no ordered "first-failing reason", and `PolicySet.ParsePolicies` assigns its own sequential `policyN` ids (ignoring `@id`), so a determining-policy set can't be mapped back to a reason code from raw-text policies.
+
+**Finding:** (1) Build the `PolicySet` from explicit `Policy(source, id)` objects (not `ParsePolicies`) so `AuthorizationSuccessResponse.GetReason()` returns STABLE, semantic ids the adapter maps to `ReasonCodes`. (2) Model each action as a broad `permit` + one annotated `forbid` per deny reason; on Deny, map the determining-forbid set to the reference's FIRST-failing reason by selecting the LOWEST `Precedence` value (per-action order) — reproducing the reference's short-circuit ordering (LRN-021) for ANY input, not just isolated-failure catalog rows. (3) Per LRN-026, let Cedar own the FULL decision natively (like OPA/Rego), not the role-gate-only `IEngineRoleAuthorizer` split — Cedar is expressive enough; the head-to-head with OPA is that both answer the same catalog. (4) `MonoCloud.Cedar` 0.1.0 restores/builds 0/0 and loads its win-x64 native binary under the .NET 10 RC runtime with no extra setup. (5) Obligations, the unknown-action guard, and fail-closed (any Cedar error → provider-local `ProviderUnavailable` Deny, never throw/permit; pass the exception object to the logger for stack traces) are adapter-side, mirroring `OpaDecisionProvider`.
+
+**Evidence:** `Providers/Adapters/Cedar/{CedarPolicyModel,CedarDecisionProvider}.cs`; `CedarDecisionProviderTests` (22/22 catalog parity + per-scenario + obligations + combined-failure ordering + fail-closed + selection); `Directory.Packages.props` MonoCloud.Cedar 0.1.0 pin; `docs/authz/cedar-adapter.md` (+ Amazon Verified Permissions as the managed/cloud option). Full-solution build 0/0; PDP `dotnet test` 358/358.
+
+**Implications carried forward:**
+- Future declarative-policy adapters (and CS16 explainability / CS20 migration): to recover an ORDERED reason from an unordered engine, encode failures as annotated forbids with stable ids + an explicit precedence map, and select the first-failing (lowest precedence) determining member.
+- CS23/CS24 (comparison/perf): Cedar (in-process, `cedar`) and AVP (managed) are the Cedar data points; AVP runs the same policies managed (documented, not wired).
+
+### LRN-033
+
+```yaml
+id: LRN-033
+date: 2026-07-04
+category: process
+source_cs: CS09
+status: open
+tags: [pdp, parity, testing, fail-closed, tenant, security]
+```
+
+**Problem:** CS09's Cedar adapter passed all 22 `FintechScenarioCatalog` scenarios and full build/test, but GPT-5.5 review (R1 Block) found a FAIL-OPEN tenant-isolation gap the catalog missed: with BOTH tenants null/blank, Cedar mapped them to `""` and `"" == ""` PERMITTED, whereas the reference `TenantMatches` fails closed (`!IsNullOrWhiteSpace(subject) && !IsNullOrWhiteSpace(resource) && equal`). Every catalog row uses non-blank tenants, so tests stayed green over a real vuln.
+
+**Finding:** A shared parity catalog of "realistic" values does NOT exercise fail-closed predicates on degenerate/boundary inputs. For every fail-closed rule (tenant, maker, status, scope), add explicit tests with null/empty/whitespace on EACH side, and assert engine parity against the `ReferenceDecisionProvider` oracle (Decision + `Reasons[0].Code`), not just a hardcoded expectation. The Cedar fix: normalize null/whitespace tenant → `""` AND require both sides non-empty in the forbid (`principal.tenant != "" && resource.tenant != "" && principal.tenant == resource.tenant`).
+
+**Evidence:** `CedarDecisionProvider.NormalizeTenant`; the four tenant forbids in `CedarPolicyModel`; `CedarDecisionProviderTests` 7 blank/null/whitespace-tenant tests asserting equivalence to `ReferenceDecisionProvider`. GPT-5.5 R1 Block → R2 Go-with-amendments.
+
+**Implications carried forward:**
+- CS16/CS17/CS20/CS23/CS24 and any adapter/eval CS: the 22-scenario catalog is necessary but NOT sufficient — augment with degenerate-input fail-closed parity tests against the reference oracle. Consider adding blank/whitespace-attribute rows to the shared catalog so every engine is held to them.
+
 ## Applied
 
 _(no entries yet)_

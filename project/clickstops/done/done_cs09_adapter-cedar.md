@@ -1,10 +1,10 @@
 # CS09 — Adapter: Cedar (policy / ABAC)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs09/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** 2 — Fine-grained AuthZ
 **Lane:** Engines
 **Depends on:** CS05
@@ -59,4 +59,21 @@ _Learning candidates (to file at close-out): (1) **cedar-api** — `PolicySet.Pa
 
 ## Plan-vs-implementation review
 
-_Pending — completed at close-out per OPERATIONS.md § Plan-vs-implementation review (close-out gate). The GO/NEEDS-FIX outcome is recorded here before the active → done rename._
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T02:20:00Z
+**Analyzed HEAD:** 1b90ae9 (merged main, PR #48)
+**Outcome:** GO
+
+Per-deliverable outcomes (all **match**):
+
+| # | Deliverable | Outcome |
+|---|---|---|
+| 1 | CedarProvider using MonoCloud Cedar for .NET (verify .NET 10 compat) | match — `Providers/Adapters/Cedar/CedarDecisionProvider.cs` (`Name="cedar"`, `BasicAuthorizationEngine`), registered in `AddPdp`; `MonoCloud.Cedar` 0.1.0 pinned (CPM) + referenced from the net10.0 PDP project; native binding loads (build + Cedar tests exercise real evaluation). |
+| 2 | Cedar schema + policies mirroring the OPA scenarios / CS05 catalog | match — `CedarPolicyModel.cs` embeds a broad `permit` per action + one annotated `forbid` per deny reason (explicit `Policy(source,id)`), and the adapter maps the determining set to the reference's first-failing reason with the threshold obligation. Per the R1 amendment, parity is against the CS05 22-scenario catalog (not literal CS08 artifacts); per LRN-026 Cedar owns the full decision natively (head-to-head with OPA). The "schema" is the embedded entity shape (no separate Cedar `Schema` artifact), documented explicitly. |
+| 3 | Amazon Verified Permissions documented as the cloud option | match — `docs/authz/cedar-adapter.md` documents AVP as the managed/cloud Cedar option (policy store + `IsAuthorized`, trade-offs); `pdp-contract.md` points to it. |
+
+**Exit criterion:** **met** — Cedar answers the same 22-scenario `FintechScenarioCatalog` as the reference/OPA (same `Decision` + primary reason code), verified by `CedarDecisionProviderTests` (full-catalog + per-scenario) and the full-solution build 0/0 / PDP `dotnet test` 358/358.
+
+**Scope discipline:** confirmed within CS09 (Cedar provider + embedded policy model + registration + CPM/csproj + docs/tests); the single non-CS09 change (repointing the CS07 `OpenFgaRegistrationTests` unknown-provider placeholder from `"cedar"` — now a real engine — to `"does-not-exist"`) is a justified integration fix.
+
+Independently verified: `dotnet build` 0/0; `dotnet test` (PDP) 358/358. Local code review: GPT-5.5 rubber-duck R1 (Block: tenant fail-open + doc) → R2 (Go-with-amendments) → R3/R5 (Go); Copilot review (2 non-blocking comments addressed, threads resolved). Content PR #48 (squash-merged).
