@@ -41,7 +41,7 @@ public sealed class OpenFgaProviderSeamTests
     }
 
     [Fact]
-    public void Evaluate_WhenCheckDenied_Denies_NoRelationship_WithRelationshipExplanation()
+    public void Evaluate_WhenCheckDenied_Denies_WithNoRelationshipReason_AndCheckedTupleReference()
     {
         var decision = Provider(FakeOpenFgaCheckClient.Denying())
             .Evaluate(AccountRead("carol", "personal-carol"));

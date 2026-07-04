@@ -6,7 +6,9 @@
 > OpenFGA authorization-model **pin + targeted tuple reconciliation** that keeps a persistent
 > store from growing a new model version on every boot. Read the
 > [PDP contract](pdp-contract.md) and [explainability](explainability.md) first; this note
-> covers the CS31 test seams, not a new decision behaviour (the decisions are additive-only).
+> covers the CS31 test seams, model-id pin, and degenerate-parity tests. Existing PDP
+> **decision behaviour is unchanged** — every change here is additive (a test-only seam,
+> new tests, and an opt-in `AuthorizationModelId` configuration).
 
 ## The `IOpenFgaCheckClient` seam (offline explanation tests)
 
