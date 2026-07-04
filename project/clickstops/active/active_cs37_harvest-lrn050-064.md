@@ -1,9 +1,9 @@
 # CS37 — Weekly harvest: consolidate LRN-050..064 into project doc blocks
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c3
+**Branch:** cs37/content
+**Started:** 2026-07-04
 **Closed:** —
 **Filed by:** yoga-ae-c3 — 2026-07-04, weekly LRN harvest: dispositioning the post-CS33 open batch (LRN-050..064, filed by CS15/CS19/CS22/CS23/CS25) into project doc blocks + a follow-up code CS. (Renumbered from CS35 → CS37 on 2026-07-04 after a same-number filing collision with yoga-ae-c5's CS35 "Review & PR merge-gate hardening", PR #125; the GPT-5.5 plan-review attestation `5c301b582b81` over `## Decisions`+`## Deliverables` is unchanged by the renumber.)
 **Depends on:** none
@@ -107,11 +107,24 @@ None — project-local doc content + LEARNINGS dispositions + one new planned CS
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Consolidate code/domain LRNs (050/051/054/058/059/064) into CONVENTIONS.md `conventions.project` | pending | yoga-ae-c3 | agent-id=cs37-harvest-impl / role=doc-consolidation / report-status=pending / learnings=0 |
+| Consolidate review/CI/merge LRNs (052/053/055/056/060/061/063) into REVIEWS.md `reviews.project-gates` | pending | yoga-ae-c3 | agent-id=cs37-harvest-impl / role=doc-consolidation / report-status=pending / learnings=0 |
+| Flip LEARNINGS.md dispositions: LRN-050..056/058..064 → applied; LRN-059/062 → applied (already-landed); LRN-057 → open linked to CS36; LRN-035/040 → refreshed deferred note | pending | yoga-ae-c3 | agent-id=cs37-harvest-impl / role=learnings-disposition / report-status=pending / learnings=0 |
+| Close-out: docs + restart state | pending | yoga-ae-c3 | update CONTEXT.md harvest note |
+| Close-out: learnings + follow-ups | pending | yoga-ae-c3 | LRN-050..064 dispositioned; CS36 audit follow-up filed |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c3 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
