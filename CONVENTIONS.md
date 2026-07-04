@@ -181,7 +181,8 @@ accounted for.
 - **Line endings are gated by `harness lint` (text-encoding) + `.gitattributes eol=lf`, NOT
   `dotnet format`.** The file-authoring tool writes CRLF for new `.cs` on Windows and the
   text-encoding gate does not always flag it — convert authored files explicitly
-  (`(Get-Content -Raw) -replace "\r\n","\n"` written UTF-8 no-BOM) before committing. Treat
+  (`[IO.File]::WriteAllText($p, ([IO.File]::ReadAllText($p) -replace "\r\n","\n"), (New-Object Text.UTF8Encoding $false))`)
+  before committing. Treat
   the dotnet-profile `dotnet format --verify-no-changes` self-check as advisory until a repo
   `.editorconfig` with `end_of_line = lf` exists (LRN-036).
 - **Cross-SDK project references:** `<FrameworkReference Include="Microsoft.AspNetCore.App" />`

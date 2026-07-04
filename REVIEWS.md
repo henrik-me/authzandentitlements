@@ -800,9 +800,9 @@ review policy above. Each bullet cites its source `LRN-NNN`.
 
 - **The A5+A16 Copilot gate requires a Copilot review at the CURRENT PR HEAD** — after every
   new commit, re-request via
-  `gh api --method POST repos/<o>/<r>/pulls/<n>/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"`.
+  `gh api --method POST repos/OWNER/REPO/pulls/PR/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"`.
   The review-triggered `pr-evidence-lint` re-run lands in `action_required` (bot-triggered
-  runs need approval on this repo) and will NOT self-clear — re-run `gh run rerun <id> --failed`
+  runs need approval on this repo) and will NOT self-clear — re-run `gh run rerun RUN_ID --failed`
   or approve the pending run (LRN-045).
 - **The A3+A4 review-log gate needs a `verdict=Go` row whose `analyzed_head` equals the current
   PR HEAD** — append a fresh Go-at-HEAD row after every commit (including review-fix commits).
