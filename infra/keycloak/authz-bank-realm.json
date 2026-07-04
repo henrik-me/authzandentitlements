@@ -199,7 +199,7 @@
     },
     {
       "name": "agent-claims",
-      "description": "Marks agent/service-account tokens with subject_type=agent so a resource server can distinguish non-human callers.",
+      "description": "Marks AI-agent tokens with subject_type=agent so a resource server can distinguish an agent caller from a human.",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "false",
@@ -214,6 +214,30 @@
           "config": {
             "claim.name": "subject_type",
             "claim.value": "agent",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "service-claims",
+      "description": "Marks service-account / workload tokens with subject_type=service so a resource server can distinguish a non-human workload acting as itself from a human.",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "subject_type",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "subject_type",
+            "claim.value": "service",
             "jsonType.label": "String",
             "id.token.claim": "true",
             "access.token.claim": "true"
@@ -284,6 +308,7 @@
       "fullScopeAllowed": true,
       "defaultClientScopes": [
         "bank-claims",
+        "service-claims",
         "bank.read"
       ],
       "optionalClientScopes": []

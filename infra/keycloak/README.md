@@ -52,7 +52,7 @@ Usernames must be realm-unique, so the Fabrikam teller is `teller1-fabrikam`
 |---|---|---|---|---|
 | `bank-web` | confidential | `bank-web-secret` | authorization-code + direct-access-grant | Login for the Bank.Web stub; the direct-access (password) grant lets the orchestrator fetch tokens for verification. |
 | `bank-api` | bearer-only resource server | — | none | Audience for the access token; validates only. |
-| `bank-workload` | confidential service account | `bank-workload-secret` | client-credentials | Non-human workload identity (used later by CS19); its service-account user carries `tenant=CONTOSO`. |
+| `bank-workload` | confidential service account | `bank-workload-secret` | client-credentials | Non-human workload identity; carries `subject_type=service` (CS19, via the `service-claims` default scope) so it is distinguishable as a non-human acting as itself; its service-account user carries `tenant=CONTOSO`. |
 | `bank-agent` | confidential service account | `bank-agent-secret` | client-credentials | AI agent / MCP tool workload identity (CS19). Carries `subject_type=agent`; default scope `agent.bank.read`, with the write/approval delegated scopes requested per token. |
 
 `bank-web` default client scopes include `bank.read` plus the `tenant`/`branch`/

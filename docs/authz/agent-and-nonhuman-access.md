@@ -120,23 +120,31 @@ using the **client-credentials** grant (no interactive login). Its realm surface
   `agent.bank.transactions.write` / `agent.bank.approvals.write` are **optional** scopes requested
   per token. This is the "scoped, time-boxed agent tokens" property — an elevated capability is
   minted only for the call that needs it.
+- The pre-existing **`bank-workload`** client — a plain workload identity that acts **as itself** (no
+  user) — carries a hardcoded **`subject_type=service`** claim (from the `service-claims` scope), so a
+  resource server can distinguish it as a non-human caller too. This is the "non-human acts as itself"
+  path: the token carries no `on_behalf_of` and resolves no delegation.
 
 ### The claim contract a resource server reads
 
-- **`subject_type`** — `agent` marks a non-human caller; its absence (or `user`) marks a human. Read
-  it fail-closed: an unexpected or blank value denies rather than defaulting to human.
-- For **OBO**, this lab's agent token — exactly what `ActorClaims` (Bank.Api) and
-  `GatewayActorClaims` (edge gateway) read — carries `subject_type=agent`, the **agent's own
-  identity in `sub`**, and the **effective user in the flat `on_behalf_of` claim**. So
-  `TryGetDelegation` resolves the *actor* = `sub` (the agent) and the *on-behalf-of user* =
-  `on_behalf_of`, but **only when `subject_type` is a recognized delegate kind** (`agent` or
-  `service`, matching the PDP `Actor.Type` domain, ordinal) — an unknown/typo/mis-cased value is
-  fail-closed, as is a missing/blank `sub` or `on_behalf_of`. The CS19 helpers read `subject_type`,
-  `on_behalf_of`, and `sub` **only**; they do **not** read the RFC 8693 `act` claim. **Note the
-  `sub` inversion vs. RFC 8693 below:** under token exchange the *exchanged* token instead sets
-  `sub` = the **user** and `act` = the **agent** — that `act` shape is the exchanged-token
-  (production) form and a **CS21 reuse point**, not something the CS19 helpers read. Both bind the
-  same two parties; only *which* token carries *which* claim differs.
+- **`subject_type`** — `agent` or `service` marks a non-human caller; **absent or blank defaults to
+  `user` (human)** — the safe default, never a hard deny. Fail-closed applies to *delegation*:
+  `TryGetDelegation` resolves an OBO delegation **only** for a recognized delegate kind (`agent` or
+  `service`, ordinal, matching the PDP `Actor.Type` domain), so an unknown / typo / mis-cased or
+  blank `subject_type` never resolves a delegation.
+- For **OBO**, the contract `ActorClaims` (Bank.Api) and `GatewayActorClaims` (edge gateway) read is:
+  `subject_type` = a recognized delegate kind, the agent's own identity in `sub`, and the effective
+  user in the flat `on_behalf_of` claim. When a token supplies these, `TryGetDelegation` resolves the
+  *actor* = `sub` (the agent) and the *on-behalf-of user* = `on_behalf_of`; a missing/blank `sub` or
+  `on_behalf_of` is fail-closed. The CS19 helpers read `subject_type`, `on_behalf_of`, and `sub`
+  **only** — not the RFC 8693 `act` claim. In this offline lab the dev client-credentials tokens
+  (`bank-agent`, `bank-workload`) do **not** themselves emit an `on_behalf_of` claim (a
+  client-credentials token has no user); the OBO binding is modeled in `Subject.Actor` at the app /
+  PDP layer (see the RFC 8693 note below), and the helpers are **ready to read** `on_behalf_of` the
+  moment a token supplies it. **Note the `sub` inversion vs. RFC 8693:** under token exchange the
+  *exchanged* token instead sets `sub` = the **user** and `act` = the **agent** — that `act` shape is
+  the exchanged-token (production) form and a **CS21 reuse point**, not something the CS19 helpers
+  read.
 
 ### RFC 8693 note
 
