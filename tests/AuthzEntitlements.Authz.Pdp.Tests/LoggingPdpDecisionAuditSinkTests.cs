@@ -106,7 +106,7 @@ public sealed class LoggingPdpDecisionAuditSinkTests
             Reason: "TenantMismatch",
             Tenant: "contoso",
             DeterminingRule: "tenant",
-            PolicyReferences: ["rule:tenant"],
+            PolicyReferences: ["rule:tenant", "relationship-tuple:doc:1#viewer@user:evil\r\nFORGED"],
             Narrative: "n",
             SubjectType: "agent",
             ActorId: "agent-1\nFORGED",
@@ -120,8 +120,11 @@ public sealed class LoggingPdpDecisionAuditSinkTests
         Assert.DoesNotContain("\r", entry.Message);
         Assert.Contains("user-1  PDP decision Permit () provider=reference FORGED", entry.Message);
         Assert.Contains("agent-1 FORGED", entry.Message);
-        // The structured property values are sanitized too (they are the Clean() output).
+        // The structured property values are sanitized too (they are the Clean() output) — including
+        // PolicyReferences, whose OpenFGA relationship tuples can embed caller-derived ids.
         Assert.Contains(entry.State, kv => kv.Key == "SubjectId" && !((string?)kv.Value)!.Contains('\n'));
         Assert.Contains(entry.State, kv => kv.Key == "ActorId" && !((string?)kv.Value)!.Contains('\n'));
+        Assert.Contains(entry.State, kv => kv.Key == "PolicyReferences"
+            && !((string?)kv.Value)!.Contains('\n') && !((string?)kv.Value)!.Contains('\r'));
     }
 }
