@@ -25,6 +25,13 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        // Honor cancellation like a real handler would, so a pre-cancelled token surfaces as a
+        // cancelled task (never a synchronously-returned success).
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Task.FromCanceled<HttpResponseMessage>(cancellationToken);
+        }
+
         try
         {
             return Task.FromResult(_responder(request));

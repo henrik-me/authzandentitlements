@@ -77,6 +77,21 @@ public sealed class HttpGovernanceClientTests
     }
 
     [Fact]
+    public async Task CallerCancellation_IsHonored_NotSelfSkipped()
+    {
+        using var http = StubClient(new StubHttpMessageHandler(System.Net.HttpStatusCode.OK, "[]"));
+        var client = new HttpGovernanceClient(http);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // A genuine caller cancellation must propagate as cancellation — NOT be swallowed as an
+        // offline self-skip (GovernanceUnreachableException) or a fail-closed data error.
+        var ex = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => client.GetCampaignsAsync(cts.Token));
+        Assert.IsNotType<GovernanceUnreachableException>(ex);
+    }
+
+    [Fact]
     public async Task ReporterDrivingRealClient_DoesNotSelfSkipOnReachedError()
     {
         // End-to-end: a reporter driving the REAL client against a reached-but-erroring service

@@ -154,7 +154,7 @@ controls:
 - **Grafana is an anonymous kiosk (dev)** with login disabled — a production
   adopter must put dashboards behind authentication with scoped datasources.
 - **Transport is not mutually authenticated/encrypted between services (dev).**
-  Prod needs mTLS and at-rest encryption for the Req 32 confidentiality claim.
+  Prod needs mTLS and at-rest encryption for the GDPR Article 32 confidentiality claim.
 - **The SoD role-pair catalog and the $10,000 threshold are illustrative** — a
   real organization tailors both to its own toxic-combination and materiality
   policies.

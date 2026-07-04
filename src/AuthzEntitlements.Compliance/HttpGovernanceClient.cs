@@ -65,9 +65,18 @@ public sealed class HttpGovernanceClient : IGovernanceClient, IDisposable
 
             body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException)
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
-            // A connection failure or a timeout means the service is not reachable — self-skip.
+            // An HttpClient timeout surfaces as a cancelled task whose token is NOT the caller's —
+            // the service did not respond in time, so self-skip. A GENUINE caller cancellation
+            // (cancellationToken.IsCancellationRequested) does not match this filter and propagates,
+            // honoring cancellation semantics rather than masquerading as "service offline".
+            throw new GovernanceUnreachableException(
+                $"GET {path} timed out: {ex.Message}", ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            // A connection/DNS failure means the service is not reachable — self-skip.
             throw new GovernanceUnreachableException(
                 $"GET {path} failed: {ex.Message}", ex);
         }
