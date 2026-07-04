@@ -159,7 +159,7 @@ public sealed class OpaDecisionProviderTests
     public void Permit_WithRequireApproval_MapsObligation()
     {
         var provider = ProviderReturning(
-            """{"result":{"decision":"Permit","reason":"Permit","obligations":["require_approval"]}}""",
+            """{"result":{"decision":"Permit","reason":"Permit","rule":"transaction.create.Permit","obligations":["require_approval"]}}""",
             out _);
 
         var decision = provider.Evaluate(TransactionCreate());
@@ -174,7 +174,7 @@ public sealed class OpaDecisionProviderTests
     public void Permit_WithPostImmediately_MapsObligation()
     {
         var provider = ProviderReturning(
-            """{"result":{"decision":"Permit","reason":"Permit","obligations":["post_immediately"]}}""",
+            """{"result":{"decision":"Permit","reason":"Permit","rule":"transaction.create.Permit","obligations":["post_immediately"]}}""",
             out _);
 
         var decision = provider.Evaluate(TransactionCreate());
@@ -243,6 +243,87 @@ public sealed class OpaDecisionProviderTests
         Assert.Equal(Decision.Deny, decision.Decision);
         Assert.Equal(reasonCode, decision.Reasons[0].Code);
         Assert.Empty(decision.Obligations);
+    }
+
+    // --- CS16 explanation ---------------------------------------------------
+
+    [Fact]
+    public void Permit_AttachesOpaExplanation_WithRegoRuleAndPackagePath()
+    {
+        var provider = ProviderReturning(
+            """{"result":{"decision":"Permit","reason":"Permit","rule":"transaction.create.Permit","obligations":["require_approval"]}}""",
+            out _);
+
+        var decision = provider.Evaluate(TransactionCreate());
+
+        var explanation = decision.Explanation;
+        Assert.NotNull(explanation);
+        Assert.Equal("opa", explanation!.Engine);
+        Assert.Equal(DeterminingRules.AllRulesSatisfied, explanation.DeterminingRule);
+        Assert.Equal("OPA policy decision: Permit.", explanation.Narrative);
+        var regoRule = Assert.Single(
+            explanation.PolicyReferences,
+            r => r.Kind == PolicyReferenceKinds.RegoRule && r.Reference == "transaction.create.Permit");
+        Assert.Equal("package authz.bank", regoRule.Detail);
+        Assert.Contains(
+            explanation.PolicyReferences,
+            r => r.Kind == PolicyReferenceKinds.RegoRule && r.Reference == "data.authz.bank.decision");
+    }
+
+    [Fact]
+    public void Deny_AttachesOpaExplanation_WithMappedDeterminingRuleAndRegoRule()
+    {
+        var provider = ProviderReturning(
+            """{"result":{"decision":"Deny","reason":"MissingScope","rule":"transaction.create.MissingScope"}}""",
+            out _);
+
+        var decision = provider.Evaluate(TransactionCreate());
+
+        var explanation = decision.Explanation;
+        Assert.NotNull(explanation);
+        Assert.Equal("opa", explanation!.Engine);
+        Assert.Equal(DeterminingRules.Scope, explanation.DeterminingRule);
+        Assert.Contains(
+            explanation.PolicyReferences,
+            r => r.Kind == PolicyReferenceKinds.RegoRule && r.Reference == "transaction.create.MissingScope");
+        Assert.Contains(
+            explanation.PolicyReferences,
+            r => r.Kind == PolicyReferenceKinds.RegoRule && r.Reference == "data.authz.bank.decision");
+    }
+
+    [Fact]
+    public void WellFormedDecision_WithoutRuleField_DegradesToPackagePathReferenceOnly()
+    {
+        // An older policy that predates the additive `rule` field: the decision still succeeds and
+        // the explanation degrades to the stable package-path reference rather than failing closed.
+        var provider = ProviderReturning(
+            """{"result":{"decision":"Permit","reason":"Permit","obligations":[]}}""", out _);
+
+        var decision = provider.Evaluate(TransactionCreate());
+
+        Assert.Equal(Decision.Permit, decision.Decision);
+        var explanation = decision.Explanation;
+        Assert.NotNull(explanation);
+        Assert.Equal("opa", explanation!.Engine);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.RegoRule, reference.Kind);
+        Assert.Equal("data.authz.bank.decision", reference.Reference);
+    }
+
+    [Fact]
+    public void FailClosed_AttachesEngineUnavailableExplanation()
+    {
+        var provider = ProviderReturning("this is not json", out _);
+
+        var decision = provider.Evaluate(TransactionCreate());
+
+        var explanation = decision.Explanation;
+        Assert.NotNull(explanation);
+        Assert.Equal("opa", explanation!.Engine);
+        Assert.Equal(DeterminingRules.EngineUnavailable, explanation.DeterminingRule);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.ReasonCode, reference.Kind);
+        Assert.Equal("ProviderUnavailable", reference.Reference);
     }
 
     // --- Fail closed --------------------------------------------------------

@@ -1,3 +1,5 @@
+using AuthzEntitlements.Authz.Pdp.Contracts;
+
 namespace AuthzEntitlements.Authz.Pdp.Providers.Adapters;
 
 // The single RBAC question an engine adapter delegates to its underlying engine: given a
@@ -15,4 +17,14 @@ public interface IEngineRoleAuthorizer
     // Only called for role-gated actions (account.create, transaction.create/approve/reject);
     // bank.account.read has no role gate and never reaches this hook.
     bool IsRoleAuthorized(string action, IReadOnlyList<string> subjectRoles);
+
+    // The engine's config name ("casbin" / "aspnet"), used as DecisionExplanation.Engine so the
+    // shared FintechRuleEvaluator can attach an engine-tagged explanation to every decision (CS16).
+    string EngineName { get; }
+
+    // The engine-native role artifact for the explanation: the matched policy line / requirement
+    // (or, when no subject role matched, the required policy lines) surfaced as a PolicyReference
+    // whose Kind is the engine's own kind (casbin-rule / aspnet-requirement). Called at the role
+    // step of a role-gated action so the explanation names the engine's actual determining rule.
+    PolicyReference DescribeRoleRule(string action, IReadOnlyList<string> subjectRoles);
 }

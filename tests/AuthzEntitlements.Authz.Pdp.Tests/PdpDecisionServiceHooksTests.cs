@@ -63,6 +63,9 @@ public sealed class PdpDecisionServiceHooksTests
         var decision = service.Evaluate(request);
 
         Assert.Equal(Decision.Permit, decision.Decision);
+        Assert.NotNull(decision.Explanation);
+        Assert.Equal("reference", decision.Explanation!.Engine);
+        Assert.Equal(DeterminingRules.AllRulesSatisfied, decision.Explanation.DeterminingRule);
         var evt = Assert.Single(sink.Events);
         Assert.Equal("reference", evt.Provider);
         Assert.Equal("user-teller1", evt.SubjectId);
@@ -72,6 +75,10 @@ public sealed class PdpDecisionServiceHooksTests
         Assert.Equal("Permit", evt.Decision);
         Assert.Equal(ReasonCodes.Permit, evt.Reason);
         Assert.Equal(PdpRequests.Contoso, evt.Tenant);
+        Assert.Equal(DeterminingRules.AllRulesSatisfied, evt.DeterminingRule);
+        Assert.NotEmpty(evt.PolicyReferences);
+        Assert.Contains(evt.PolicyReferences, r => r == $"{PolicyReferenceKinds.Rule}:{DeterminingRules.AllRulesSatisfied}");
+        Assert.False(string.IsNullOrWhiteSpace(evt.Narrative));
     }
 
     [Fact]
@@ -88,10 +95,18 @@ public sealed class PdpDecisionServiceHooksTests
         var decision = service.Evaluate(request);
 
         Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.NotNull(decision.Explanation);
+        Assert.Equal("reference", decision.Explanation!.Engine);
+        Assert.Equal(DeterminingRules.Tenant, decision.Explanation.DeterminingRule);
         var evt = Assert.Single(sink.Events);
         Assert.Equal("Deny", evt.Decision);
         Assert.Equal(ReasonCodes.TenantMismatch, evt.Reason);
         Assert.Null(evt.ResourceId);
+        Assert.Equal(DeterminingRules.Tenant, evt.DeterminingRule);
+        Assert.Contains(
+            evt.PolicyReferences,
+            r => r == $"{PolicyReferenceKinds.Rule}:{DeterminingRules.Tenant}");
+        Assert.False(string.IsNullOrWhiteSpace(evt.Narrative));
     }
 
     [Fact]

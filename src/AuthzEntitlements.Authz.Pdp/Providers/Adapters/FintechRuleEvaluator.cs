@@ -23,31 +23,37 @@ public static class FintechRuleEvaluator
     public static AccessDecision Evaluate(AccessRequest request, IEngineRoleAuthorizer roleAuthorizer) =>
         request.Action.Name switch
         {
-            ActionNames.AccountRead => EvaluateRead(request),
+            ActionNames.AccountRead => EvaluateRead(request, roleAuthorizer),
             ActionNames.AccountCreate => EvaluateAccountCreate(request, roleAuthorizer),
             ActionNames.TransactionCreate => EvaluateTransactionCreate(request, roleAuthorizer),
             ActionNames.TransactionApprove or ActionNames.TransactionReject =>
                 EvaluateApprovalDecision(request, roleAuthorizer),
             // Fail closed: an action outside the known vocabulary is denied, never permitted.
-            _ => AccessDecision.Deny(new Reason(
-                ReasonCodes.UnknownAction,
-                $"Action '{request.Action.Name}' is not a recognized bank action.")),
+            _ => Explain(
+                AccessDecision.Deny(new Reason(
+                    ReasonCodes.UnknownAction,
+                    $"Action '{request.Action.Name}' is not a recognized bank action.")),
+                roleAuthorizer.EngineName,
+                Rule(DeterminingRules.UnknownAction)),
         };
 
     // read: scope -> tenant. No role gate (any authenticated same-tenant caller may read).
-    private static AccessDecision EvaluateRead(AccessRequest request)
+    private static AccessDecision EvaluateRead(
+        AccessRequest request, IEngineRoleAuthorizer roleAuthorizer)
     {
+        var engine = roleAuthorizer.EngineName;
+
         if (!HasScope(request, ScopeNames.Read))
         {
-            return MissingScope(ScopeNames.Read);
+            return Explain(MissingScope(ScopeNames.Read), engine, Rule(DeterminingRules.Scope));
         }
 
         if (!TenantMatches(request))
         {
-            return TenantMismatch();
+            return Explain(TenantMismatch(), engine, Rule(DeterminingRules.Tenant));
         }
 
-        return Permitted();
+        return Explain(Permitted(), engine, Rule(DeterminingRules.AllRulesSatisfied));
     }
 
     // account.create: role (engine) -> tenant. No scope check — creation is role-gated at the
@@ -55,18 +61,22 @@ public static class FintechRuleEvaluator
     private static AccessDecision EvaluateAccountCreate(
         AccessRequest request, IEngineRoleAuthorizer roleAuthorizer)
     {
+        var engine = roleAuthorizer.EngineName;
+        var roleRule = roleAuthorizer.DescribeRoleRule(request.Action.Name, request.Subject.Roles);
+
         if (!roleAuthorizer.IsRoleAuthorized(request.Action.Name, request.Subject.Roles))
         {
-            return RoleNotAuthorized(
-                $"Creating an account requires the {RoleNames.BranchManager} role.");
+            return Explain(
+                RoleNotAuthorized($"Creating an account requires the {RoleNames.BranchManager} role."),
+                engine, roleRule);
         }
 
         if (!TenantMatches(request))
         {
-            return TenantMismatch();
+            return Explain(TenantMismatch(), engine, roleRule, Rule(DeterminingRules.Tenant));
         }
 
-        return Permitted();
+        return Explain(Permitted(), engine, roleRule, Rule(DeterminingRules.AllRulesSatisfied));
     }
 
     // transaction.create: scope -> role (engine) -> subject-is-maker -> tenant -> permit with
@@ -74,28 +84,37 @@ public static class FintechRuleEvaluator
     private static AccessDecision EvaluateTransactionCreate(
         AccessRequest request, IEngineRoleAuthorizer roleAuthorizer)
     {
+        var engine = roleAuthorizer.EngineName;
+
         if (!HasScope(request, ScopeNames.TransactionsWrite))
         {
-            return MissingScope(ScopeNames.TransactionsWrite);
+            return Explain(
+                MissingScope(ScopeNames.TransactionsWrite), engine, Rule(DeterminingRules.Scope));
         }
+
+        var roleRule = roleAuthorizer.DescribeRoleRule(request.Action.Name, request.Subject.Roles);
 
         if (!roleAuthorizer.IsRoleAuthorized(request.Action.Name, request.Subject.Roles))
         {
-            return RoleNotAuthorized(
-                $"Creating a transaction requires one of: {RoleNames.BranchManager}, " +
-                $"{RoleNames.ComplianceOfficer}, {RoleNames.Teller}.");
+            return Explain(
+                RoleNotAuthorized(
+                    $"Creating a transaction requires one of: {RoleNames.BranchManager}, " +
+                    $"{RoleNames.ComplianceOfficer}, {RoleNames.Teller}."),
+                engine, roleRule);
         }
 
         if (!SubjectIsMaker(request))
         {
-            return AccessDecision.Deny(new Reason(
-                ReasonCodes.SubjectNotMaker,
-                "A caller may only create a transaction as themselves (subject must be the maker)."));
+            return Explain(
+                AccessDecision.Deny(new Reason(
+                    ReasonCodes.SubjectNotMaker,
+                    "A caller may only create a transaction as themselves (subject must be the maker).")),
+                engine, roleRule, Rule(DeterminingRules.SubjectIsMaker));
         }
 
         if (!TenantMatches(request))
         {
-            return TenantMismatch();
+            return Explain(TenantMismatch(), engine, roleRule, Rule(DeterminingRules.Tenant));
         }
 
         var amount = request.Resource.Amount ?? 0m;
@@ -103,7 +122,9 @@ public static class FintechRuleEvaluator
             ? new Obligation(ObligationIds.RequireApproval)
             : new Obligation(ObligationIds.PostImmediately);
 
-        return AccessDecision.Permit(PermitReason(), obligation);
+        return Explain(
+            AccessDecision.Permit(PermitReason(), obligation),
+            engine, roleRule, Rule(DeterminingRules.AllRulesSatisfied));
     }
 
     // approve/reject: scope -> role (engine) -> tenant -> pending -> segregation of duties.
@@ -112,39 +133,71 @@ public static class FintechRuleEvaluator
     private static AccessDecision EvaluateApprovalDecision(
         AccessRequest request, IEngineRoleAuthorizer roleAuthorizer)
     {
+        var engine = roleAuthorizer.EngineName;
+
         if (!HasScope(request, ScopeNames.ApprovalsWrite))
         {
-            return MissingScope(ScopeNames.ApprovalsWrite);
+            return Explain(
+                MissingScope(ScopeNames.ApprovalsWrite), engine, Rule(DeterminingRules.Scope));
         }
+
+        var roleRule = roleAuthorizer.DescribeRoleRule(request.Action.Name, request.Subject.Roles);
 
         if (!roleAuthorizer.IsRoleAuthorized(request.Action.Name, request.Subject.Roles))
         {
-            return RoleNotAuthorized(
-                $"Deciding an approval requires one of: {RoleNames.BranchManager}, " +
-                $"{RoleNames.ComplianceOfficer}.");
+            return Explain(
+                RoleNotAuthorized(
+                    $"Deciding an approval requires one of: {RoleNames.BranchManager}, " +
+                    $"{RoleNames.ComplianceOfficer}."),
+                engine, roleRule);
         }
 
         if (!TenantMatches(request))
         {
-            return TenantMismatch();
+            return Explain(TenantMismatch(), engine, roleRule, Rule(DeterminingRules.Tenant));
         }
 
         if (!IsPending(request))
         {
-            return AccessDecision.Deny(new Reason(
-                ReasonCodes.NotPending,
-                "Only a pending transaction can be approved or rejected."));
+            return Explain(
+                AccessDecision.Deny(new Reason(
+                    ReasonCodes.NotPending,
+                    "Only a pending transaction can be approved or rejected.")),
+                engine, roleRule, Rule(DeterminingRules.PendingStatus));
         }
 
         if (SubjectIsMaker(request))
         {
-            return AccessDecision.Deny(new Reason(
-                ReasonCodes.MakerEqualsChecker,
-                "Segregation of duties: the checker may not be the maker of the transaction."));
+            return Explain(
+                AccessDecision.Deny(new Reason(
+                    ReasonCodes.MakerEqualsChecker,
+                    "Segregation of duties: the checker may not be the maker of the transaction.")),
+                engine, roleRule, Rule(DeterminingRules.SegregationOfDuties));
         }
 
-        return Permitted();
+        return Explain(Permitted(), engine, roleRule, Rule(DeterminingRules.AllRulesSatisfied));
     }
+
+    // Attaches an engine-tagged DecisionExplanation to a decision (CS16). The DeterminingRule and
+    // Narrative derive from the decision's primary reason (Reasons[0]) so they stay in lock-step
+    // with the parity catalog, which keys on that code; the caller supplies the engine-native and
+    // normalized PolicyReferences that name what actually determined the outcome. Additive only —
+    // the decision, its reasons, and its obligations are untouched.
+    private static AccessDecision Explain(
+        AccessDecision decision, string engine, params PolicyReference[] references)
+    {
+        var reason = decision.Reasons[0];
+        return decision.WithExplanation(new DecisionExplanation(
+            Engine: engine,
+            DeterminingRule: DecisionExplanations.RuleForReason(reason.Code),
+            PolicyReferences: references,
+            Narrative: reason.Message));
+    }
+
+    // A normalized, engine-agnostic pipeline-rule reference (kind "rule"); the engine-native role
+    // reference comes from IEngineRoleAuthorizer.DescribeRoleRule instead.
+    private static PolicyReference Rule(string ruleId) =>
+        new(PolicyReferenceKinds.Rule, ruleId);
 
     private static bool HasScope(AccessRequest request, string scope) =>
         request.Context.Scopes.Any(s => string.Equals(s, scope, StringComparison.Ordinal));

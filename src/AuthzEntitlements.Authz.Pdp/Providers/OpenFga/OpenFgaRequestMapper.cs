@@ -22,9 +22,9 @@ public static class OpenFgaRequestMapper
 
         if (!RebacActionMap.TryGetRelation(request.Action.Name, out var relation))
         {
-            denial = AccessDecision.Deny(new Reason(
-                ReasonCodes.UnknownAction,
-                $"Action '{request.Action.Name}' has no OpenFGA relation mapping."));
+            var message = $"Action '{request.Action.Name}' has no OpenFGA relation mapping.";
+            denial = AccessDecision.Deny(new Reason(ReasonCodes.UnknownAction, message))
+                .WithExplanation(BoundaryExplanation(ReasonCodes.UnknownAction, message));
             return false;
         }
 
@@ -35,19 +35,21 @@ public static class OpenFgaRequestMapper
         // 500 instead of a clean deny. Fail closed.
         if (!string.Equals(request.Resource.Type, RebacTypes.Account, StringComparison.Ordinal))
         {
-            denial = AccessDecision.Deny(new Reason(
-                RebacReasonCodes.UnsupportedResourceType,
+            var message =
                 $"The OpenFGA ReBAC adapter only evaluates '{RebacTypes.Account}' resources; " +
-                $"'{request.Resource.Type}' has no queryable relation in the model."));
+                $"'{request.Resource.Type}' has no queryable relation in the model.";
+            denial = AccessDecision.Deny(new Reason(RebacReasonCodes.UnsupportedResourceType, message))
+                .WithExplanation(BoundaryExplanation(RebacReasonCodes.UnsupportedResourceType, message));
             return false;
         }
 
         if (string.IsNullOrWhiteSpace(request.Resource.Id))
         {
-            denial = AccessDecision.Deny(new Reason(
-                RebacReasonCodes.MissingResourceId,
+            var message =
                 "A ReBAC check requires a concrete resource id (the bare id without a type prefix, " +
-                "e.g. \"acme-checking\" — the adapter qualifies it as \"account:acme-checking\")."));
+                "e.g. \"acme-checking\" — the adapter qualifies it as \"account:acme-checking\").";
+            denial = AccessDecision.Deny(new Reason(RebacReasonCodes.MissingResourceId, message))
+                .WithExplanation(BoundaryExplanation(RebacReasonCodes.MissingResourceId, message));
             return false;
         }
 
@@ -57,4 +59,15 @@ public static class OpenFgaRequestMapper
             Object: $"{RebacTypes.Account}:{request.Resource.Id}");
         return true;
     }
+
+    // The additive CS16 explanation for a fail-closed boundary denial: the determining rule is the
+    // shared normalization of the reason code (UnknownAction -> unknown-action; the two rebac boundary
+    // codes fall back to engine-unavailable), and the reason code itself is surfaced as the native
+    // artifact. Additive only — the reason codes/messages and the TryMap bool contract are unchanged.
+    private static DecisionExplanation BoundaryExplanation(string reasonCode, string narrative) =>
+        new(
+            Engine: "openfga",
+            DeterminingRule: DecisionExplanations.RuleForReason(reasonCode),
+            PolicyReferences: [new PolicyReference(PolicyReferenceKinds.ReasonCode, reasonCode)],
+            Narrative: narrative);
 }

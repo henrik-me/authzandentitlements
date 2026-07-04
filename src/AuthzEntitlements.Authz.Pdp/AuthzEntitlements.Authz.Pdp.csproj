@@ -20,4 +20,9 @@
     <PackageReference Include="Casbin.NET" />
   </ItemGroup>
 
+  <!-- CS09: MonoCloud.Cedar backs the in-process "cedar" policy/ABAC PDP adapter. -->
+  <ItemGroup>
+    <PackageReference Include="MonoCloud.Cedar" />
+  </ItemGroup>
+
 </Project>

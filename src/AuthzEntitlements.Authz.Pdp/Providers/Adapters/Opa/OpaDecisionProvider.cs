@@ -39,6 +39,14 @@ public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
     private const string ProviderUnavailableMessage =
         "The OPA authorization engine did not return a usable decision; failing closed.";
 
+    // The Rego package-path the adapter queries. Surfaced (CS16) as a stable, engine-native
+    // PolicyReference on every well-formed explanation so an audit/playground explorer can locate
+    // the deciding policy entry point even when the policy predates the per-decision `rule` field.
+    private const string DecisionPackagePath = "data.authz.bank.decision";
+
+    // Human-readable detail naming the Rego package that owns the determining rule.
+    private const string RegoPackageDetail = "package authz.bank";
+
     // The bounded reason vocabulary the adapter accepts from OPA. OPA is out-of-process and could
     // return an arbitrary string; anything outside this set fails closed so an unknown or
     // attacker-influenced code cannot reach callers or inflate audit/metric (pdp.reason) cardinality.
@@ -157,12 +165,38 @@ public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
         return result.Decision switch
         {
             "Permit" when result.Reason == ReasonCodes.Permit =>
-                AccessDecision.Permit(reason, MapObligations(result.Obligations)),
+                AccessDecision.Permit(reason, MapObligations(result.Obligations))
+                    .WithExplanation(BuildExplanation(result, reason)),
             "Permit" => FailClosed($"OPA permitted with a non-permit reason code '{result.Reason}'."),
-            "Deny" when result.Reason != ReasonCodes.Permit => AccessDecision.Deny(reason),
+            "Deny" when result.Reason != ReasonCodes.Permit =>
+                AccessDecision.Deny(reason).WithExplanation(BuildExplanation(result, reason)),
             "Deny" => FailClosed("OPA denied with the 'Permit' reason code."),
             _ => FailClosed($"OPA returned an unrecognized decision '{result.Decision}'."),
         };
+    }
+
+    // Builds the engine-native explanation (CS16) for a well-formed OPA decision: it normalizes the
+    // determining rule from the reason code and surfaces the Rego-native artifacts. When the policy
+    // emits a determining-rule id ("<action-short>.<Reason>") it is surfaced first; the stable
+    // package-path reference is ALWAYS present so an older policy that predates the `rule` field
+    // still yields a usable explanation — a missing rule degrades the explanation but never fails
+    // the decision (fail-closed applies to decisions, not explanations).
+    private static DecisionExplanation BuildExplanation(OpaDecisionResult result, Reason reason)
+    {
+        var references = new List<PolicyReference>(2);
+        if (!string.IsNullOrWhiteSpace(result.Rule))
+        {
+            references.Add(new PolicyReference(
+                PolicyReferenceKinds.RegoRule, result.Rule, RegoPackageDetail));
+        }
+
+        references.Add(new PolicyReference(PolicyReferenceKinds.RegoRule, DecisionPackagePath));
+
+        return new DecisionExplanation(
+            Engine: "opa",
+            DeterminingRule: DecisionExplanations.RuleForReason(reason.Code),
+            PolicyReferences: references,
+            Narrative: reason.Message);
     }
 
     private static Obligation[] MapObligations(IReadOnlyList<string>? obligations)
@@ -198,7 +232,12 @@ public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
     private AccessDecision FailClosed(string diagnostic)
     {
         _logger.LogWarning("OPA adapter failing closed: {Diagnostic}", diagnostic);
-        return AccessDecision.Deny(new Reason(ProviderUnavailable, ProviderUnavailableMessage));
+        return AccessDecision.Deny(new Reason(ProviderUnavailable, ProviderUnavailableMessage))
+            .WithExplanation(new DecisionExplanation(
+                Engine: "opa",
+                DeterminingRule: DeterminingRules.EngineUnavailable,
+                PolicyReferences: [new PolicyReference(PolicyReferenceKinds.ReasonCode, ProviderUnavailable)],
+                Narrative: ProviderUnavailableMessage));
     }
 
     // Wraps the AccessRequest as OPA's expected {"input": <request>} envelope.

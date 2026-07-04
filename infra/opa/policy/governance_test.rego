@@ -26,9 +26,9 @@ gov_request(roles) := {
 	"context": {"scopes": []},
 }
 
-deny_sod := {"decision": "Deny", "reason": "SodConflict", "obligations": []}
+deny_sod := {"decision": "Deny", "reason": "SodConflict", "rule": "governance.access.request.SodConflict", "obligations": []}
 
-permit := {"decision": "Permit", "reason": "Permit", "obligations": []}
+permit := {"decision": "Permit", "reason": "Permit", "rule": "governance.access.request.Permit", "obligations": []}
 
 # ---------------------------------------------------------------------------
 # Conflicts: each incompatible pair denies SodConflict.

@@ -37,6 +37,8 @@ public sealed class AspNetCorePolicyProvider : IAuthorizationDecisionProvider, I
 
     public string Name => "aspnet";
 
+    public string EngineName => "aspnet";
+
     public AccessDecision Evaluate(AccessRequest request) =>
         FintechRuleEvaluator.Evaluate(request, this);
 
@@ -60,5 +62,26 @@ public sealed class AspNetCorePolicyProvider : IAuthorizationDecisionProvider, I
             [requirement], new ClaimsPrincipal(identity), resource: null);
         requirement.HandleAsync(context).GetAwaiter().GetResult();
         return context.HasSucceeded;
+    }
+
+    // The engine-native role artifact for CS16 explanations: the action's
+    // RolesAuthorizationRequirement rendered with its eligible roles — the exact requirement
+    // [Authorize(Roles=...)] evaluates — plus the subject's roles versus the required set. An
+    // action with no requirement (never role-gated) yields an empty requirement reference.
+    public PolicyReference DescribeRoleRule(string action, IReadOnlyList<string> subjectRoles)
+    {
+        if (!Requirements.TryGetValue(action, out var requirement))
+        {
+            return new PolicyReference(
+                PolicyReferenceKinds.AspNetRequirement,
+                "RolesAuthorizationRequirement[]",
+                $"Action '{action}' has no role requirement.");
+        }
+
+        var eligible = requirement.AllowedRoles.ToList();
+        return new PolicyReference(
+            PolicyReferenceKinds.AspNetRequirement,
+            $"RolesAuthorizationRequirement[{string.Join(", ", eligible)}]",
+            $"Subject roles [{string.Join(", ", subjectRoles)}] vs required [{string.Join(", ", eligible)}].");
     }
 }

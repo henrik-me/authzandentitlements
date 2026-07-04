@@ -1,5 +1,7 @@
 using AuthzEntitlements.Authz.Pdp.Contracts;
 using AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace AuthzEntitlements.Authz.Pdp.Tests;
@@ -119,5 +121,92 @@ public sealed class OpenFgaProviderMappingTests
         Assert.True(mapped);
         Assert.Equal(RebacRelations.CanTransact, check.Relation);
         Assert.Equal("account:personal-carol", check.Object);
+    }
+
+    // --- CS16 explainability: relationship-path + boundary/fail-closed explanations -----------------
+
+    // Builds the same fail-closed provider the registration suite uses: a blank ApiUrl means the first
+    // Check throws, so Evaluate DENIES with an engine-unavailable explanation — never a live server.
+    private static OpenFgaProvider FailClosedProvider() =>
+        new(
+            new OpenFgaRebacService(Options.Create(new OpenFgaOptions { ApiUrl = "" })),
+            NullLogger<OpenFgaProvider>.Instance);
+
+    [Fact]
+    public void MappedRequest_YieldsTheRelationshipTupleReferenceTheProviderSurfaces()
+    {
+        // The relationship-path reference the provider attaches on a permit/deny is built purely from
+        // the mapped check ("user:...#relation@account:..."), so it is verifiable offline from TryMap.
+        var request = Request(ActionNames.AccountRead, "teller1", "account", "acme-checking");
+
+        Assert.True(OpenFgaRequestMapper.TryMap(request, out var check, out _));
+
+        var tuple = $"{check.User}#{check.Relation}@{check.Object}";
+        Assert.Equal("user:teller1#can_view@account:acme-checking", tuple);
+    }
+
+    [Fact]
+    public void Evaluate_FailClosed_CarriesEngineUnavailableExplanation()
+    {
+        var request = Request(ActionNames.AccountRead, "carol", "account", "personal-carol");
+
+        var decision = FailClosedProvider().Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(RebacReasonCodes.EngineUnavailable, decision.Reasons[0].Code);
+
+        var explanation = decision.Explanation;
+        Assert.NotNull(explanation);
+        Assert.Equal("openfga", explanation!.Engine);
+        Assert.Equal(DeterminingRules.EngineUnavailable, explanation.DeterminingRule);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.ReasonCode, reference.Kind);
+        Assert.Equal(RebacReasonCodes.EngineUnavailable, reference.Reference);
+    }
+
+    [Fact]
+    public void TryMap_UnknownAction_Denial_CarriesReasonCodeExplanation()
+    {
+        var request = Request("bank.account.delete", "rm-anne", "account", "acme-checking");
+
+        Assert.False(OpenFgaRequestMapper.TryMap(request, out _, out var denial));
+
+        var explanation = denial.Explanation;
+        Assert.NotNull(explanation);
+        Assert.Equal("openfga", explanation!.Engine);
+        Assert.Equal(DeterminingRules.UnknownAction, explanation.DeterminingRule);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.ReasonCode, reference.Kind);
+        Assert.Equal(ReasonCodes.UnknownAction, reference.Reference);
+    }
+
+    [Fact]
+    public void TryMap_UnsupportedResourceType_Denial_CarriesReasonCodeExplanation()
+    {
+        var request = Request(ActionNames.TransactionCreate, "rm-anne", "transaction", "txn-1");
+
+        Assert.False(OpenFgaRequestMapper.TryMap(request, out _, out var denial));
+
+        var explanation = denial.Explanation;
+        Assert.NotNull(explanation);
+        Assert.Equal("openfga", explanation!.Engine);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.ReasonCode, reference.Kind);
+        Assert.Equal(RebacReasonCodes.UnsupportedResourceType, reference.Reference);
+    }
+
+    [Fact]
+    public void TryMap_MissingResourceId_Denial_CarriesReasonCodeExplanation()
+    {
+        var request = Request(ActionNames.AccountRead, "rm-anne", "account", null);
+
+        Assert.False(OpenFgaRequestMapper.TryMap(request, out _, out var denial));
+
+        var explanation = denial.Explanation;
+        Assert.NotNull(explanation);
+        Assert.Equal("openfga", explanation!.Engine);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.ReasonCode, reference.Kind);
+        Assert.Equal(RebacReasonCodes.MissingResourceId, reference.Reference);
     }
 }

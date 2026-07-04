@@ -90,7 +90,7 @@ Re-read this section after every `git pull`, even if INSTRUCTIONS.md did not cha
   broken-tree failure, **stop and investigate** before claiming new work.
 
   ```bash
-  npx -y github:henrik-me/agent-harness#v0.14.0 startup --pull-ff-only
+  npx -y github:henrik-me/agent-harness#v0.16.0 startup --pull-ff-only
   ```
 
   Once `startup` passes, `harness status` prints a one-screen resume snapshot
@@ -107,8 +107,8 @@ Re-read this section after every `git pull`, even if INSTRUCTIONS.md did not cha
   git log -3 --oneline                                  # last 3 commits on main
   git tag --list 'v*' | tail -5                         # latest release tags (if applicable)
   node --test tests/*.test.mjs                          # expect: all pass
-  npx -y github:henrik-me/agent-harness#v0.14.0 lint --quiet                     # expect: 0 failed
-  npx -y github:henrik-me/agent-harness#v0.14.0 sync --mode=check --cwd .        # expect: "No drift detected"
+  npx -y github:henrik-me/agent-harness#v0.16.0 lint --quiet                     # expect: 0 failed
+  npx -y github:henrik-me/agent-harness#v0.16.0 sync --mode=check --cwd .        # expect: "No drift detected"
   git ls-files project/clickstops/{planned,active}/ | sort   # show in-flight clickstop arc; resume rather than restart
   ```
 
@@ -611,7 +611,7 @@ above are managed by the harness and will be overwritten on the next
 
 <!-- harness:local-start id=instructions.harness -->
 **This repo has no local Node dependencies.** The agent-harness runs via
-`npx -y github:henrik-me/agent-harness#v0.14.0 <cmd>` — there is **no `package.json`**,
+`npx -y github:henrik-me/agent-harness#v0.16.0 <cmd>` — there is **no `package.json`**,
 so **skip the Session-Start `npm ci` step** (it does not apply here; `node --test`
 reports 0/0, which is expected).
 
@@ -621,7 +621,7 @@ reports 0/0, which is expected).
 
 **New-agent start here (from a fresh clone):**
 1. `git pull`; derive your agent ID (`<machine>-ae`).
-2. Run `npx -y github:henrik-me/agent-harness#v0.14.0 startup` (session sanity + queue).
+2. Run `npx -y github:henrik-me/agent-harness#v0.16.0 startup` (session sanity + queue).
 3. Read [CONTEXT.md](CONTEXT.md) — the **CS dependency map + parallelization waves** and current state.
 4. Read [ARCHITECTURE.md](ARCHITECTURE.md) — goals, the four-layer authz model, decisions, and the phase roadmap.
 5. Claim the first ready clickstop — **CS01 (aspire-foundations)** — and follow the Per-CS loop.

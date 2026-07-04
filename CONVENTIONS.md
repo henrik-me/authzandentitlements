@@ -49,6 +49,11 @@
   ```
   Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
   ```
+  To satisfy this by construction — including on **merge** commits, which is the easy case
+  to forget — run `npx -y github:henrik-me/agent-harness#v0.16.0 install-hooks` once to install the opt-in
+  `prepare-commit-msg` hook (CS100); it appends the trailer above when the exact line is
+  absent. The hook is opt-in (never auto-installed) and leaves a pre-existing hook untouched
+  unless `--force`. See [OPERATIONS.md § Commit-trailer hook](OPERATIONS.md#commit-trailer-hook-install-hooks).
 - **Squash-merge only** on `main`. Feature branch history is preserved locally but only
   the squash commit appears in `main`'s log.
 - **No force pushes** to `main`. Force-pushing a feature branch before merge is acceptable

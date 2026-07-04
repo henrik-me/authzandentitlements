@@ -591,6 +591,87 @@ tags: [opa, rego, csharp, tooling, tests, windows]
 **Implications carried forward:**
 - CS09 (Cedar policy + tests): run the formatter's write mode before the check gate; avoid raw interpolated strings for brace-heavy test fixtures.
 
+### LRN-030
+
+```yaml
+id: LRN-030
+date: 2026-07-04
+category: architectural
+source_cs: CS07
+status: open
+tags: [authz, pdp, adapter, fail-closed, security, openfga]
+```
+
+**Problem:** CS07's `OpenFgaProvider` built and passed all tests, but review (GPT-5.5 R16 + Copilot rd.12/13) found it FAIL-OPEN: `Evaluate` threw on a not-configured/unreachable engine, and since `PdpDecisionService` wraps providers in no try/catch, `/api/authz/evaluate` returned a raw 500 instead of a Deny. `/api/authz/rebac/verify` likewise only caught around `EnsureBootstrappedAsync`, not the (singleton, bootstrapped-once) scenario `Check` loop — so a *later* call could still 500.
+
+**Finding:** An out-of-process authz adapter must FAIL CLOSED on ANY engine failure: catch (never throw), return a Deny with a provider-local reason code and a **stable, non-sensitive** message (log the cause; never surface network/config detail to anonymous callers), and wrap the WHOLE request flow, not just the first call. Mirror the established sibling `OpaDecisionProvider` (provider-local `ProviderUnavailable`/`EngineUnavailable`, sanitized message, backstop `catch (Exception)`). Build+tests do NOT catch fail-open — only review does; add a fail-closed unit test (blank ApiUrl → Deny, not throw) to lock it in.
+
+**Evidence:** `OpenFgaProvider.Evaluate` try/catch → `Deny(EngineUnavailable)`; `RebacEndpoints` `UnavailableProblem` stable messages + whole-flow `/verify` wrap; `OpenFgaRegistrationTests.Evaluate_FailsClosed_WhenEngineUnavailable`. Mirrors LRN-027 (OPA fail-closed).
+
+**Implications carried forward:**
+- CS09 (Cedar) and any future out-of-process adapter: fail closed on every engine-error path (Deny + stable message + logged cause), add a fail-closed test, and wrap the entire endpoint flow — the singleton-bootstrap gotcha makes "the first call fails" reasoning wrong.
+
+### LRN-031
+
+```yaml
+id: LRN-031
+date: 2026-07-04
+category: process
+source_cs: CS07
+status: open
+tags: [openfga, rebac, sdk, csharp, aspire, followups]
+```
+
+**Problem:** OpenFGA (out-of-process, async SDK, versioned models) integration surfaced several authoring gotchas plus deferred hardening.
+
+**Finding:** (1) The sync `IAuthorizationDecisionProvider.Evaluate` bridges the async `OpenFga.Sdk` with `GetAwaiter().GetResult()` (sanctioned by the contract) — the pattern any async adapter needs. (2) OpenFGA authorization models are **immutable/versioned**: bootstrap writes the exact embedded model and pins the returned model id (favour correctness over reusing a possibly-stale prior version); a dedicated store per `StoreName` keeps tuple reconciliation O(seed). (3) `Dictionary.KeyCollection` IS `IReadOnlyCollection` on net10 so a `Keys` cast does not throw, but materialize (`.ToArray()`) to avoid a fragile runtime-type-dependent cast. (4) `openfga/openfga` runs as a two-step `migrate` (one-shot) + `run` server on postgres (`OPENFGA_DATASTORE_ENGINE/URI`).
+
+**Evidence:** `OpenFgaRebacService` (lazy client, idempotent bootstrap, model-id pinning, read-diff tuple write); `OpenFgaProvider` sync bridge; `AppHost.cs` migrate+run containers; Copilot rounds (SupportedActions cast, per-boot model-version growth).
+
+**Implications carried forward:**
+- Follow-ups (deferred, non-blocking dev-loop hardening): make the OpenFGA authorization-model id configurable/pinned to avoid per-boot model-version growth on a persistent shared store; use a targeted tuple-existence reconciliation instead of read-all (fine for the dedicated tiny-seed store today); adopt `Assert.Skip` for the integration tests when the repo moves to xUnit v3 (currently a soft `return` skip, since 2.9.3 has no dynamic skip and adding `Xunit.SkippableFact` was out of scope).
+
+### LRN-032
+
+```yaml
+id: LRN-032
+date: 2026-07-04
+category: architectural
+source_cs: CS09
+status: open
+tags: [pdp, adapter, cedar, monocloud, dotnet10, parity]
+```
+
+**Problem:** CS09 integrates Cedar (in-process, `MonoCloud.Cedar` native bindings) as a fifth engine that must answer the shared 22-scenario `FintechScenarioCatalog` with the SAME `Decision` AND primary reason code as the reference — but Cedar is a declarative permit/forbid engine with no ordered "first-failing reason", and `PolicySet.ParsePolicies` assigns its own sequential `policyN` ids (ignoring `@id`), so a determining-policy set can't be mapped back to a reason code from raw-text policies.
+
+**Finding:** (1) Build the `PolicySet` from explicit `Policy(source, id)` objects (not `ParsePolicies`) so `AuthorizationSuccessResponse.GetReason()` returns STABLE, semantic ids the adapter maps to `ReasonCodes`. (2) Model each action as a broad `permit` + one annotated `forbid` per deny reason; on Deny, map the determining-forbid set to the reference's FIRST-failing reason by selecting the LOWEST `Precedence` value (per-action order) — reproducing the reference's short-circuit ordering (LRN-021) for ANY input, not just isolated-failure catalog rows. (3) Per LRN-026, let Cedar own the FULL decision natively (like OPA/Rego), not the role-gate-only `IEngineRoleAuthorizer` split — Cedar is expressive enough; the head-to-head with OPA is that both answer the same catalog. (4) `MonoCloud.Cedar` 0.1.0 restores/builds 0/0 and loads its win-x64 native binary under the .NET 10 RC runtime with no extra setup. (5) Obligations, the unknown-action guard, and fail-closed (any Cedar error → provider-local `ProviderUnavailable` Deny, never throw/permit; pass the exception object to the logger for stack traces) are adapter-side, mirroring `OpaDecisionProvider`.
+
+**Evidence:** `Providers/Adapters/Cedar/{CedarPolicyModel,CedarDecisionProvider}.cs`; `CedarDecisionProviderTests` (22/22 catalog parity + per-scenario + obligations + combined-failure ordering + fail-closed + selection); `Directory.Packages.props` MonoCloud.Cedar 0.1.0 pin; `docs/authz/cedar-adapter.md` (+ Amazon Verified Permissions as the managed/cloud option). Full-solution build 0/0; PDP `dotnet test` 358/358.
+
+**Implications carried forward:**
+- Future declarative-policy adapters (and CS16 explainability / CS20 migration): to recover an ORDERED reason from an unordered engine, encode failures as annotated forbids with stable ids + an explicit precedence map, and select the first-failing (lowest precedence) determining member.
+- CS23/CS24 (comparison/perf): Cedar (in-process, `cedar`) and AVP (managed) are the Cedar data points; AVP runs the same policies managed (documented, not wired).
+
+### LRN-033
+
+```yaml
+id: LRN-033
+date: 2026-07-04
+category: process
+source_cs: CS09
+status: open
+tags: [pdp, parity, testing, fail-closed, tenant, security]
+```
+
+**Problem:** CS09's Cedar adapter passed all 22 `FintechScenarioCatalog` scenarios and full build/test, but GPT-5.5 review (R1 Block) found a FAIL-OPEN tenant-isolation gap the catalog missed: with BOTH tenants null/blank, Cedar mapped them to `""` and `"" == ""` PERMITTED, whereas the reference `TenantMatches` fails closed (`!IsNullOrWhiteSpace(subject) && !IsNullOrWhiteSpace(resource) && equal`). Every catalog row uses non-blank tenants, so tests stayed green over a real vuln.
+
+**Finding:** A shared parity catalog of "realistic" values does NOT exercise fail-closed predicates on degenerate/boundary inputs. For every fail-closed rule (tenant, maker, status, scope), add explicit tests with null/empty/whitespace on EACH side, and assert engine parity against the `ReferenceDecisionProvider` oracle (Decision + `Reasons[0].Code`), not just a hardcoded expectation. The Cedar fix: normalize null/whitespace tenant → `""` AND require both sides non-empty in the forbid (`principal.tenant != "" && resource.tenant != "" && principal.tenant == resource.tenant`).
+
+**Evidence:** `CedarDecisionProvider.NormalizeTenant`; the four tenant forbids in `CedarPolicyModel`; `CedarDecisionProviderTests` 7 blank/null/whitespace-tenant tests asserting equivalence to `ReferenceDecisionProvider`. GPT-5.5 R1 Block → R2 Go-with-amendments.
+
+**Implications carried forward:**
+- CS16/CS17/CS20/CS23/CS24 and any adapter/eval CS: the 22-scenario catalog is necessary but NOT sufficient — augment with degenerate-input fail-closed parity tests against the reference oracle. Consider adding blank/whitespace-attribute rows to the shared catalog so every engine is held to them.
+
 ## Applied
 
 _(no entries yet)_
