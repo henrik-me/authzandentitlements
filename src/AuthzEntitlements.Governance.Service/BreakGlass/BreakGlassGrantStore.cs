@@ -51,14 +51,14 @@ public sealed class BreakGlassGrantStore
             _grants[grant.Id] = grant;
         }
 
-        return grant;
+        return Copy(grant);
     }
 
     public BreakGlassGrant? Get(Guid id)
     {
         lock (_gate)
         {
-            return _grants.TryGetValue(id, out var grant) ? grant : null;
+            return _grants.TryGetValue(id, out var grant) ? Copy(grant) : null;
         }
     }
 
@@ -73,7 +73,9 @@ public sealed class BreakGlassGrantStore
         Snapshot(static (g, at) => g.RequiresReview(at), now);
 
     // Records the mandatory post-review. Fail-closed: unknown id throws KeyNotFoundException
-    // (endpoint -> 404), a blank reviewer/outcome throws ArgumentException (400), and a second
+    // (endpoint -> 404), a blank reviewer/outcome throws ArgumentException (400), reviewing a grant
+    // that is still active (now < ExpiresAt) throws InvalidOperationException (409) so the mandatory
+    // review is genuinely POST-expiry and cannot be pre-empted while the grant is live, and a second
     // review of an already-reviewed grant throws InvalidOperationException (409) rather than
     // silently overwriting the first, accountable review.
     public BreakGlassGrant Review(Guid id, string reviewedBy, string outcome, DateTimeOffset now)
@@ -88,6 +90,12 @@ public sealed class BreakGlassGrantStore
                 throw new KeyNotFoundException($"unknown break-glass grant '{id}'");
             }
 
+            if (grant.IsActive(now))
+            {
+                throw new InvalidOperationException(
+                    "break-glass grant cannot be reviewed before it expires (mandatory post-review)");
+            }
+
             if (grant.ReviewedAt is not null)
             {
                 throw new InvalidOperationException("break-glass grant is already reviewed");
@@ -96,7 +104,7 @@ public sealed class BreakGlassGrantStore
             grant.ReviewedAt = now;
             grant.ReviewedBy = reviewedBy;
             grant.ReviewOutcome = outcome;
-            return grant;
+            return Copy(grant);
         }
     }
 
@@ -108,9 +116,26 @@ public sealed class BreakGlassGrantStore
             return _grants.Values
                 .Where(g => predicate(g, now))
                 .OrderByDescending(g => g.GrantedAt)
+                .Select(Copy)
                 .ToList();
         }
     }
+
+    // Returns a defensive copy so a caller can never mutate the store's internal grant (the domain
+    // type has public setters) or observe a torn read while a transition is in flight.
+    private static BreakGlassGrant Copy(BreakGlassGrant g) => new()
+    {
+        Id = g.Id,
+        PrincipalId = g.PrincipalId,
+        TenantCode = g.TenantCode,
+        Action = g.Action,
+        Justification = g.Justification,
+        GrantedAt = g.GrantedAt,
+        ExpiresAt = g.ExpiresAt,
+        ReviewedAt = g.ReviewedAt,
+        ReviewedBy = g.ReviewedBy,
+        ReviewOutcome = g.ReviewOutcome,
+    };
 
     private static void Require(string value, string name)
     {

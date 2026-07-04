@@ -142,9 +142,11 @@ public sealed class BreakGlassGrantStoreTests
         var store = NewStore();
         var grant = Issue(store, durationMinutes: 30);
 
-        store.Review(grant.Id, "user-compliance1", "approved", grant.ExpiresAt.AddMinutes(5));
+        // Review post-expiry (the store rejects reviewing an active grant); observe the returned
+        // reviewed grant, not the earlier issued copy, which the review mutation does not touch.
+        var reviewed = store.Review(grant.Id, "user-compliance1", "approved", grant.ExpiresAt.AddMinutes(5));
 
-        Assert.False(grant.RequiresReview(grant.ExpiresAt.AddMinutes(10)));
+        Assert.False(reviewed.RequiresReview(grant.ExpiresAt.AddMinutes(10)));
     }
 
     [Fact]
@@ -202,14 +204,35 @@ public sealed class BreakGlassGrantStoreTests
     }
 
     [Fact]
+    public void Review_FailsClosed_WhileStillActive()
+    {
+        var store = NewStore();
+        var grant = Issue(store, durationMinutes: 30);
+
+        // The mandatory review is POST-expiry only: reviewing a grant that is still within its
+        // window is rejected, so a caller cannot pre-emptively mark it reviewed and skip the queue.
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => store.Review(grant.Id, "user-compliance1", "approved", grant.ExpiresAt.AddMinutes(-1)));
+        Assert.Contains("before it expires", ex.Message);
+
+        // No review was recorded: once expired the grant is still unreviewed and enters the queue.
+        var stored = store.Get(grant.Id);
+        Assert.NotNull(stored);
+        Assert.Null(stored.ReviewedAt);
+        Assert.True(stored.RequiresReview(grant.ExpiresAt));
+        Assert.Contains(store.ListRequiringReview(grant.ExpiresAt), g => g.Id == grant.Id);
+    }
+
+    [Fact]
     public void Review_FailsClosed_OnDoubleReview()
     {
         var store = NewStore();
         var grant = Issue(store, durationMinutes: 30);
         store.Review(grant.Id, "user-compliance1", "approved", grant.ExpiresAt.AddMinutes(5));
 
-        Assert.Throws<InvalidOperationException>(
+        var ex = Assert.Throws<InvalidOperationException>(
             () => store.Review(grant.Id, "user-auditor1", "rejected", grant.ExpiresAt.AddMinutes(10)));
+        Assert.Contains("already reviewed", ex.Message);
     }
 
     [Fact]
@@ -226,6 +249,15 @@ public sealed class BreakGlassGrantStoreTests
         var store = NewStore();
         var grant = Issue(store, durationMinutes: 30);
 
-        Assert.Same(grant, store.Get(grant.Id));
+        var fetched = store.Get(grant.Id);
+
+        Assert.NotNull(fetched);
+        // Defensive copy: value-equal to the issued grant but a distinct instance, so a caller
+        // cannot mutate store state through the returned object.
+        Assert.NotSame(grant, fetched);
+        Assert.Equal(grant.Id, fetched.Id);
+        Assert.Equal(grant.PrincipalId, fetched.PrincipalId);
+        Assert.Equal(grant.Action, fetched.Action);
+        Assert.Equal(grant.ExpiresAt, fetched.ExpiresAt);
     }
 }

@@ -33,7 +33,7 @@ public sealed class BreakGlassDelegationEndpointsTests
     // ---- Break-glass ----
 
     [Fact]
-    public async Task BreakGlass_Issue_List_Review_RoundTrips()
+    public async Task BreakGlass_Issue_List_Get_ActiveReviewConflicts()
     {
         using var host = new EndpointHost();
 
@@ -57,37 +57,48 @@ public sealed class BreakGlassDelegationEndpointsTests
         Assert.Equal(StatusCodes.Status200OK, get.Status);
         Assert.Equal(created.Id, Deserialize<BreakGlassGrantDto>(get).Id);
 
+        // The endpoint issues with DateTimeOffset.UtcNow, so the grant is still active at review
+        // time. Mandatory post-review is POST-expiry only, so an active-grant review is rejected as
+        // a 409 Conflict (a successful post-expiry review is covered at the store level, where the
+        // clock is injectable — the endpoint cannot issue an already-expired grant).
         var review = await host.InvokeAsync(
             HttpMethods.Post, "/api/governance/break-glass/{id:guid}/review",
             routeValue: ("id", created.Id.ToString()),
             body: new ReviewBreakGlassRequest("user-compliance1", "approved"));
-        Assert.Equal(StatusCodes.Status200OK, review.Status);
-        var reviewed = Deserialize<BreakGlassGrantDto>(review);
-        Assert.Equal("user-compliance1", reviewed.ReviewedBy);
-        Assert.Equal("approved", reviewed.ReviewOutcome);
-        Assert.NotNull(reviewed.ReviewedAt);
-        Assert.False(reviewed.RequiresReview);
+        Assert.Equal(StatusCodes.Status409Conflict, review.Status);
+
+        // An active grant is not yet in the pending-review queue.
+        var pending = await host.InvokeAsync(HttpMethods.Get, "/api/governance/break-glass/pending-review");
+        Assert.Equal(StatusCodes.Status200OK, pending.Status);
+        Assert.Empty(Deserialize<BreakGlassGrantDto[]>(pending));
     }
 
     [Fact]
-    public async Task BreakGlass_DoubleReview_Conflicts()
+    public async Task BreakGlass_ActiveGrant_Review_AlwaysConflicts()
     {
         using var host = new EndpointHost();
         var created = Deserialize<BreakGlassGrantDto>(await host.InvokeAsync(
             HttpMethods.Post, "/api/governance/break-glass",
             body: new IssueBreakGlassRequest("user-teller1", Tenant, "bank.transaction.create", "outage", 60)));
 
+        // Every review attempt on the still-active endpoint-issued grant is a 409, and the grant is
+        // never allowed to slip into a reviewed state — so a double review cannot even begin here
+        // (the "already reviewed" conflict itself is proven at the store level).
         var first = await host.InvokeAsync(
             HttpMethods.Post, "/api/governance/break-glass/{id:guid}/review",
             routeValue: ("id", created.Id.ToString()),
             body: new ReviewBreakGlassRequest("user-compliance1", "approved"));
-        Assert.Equal(StatusCodes.Status200OK, first.Status);
+        Assert.Equal(StatusCodes.Status409Conflict, first.Status);
 
         var second = await host.InvokeAsync(
             HttpMethods.Post, "/api/governance/break-glass/{id:guid}/review",
             routeValue: ("id", created.Id.ToString()),
             body: new ReviewBreakGlassRequest("user-auditor1", "rejected"));
         Assert.Equal(StatusCodes.Status409Conflict, second.Status);
+
+        var get = await host.InvokeAsync(
+            HttpMethods.Get, "/api/governance/break-glass/{id:guid}", routeValue: ("id", created.Id.ToString()));
+        Assert.Null(Deserialize<BreakGlassGrantDto>(get).ReviewedAt);
     }
 
     [Fact]

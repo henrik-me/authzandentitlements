@@ -245,9 +245,10 @@ else
         try
         {
             _grants = await Governance.GetBreakGlassGrantsAsync();
-            // A grant can be reviewed until it has been reviewed once (the store rejects a second
-            // review). Offer every not-yet-reviewed grant so the mandatory post-review is always usable.
-            _reviewable = _grants.Where(g => string.IsNullOrWhiteSpace(g.ReviewedBy)).ToList();
+            // A grant becomes reviewable only after its window ends: the store rejects reviewing an
+            // active grant (mandatory post-review), so the reviewable set is the pending-review queue
+            // (expired-and-unreviewed), not every not-yet-reviewed grant.
+            _reviewable = await Governance.GetBreakGlassPendingReviewAsync();
         }
         finally
         {

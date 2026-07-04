@@ -62,14 +62,14 @@ public sealed class DelegationGrantStore
             _grants[grant.Id] = grant;
         }
 
-        return grant;
+        return Copy(grant);
     }
 
     public DelegationGrant? Get(Guid id)
     {
         lock (_gate)
         {
-            return _grants.TryGetValue(id, out var grant) ? grant : null;
+            return _grants.TryGetValue(id, out var grant) ? Copy(grant) : null;
         }
     }
 
@@ -100,7 +100,7 @@ public sealed class DelegationGrantStore
 
             grant.RevokedAt = now;
             grant.RevokedBy = revokedBy;
-            return grant;
+            return Copy(grant);
         }
     }
 
@@ -112,9 +112,26 @@ public sealed class DelegationGrantStore
             return _grants.Values
                 .Where(g => predicate(g, now))
                 .OrderByDescending(g => g.GrantedAt)
+                .Select(Copy)
                 .ToList();
         }
     }
+
+    // Returns a defensive copy (Scopes cloned into a new list) so a caller can never mutate the
+    // store's internal grant (the domain type has public setters) or observe a torn read while a
+    // transition is in flight.
+    private static DelegationGrant Copy(DelegationGrant g) => new()
+    {
+        Id = g.Id,
+        ManagerId = g.ManagerId,
+        DelegateId = g.DelegateId,
+        TenantCode = g.TenantCode,
+        Scopes = [.. g.Scopes],
+        GrantedAt = g.GrantedAt,
+        ExpiresAt = g.ExpiresAt,
+        RevokedAt = g.RevokedAt,
+        RevokedBy = g.RevokedBy,
+    };
 
     private static IReadOnlyList<string> NormalizeScopes(IEnumerable<string> scopes)
     {
