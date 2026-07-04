@@ -1,10 +1,10 @@
 # CS08 — Adapter: OPA / Rego (policy / ABAC)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae
 **Branch:** cs08/content
 **Started:** 2026-07-03
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** 2 — Fine-grained AuthZ
 **Lane:** Engines
 **Depends on:** CS05
