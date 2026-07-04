@@ -73,8 +73,10 @@ layer (documented). Deterministic no-Docker default path is unaffected.
 **Showcase + reuse (Wave C).** Bank.Web `AgentAccess` page evaluates the SAME action as the
 human directly (Actor=null) vs. via the agent (Actor set), rendering decision + explanation +
 that the decision is audited with the actor recorded. Actor-claim helpers (`subject_type`,
-`on_behalf_of`/`act`) are defined + unit-tested here as the OBO mechanism CS21 reuses (no
-gateway-enforcement rewiring — that is CS21's scope).
+`on_behalf_of`, `sub`; delegation resolves only for a recognized delegate kind `agent`/`service`,
+fail-closed) are defined + unit-tested here as the OBO mechanism CS21 reuses — the RFC-8693 `act`
+nested claim is the production/exchanged-token form documented for CS21 (no gateway-enforcement
+rewiring — that is CS21's scope).
 
 **Carried learnings:** LRN-010 (`MapInboundClaims=false` for any new claim readers),
 LRN-011 (bind to token, fail-closed on missing/blank actor/OBO claims).

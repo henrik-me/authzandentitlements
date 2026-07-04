@@ -100,6 +100,31 @@ public sealed class ActorClaimsTests
     }
 
     [Fact]
+    public void TryGetDelegation_true_for_service_with_on_behalf_of()
+    {
+        var principal = Principal(subjectType: "service", onBehalfOf: "user-1", sub: "svc-9");
+
+        Assert.True(principal.TryGetDelegation(out var actorId, out var onBehalfOfUserId));
+        Assert.Equal("svc-9", actorId);
+        Assert.Equal("user-1", onBehalfOfUserId);
+    }
+
+    // Fail-closed: an unknown/typo or mis-cased (ordinal) subject_type is NOT a recognized delegate
+    // kind, so it can never resolve a delegation even with a valid on_behalf_of and sub.
+    [Theory]
+    [InlineData("robot")]
+    [InlineData("AGENT")]
+    [InlineData("Service")]
+    public void TryGetDelegation_false_for_unrecognized_subject_type(string subjectType)
+    {
+        var principal = Principal(subjectType: subjectType, onBehalfOf: "user-1", sub: "actor-9");
+
+        Assert.False(principal.TryGetDelegation(out var actorId, out var onBehalfOfUserId));
+        Assert.Equal(string.Empty, actorId);
+        Assert.Equal(string.Empty, onBehalfOfUserId);
+    }
+
+    [Fact]
     public void TryGetDelegation_false_for_a_human_token()
     {
         var principal = Principal(subjectType: "user", onBehalfOf: "user-1", sub: "user-1");

@@ -23,7 +23,18 @@ public static class GatewayActorClaims
     // The token subject. For an agent OBO token this is the AGENT's own id.
     public const string SubjectClaim = "sub";
 
+    // The recognized delegate kinds — the delegate `Actor.Type` domain ("agent" | "service")
+    // enforced by the PDP. These are the ONLY subject_type values that may resolve a delegation.
+    public const string AgentType = "agent";
+    public const string ServiceType = "service";
+
     private const string UserType = "user";
+
+    // The allow-list of subject_type values that may act as a delegate in an OBO call. ORDINAL:
+    // the claim is a fixed lowercase machine token, so "AGENT"/"Service" must NOT match — an
+    // unknown/typo/mis-cased subject_type can never silently grant delegation (fail-closed).
+    private static readonly HashSet<string> DelegationCapableTypes =
+        new(StringComparer.Ordinal) { AgentType, ServiceType };
 
     // Returns the caller's subject_type claim value, or "user" when the claim is absent/blank —
     // the human default.
@@ -50,18 +61,21 @@ public static class GatewayActorClaims
         return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
-    // Resolves a constrained-delegation (OBO) call. Returns true ONLY when the token is a
-    // non-human (agent/service) AND carries a non-blank on_behalf_of; then actorId is the token
-    // sub (the acting agent) and onBehalfOfUserId is the on_behalf_of value (the effective user).
-    // Fail-closed: false for a human token, and false for a non-human acting AS ITSELF (no
-    // on_behalf_of). A whitespace on_behalf_of is treated as absent.
+    // Resolves a constrained-delegation (OBO) call. Returns true ONLY when subject_type is a
+    // RECOGNIZED delegate kind ("agent" or "service", matching the PDP Actor.Type domain, ORDINAL —
+    // stricter than IsNonHuman, so an unknown/typo/mis-cased subject_type can never silently grant
+    // delegation, fail-closed) AND the token carries a non-blank on_behalf_of; then actorId is the
+    // token sub (the acting agent) and onBehalfOfUserId is the on_behalf_of value (the effective
+    // user). Fail-closed: false for a human token, false for an unrecognized subject_type, and
+    // false for a delegate acting AS ITSELF (no on_behalf_of). A whitespace on_behalf_of is absent.
     public static bool TryGetDelegation(
         this ClaimsPrincipal principal, out string actorId, out string onBehalfOfUserId)
     {
         actorId = string.Empty;
         onBehalfOfUserId = string.Empty;
 
-        if (!principal.IsNonHuman())
+        var subjectType = principal.FindFirstValue(SubjectTypeClaim);
+        if (string.IsNullOrWhiteSpace(subjectType) || !DelegationCapableTypes.Contains(subjectType))
         {
             return false;
         }

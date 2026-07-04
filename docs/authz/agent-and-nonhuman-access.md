@@ -127,11 +127,16 @@ using the **client-credentials** grant (no interactive login). Its realm surface
   it fail-closed: an unexpected or blank value denies rather than defaulting to human.
 - For **OBO**, this lab's agent token — exactly what `ActorClaims` (Bank.Api) and
   `GatewayActorClaims` (edge gateway) read — carries `subject_type=agent`, the **agent's own
-  identity in `sub`**, and the **effective user in the `on_behalf_of` claim**. So
+  identity in `sub`**, and the **effective user in the flat `on_behalf_of` claim**. So
   `TryGetDelegation` resolves the *actor* = `sub` (the agent) and the *on-behalf-of user* =
-  `on_behalf_of`, fail-closed when either is missing/blank. **Note the `sub` inversion vs. RFC 8693
-  below:** under token exchange the *exchanged* token instead sets `sub` = the **user** and `act` =
-  the **agent**. Both bind the same two parties; only *which* token carries *which* claim differs.
+  `on_behalf_of`, but **only when `subject_type` is a recognized delegate kind** (`agent` or
+  `service`, matching the PDP `Actor.Type` domain, ordinal) — an unknown/typo/mis-cased value is
+  fail-closed, as is a missing/blank `sub` or `on_behalf_of`. The CS19 helpers read `subject_type`,
+  `on_behalf_of`, and `sub` **only**; they do **not** read the RFC 8693 `act` claim. **Note the
+  `sub` inversion vs. RFC 8693 below:** under token exchange the *exchanged* token instead sets
+  `sub` = the **user** and `act` = the **agent** — that `act` shape is the exchanged-token
+  (production) form and a **CS21 reuse point**, not something the CS19 helpers read. Both bind the
+  same two parties; only *which* token carries *which* claim differs.
 
 ### RFC 8693 note
 
@@ -139,8 +144,14 @@ Production OBO user-binding uses **OAuth 2.0 Token Exchange (RFC 8693)**: the ag
 token for one whose `sub` is the **user** and whose `act` / `on_behalf_of` names the **agent**, so
 the exchanged token itself carries both parties. In this **offline, deterministic** lab the OBO
 binding is instead modeled at the **app / PDP layer** (the `Subject` + `Subject.Actor` shapes above),
-so enabling Keycloak's preview token-exchange feature is **not required** to run the demo. The claim
-contract is the same either way; only *where* the binding is asserted differs.
+so enabling Keycloak's preview token-exchange feature is **not required** to run the demo. Concretely,
+the dev realm's **`bank-agent`** client-credentials token carries `subject_type=agent` and the
+`agent.bank.*` scopes but does **not** itself emit an `on_behalf_of` claim — a client-credentials
+token has no user, and emitting OBO in production requires OAuth 2.0 Token Exchange or a custom
+mapper. The OBO binding is therefore modeled in `Subject.Actor` at the app / PDP layer, while the
+`ActorClaims` / `GatewayActorClaims` helpers are **ready to read** `on_behalf_of` (and `sub`) the
+moment a token supplies them. The claim contract is the same either way; only *where* the binding is
+asserted differs.
 
 ## How to see it
 
