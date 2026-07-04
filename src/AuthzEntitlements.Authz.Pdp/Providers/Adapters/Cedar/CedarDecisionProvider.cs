@@ -43,6 +43,9 @@ public sealed class CedarDecisionProvider : IAuthorizationDecisionProvider
     private const string ProviderUnavailableMessage =
         "The Cedar authorization engine did not return a usable decision; failing closed.";
 
+    // The engine label surfaced on every DecisionExplanation this adapter attaches (CS16).
+    private const string EngineName = "cedar";
+
     // The known action vocabulary. An action outside it is denied UnknownAction adapter-side (mirrors
     // the reference's `_ => Deny(UnknownAction)` default) rather than expressed in Cedar, since
     // "action not in the known set" is awkward and non-total to encode as policy.
@@ -71,7 +74,7 @@ public sealed class CedarDecisionProvider : IAuthorizationDecisionProvider
         _engine = new BasicAuthorizationEngine();
     }
 
-    public string Name => "cedar";
+    public string Name => EngineName;
 
     public AccessDecision Evaluate(AccessRequest request)
     {
@@ -79,9 +82,13 @@ public sealed class CedarDecisionProvider : IAuthorizationDecisionProvider
         // permitted (parity with the reference engine's default arm).
         if (!KnownActions.Contains(request.Action.Name))
         {
-            return AccessDecision.Deny(new Reason(
-                ReasonCodes.UnknownAction,
-                $"Action '{request.Action.Name}' is not a recognized bank action."));
+            var message = $"Action '{request.Action.Name}' is not a recognized bank action.";
+            return AccessDecision.Deny(new Reason(ReasonCodes.UnknownAction, message))
+                .WithExplanation(new DecisionExplanation(
+                    Engine: EngineName,
+                    DeterminingRule: DeterminingRules.UnknownAction,
+                    PolicyReferences: [new PolicyReference(PolicyReferenceKinds.ReasonCode, ReasonCodes.UnknownAction)],
+                    Narrative: message));
         }
 
         try
@@ -174,17 +181,38 @@ public sealed class CedarDecisionProvider : IAuthorizationDecisionProvider
         var success = response.Success;
         if (success.IsAllowed())
         {
-            return AccessDecision.Permit(PermitReason(), ObligationsFor(request));
+            // Surface the policy trace on an allow: the matched permit ids the engine echoes. If it
+            // echoes none (defensive), fall back to naming the per-action permit id so the
+            // explanation always carries a cedar-policy reference.
+            var matchedPermits = success.GetReason()
+                .Where(CedarPolicyModel.PermitIds.Contains)
+                .ToList();
+            IReadOnlyList<PolicyReference> permitReferences = matchedPermits.Count > 0
+                ? matchedPermits
+                    .Select(id => new PolicyReference(PolicyReferenceKinds.CedarPolicy, id))
+                    .ToList()
+                : [new PolicyReference(
+                    PolicyReferenceKinds.CedarPolicy,
+                    CedarPolicyModel.PermitIdForAction(request.Action.Name))];
+
+            var permitReason = PermitReason();
+            return AccessDecision.Permit(permitReason, ObligationsFor(request))
+                .WithExplanation(new DecisionExplanation(
+                    Engine: EngineName,
+                    DeterminingRule: DeterminingRules.AllRulesSatisfied,
+                    PolicyReferences: permitReferences,
+                    Narrative: permitReason.Message));
         }
 
-        // Deny: the determining set is the forbid ids that matched. Map to reason codes and pick the
-        // FIRST-FAILING one — the lowest Precedence value in the reference order (OrderBy ascending +
-        // First) — so a combined-failure input returns the reference's FIRST-failing reason (LRN-021),
-        // not an arbitrary set member.
+        // Deny: the determining set is the forbid ids that matched. Keep each forbid's stable id
+        // ALONGSIDE its (reason, precedence) so we can both pick the FIRST-FAILING reason — the lowest
+        // Precedence value (OrderBy ascending + First) so a combined-failure input returns the
+        // reference's FIRST-failing reason (LRN-021), not an arbitrary set member — AND surface every
+        // determining forbid id as a cedar-policy trace in precedence order (first = primary).
         var determining = success.GetReason()
             .Where(CedarPolicyModel.ForbidReasons.ContainsKey)
-            .Select(id => CedarPolicyModel.ForbidReasons[id])
-            .OrderBy(forbid => forbid.Precedence)
+            .Select(id => (Id: id, Forbid: CedarPolicyModel.ForbidReasons[id]))
+            .OrderBy(entry => entry.Forbid.Precedence)
             .ToList();
 
         if (determining.Count == 0)
@@ -196,8 +224,18 @@ public sealed class CedarDecisionProvider : IAuthorizationDecisionProvider
                 $"Cedar denied with no mapped forbid reason (determining set: [{string.Join(", ", success.GetReason())}]).");
         }
 
-        var code = determining[0].ReasonCode;
-        return AccessDecision.Deny(new Reason(code, $"Cedar policy denied the request: {code}."));
+        var code = determining[0].Forbid.ReasonCode;
+        var denyMessage = $"Cedar policy denied the request: {code}.";
+        var forbidReferences = determining
+            .Select(entry => new PolicyReference(
+                PolicyReferenceKinds.CedarPolicy, entry.Id, entry.Forbid.ReasonCode))
+            .ToList();
+        return AccessDecision.Deny(new Reason(code, denyMessage))
+            .WithExplanation(new DecisionExplanation(
+                Engine: EngineName,
+                DeterminingRule: DecisionExplanations.RuleForReason(code),
+                PolicyReferences: forbidReferences,
+                Narrative: denyMessage));
     }
 
     // The catalog runner does not check obligations, but the contract requires the maker-checker
@@ -226,6 +264,11 @@ public sealed class CedarDecisionProvider : IAuthorizationDecisionProvider
     private AccessDecision FailClosed(string diagnostic, Exception? exception = null)
     {
         _logger.LogWarning(exception, "Cedar adapter failing closed: {Diagnostic}", diagnostic);
-        return AccessDecision.Deny(new Reason(ProviderUnavailable, ProviderUnavailableMessage));
+        return AccessDecision.Deny(new Reason(ProviderUnavailable, ProviderUnavailableMessage))
+            .WithExplanation(new DecisionExplanation(
+                Engine: EngineName,
+                DeterminingRule: DeterminingRules.EngineUnavailable,
+                PolicyReferences: [new PolicyReference(PolicyReferenceKinds.ReasonCode, ProviderUnavailable)],
+                Narrative: ProviderUnavailableMessage));
     }
 }

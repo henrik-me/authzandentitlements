@@ -45,6 +45,11 @@ public sealed class OpenFgaProvider : IAuthorizationDecisionProvider
             return denial;
         }
 
+        // The checked relationship tuple, surfaced in the explanation as the ReBAC "relationship path"
+        // (CS16): "user:...#relation@account:...". A full multi-hop Expand is out of scope; the checked
+        // tuple is the offline-testable minimum determining artifact for the Check result.
+        var tuple = $"{check.User}#{check.Relation}@{check.Object}";
+
         try
         {
             var allowed = _service
@@ -52,13 +57,32 @@ public sealed class OpenFgaProvider : IAuthorizationDecisionProvider
                 .GetAwaiter()
                 .GetResult();
 
-            return allowed
-                ? AccessDecision.Permit(new Reason(
-                    ReasonCodes.Permit,
-                    $"OpenFGA grants '{check.Relation}' on '{check.Object}' to '{check.User}'."))
-                : AccessDecision.Deny(new Reason(
-                    RebacReasonCodes.NoRelationship,
-                    $"OpenFGA finds no relationship granting '{check.Relation}' on '{check.Object}' to '{check.User}'."));
+            if (allowed)
+            {
+                var permitNarrative =
+                    $"OpenFGA grants '{check.Relation}' on '{check.Object}' to '{check.User}'.";
+                return AccessDecision.Permit(new Reason(ReasonCodes.Permit, permitNarrative))
+                    .WithExplanation(new DecisionExplanation(
+                        Engine: "openfga",
+                        DeterminingRule: DeterminingRules.Relationship,
+                        PolicyReferences: [new PolicyReference(
+                            PolicyReferenceKinds.RelationshipTuple,
+                            tuple,
+                            Detail: "A relationship path grants this relation.")],
+                        Narrative: permitNarrative));
+            }
+
+            var denyNarrative =
+                $"OpenFGA finds no relationship granting '{check.Relation}' on '{check.Object}' to '{check.User}'.";
+            return AccessDecision.Deny(new Reason(RebacReasonCodes.NoRelationship, denyNarrative))
+                .WithExplanation(new DecisionExplanation(
+                    Engine: "openfga",
+                    DeterminingRule: DeterminingRules.Relationship,
+                    PolicyReferences: [new PolicyReference(
+                        PolicyReferenceKinds.RelationshipTuple,
+                        tuple,
+                        Detail: "No relationship path grants this relation.")],
+                    Narrative: denyNarrative));
         }
         catch (Exception ex)
         {
@@ -69,7 +93,14 @@ public sealed class OpenFgaProvider : IAuthorizationDecisionProvider
                 ex,
                 "OpenFGA Check failed for user={User} relation={Relation} object={Object}; failing closed (deny).",
                 check.User, check.Relation, check.Object);
-            return AccessDecision.Deny(new Reason(RebacReasonCodes.EngineUnavailable, EngineUnavailableMessage));
+            return AccessDecision.Deny(new Reason(RebacReasonCodes.EngineUnavailable, EngineUnavailableMessage))
+                .WithExplanation(new DecisionExplanation(
+                    Engine: "openfga",
+                    DeterminingRule: DeterminingRules.EngineUnavailable,
+                    PolicyReferences: [new PolicyReference(
+                        PolicyReferenceKinds.ReasonCode,
+                        RebacReasonCodes.EngineUnavailable)],
+                    Narrative: EngineUnavailableMessage));
         }
     }
 }

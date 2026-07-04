@@ -142,4 +142,99 @@ public sealed class AspNetCorePolicyProviderTests
         Assert.Equal(Decision.Permit, decision.Decision);
         Assert.Equal(expectedObligation, Assert.Single(decision.Obligations).Id);
     }
+
+    // --- CS16 explainability: every decision carries an "aspnet"-engine explanation ---
+
+    [Fact]
+    public void Permit_CarriesAspNetExplanation_WithRequirement()
+    {
+        var provider = new AspNetCorePolicyProvider();
+        var request = PdpRequests.For(
+            PdpRequests.User("user-manager1", PdpRequests.Contoso, RoleNames.BranchManager),
+            ActionNames.AccountCreate,
+            new Resource("account", Tenant: PdpRequests.Contoso),
+            ScopeNames.Read);
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Permit, decision.Decision);
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("aspnet", explanation.Engine);
+        Assert.Equal(DeterminingRules.AllRulesSatisfied, explanation.DeterminingRule);
+        // The engine-native ASP.NET requirement is surfaced alongside the normalized rule.
+        var requirement = Assert.Single(
+            explanation.PolicyReferences, r => r.Kind == PolicyReferenceKinds.AspNetRequirement);
+        Assert.Contains(RoleNames.BranchManager, requirement.Reference);
+        Assert.Contains(
+            explanation.PolicyReferences,
+            r => r.Kind == PolicyReferenceKinds.Rule && r.Reference == DeterminingRules.AllRulesSatisfied);
+    }
+
+    [Fact]
+    public void RoleDeny_CarriesAspNetExplanation_WithRequirement()
+    {
+        var provider = new AspNetCorePolicyProvider();
+        var request = PdpRequests.For(
+            PdpRequests.User("user-teller1", PdpRequests.Contoso, RoleNames.Teller),
+            ActionNames.AccountCreate,
+            new Resource("account", Tenant: PdpRequests.Contoso),
+            ScopeNames.Read);
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.RoleNotAuthorized, decision.Reasons[0].Code);
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("aspnet", explanation.Engine);
+        Assert.Equal(DeterminingRules.Role, explanation.DeterminingRule);
+        var requirement = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.AspNetRequirement, requirement.Kind);
+        Assert.Equal(
+            $"RolesAuthorizationRequirement[{RoleNames.BranchManager}]", requirement.Reference);
+    }
+
+    [Fact]
+    public void TenantDeny_CarriesAspNetExplanation_WithRequirementAndTenantRule()
+    {
+        // Role passes (BranchManager) but tenants differ: the explanation carries both the
+        // engine-native ASP.NET requirement and the normalized tenant rule that determined the deny.
+        var provider = new AspNetCorePolicyProvider();
+        var request = PdpRequests.For(
+            PdpRequests.User("user-manager1", PdpRequests.Contoso, RoleNames.BranchManager),
+            ActionNames.AccountCreate,
+            new Resource("account", Tenant: PdpRequests.Fabrikam),
+            ScopeNames.Read);
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.TenantMismatch, decision.Reasons[0].Code);
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("aspnet", explanation.Engine);
+        Assert.Equal(DeterminingRules.Tenant, explanation.DeterminingRule);
+        Assert.Contains(
+            explanation.PolicyReferences, r => r.Kind == PolicyReferenceKinds.AspNetRequirement);
+        Assert.Contains(
+            explanation.PolicyReferences,
+            r => r.Kind == PolicyReferenceKinds.Rule && r.Reference == DeterminingRules.Tenant);
+    }
+
+    [Fact]
+    public void DescribeRoleRule_NamesEligibleRoles()
+    {
+        var provider = new AspNetCorePolicyProvider();
+
+        var reference = ((IEngineRoleAuthorizer)provider).DescribeRoleRule(
+            ActionNames.TransactionApprove, [RoleNames.Teller]);
+
+        Assert.Equal(PolicyReferenceKinds.AspNetRequirement, reference.Kind);
+        Assert.Contains(RoleNames.BranchManager, reference.Reference);
+        Assert.Contains(RoleNames.ComplianceOfficer, reference.Reference);
+    }
+
+    [Fact]
+    public void EngineName_IsAspnet()
+    {
+        Assert.Equal("aspnet", ((IEngineRoleAuthorizer)new AspNetCorePolicyProvider()).EngineName);
+    }
 }

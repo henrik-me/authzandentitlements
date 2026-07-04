@@ -33,10 +33,13 @@ Make "why allowed / why denied" a first-class, normalized output for every decis
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Extend contract with reasons/obligations | pending | — | |
-| Per-engine explanation extractors | pending | — | |
-| Surface in UI | pending | — | |
-| Document explanation-quality comparison | pending | — | |
+| Wave A — normalized explanation contract + service/audit/endpoint wiring | done | yoga-ae-c4 | agent-id=cs16-foundation \| role=implementer \| model=claude-opus-4.8 \| report-status=complete \| learnings=1 |
+| Wave B — reference + Casbin + ASP.NET extraction (shared FintechRuleEvaluator) | done | yoga-ae-c4 | agent-id=cs16-rbac-family \| role=implementer \| model=claude-opus-4.8 \| report-status=complete \| learnings=0 |
+| Wave B — OPA/Rego policy-trace extraction | done | yoga-ae-c4 | agent-id=cs16-opa \| role=implementer \| model=claude-opus-4.6 \| report-status=complete \| learnings=1 |
+| Wave B — Cedar policy-id extraction | done | yoga-ae-c4 | agent-id=cs16-cedar \| role=implementer \| model=claude-opus-4.8 \| report-status=complete \| learnings=0 |
+| Wave B — OpenFGA relationship-path extraction | done | yoga-ae-c4 | agent-id=cs16-openfga \| role=implementer \| model=claude-opus-4.6 \| report-status=complete \| learnings=1 |
+| Surface explanation in /evaluate response + audit event (UI rendering deferred to CS15 per Plan review R1) | done | yoga-ae-c4 | data-only in CS16; CS15 owns playground/audit-explorer rendering |
+| Wave C — explainability + explanation-quality comparison docs | pending | yoga-ae-c4 | agent-id=cs16-docs \| role=implementer \| model=claude-opus-4.8 \| report-status=pending \| learnings=0 |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 

@@ -91,6 +91,32 @@ internal static class CedarPolicyModel
     public static IReadOnlyDictionary<string, ForbidReason> ForbidReasons { get; } =
         Forbids.ToDictionary(f => f.Id, f => new ForbidReason(f.ReasonCode, f.Precedence), StringComparer.Ordinal);
 
+    // The set of broad permit policy ids, so the adapter can identify which ids in a permit
+    // response's determining set are matched PERMITS (vs forbids) when surfacing a policy trace on
+    // an allow (CS16). Additive read-only accessor over the existing Permits — parity behaviour is
+    // untouched.
+    public static IReadOnlySet<string> PermitIds { get; } =
+        Permits.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+
+    // action name -> the per-action permit id, so the adapter can name the determining permit on an
+    // allow even in the defensive case where the engine's response echoes no permit id. Approve and
+    // reject share the single approval permit (they target one rule family). Additive read-only
+    // accessor — it names the SAME ids Build() registers; the policy sources/ids are unchanged.
+    private static readonly IReadOnlyDictionary<string, string> PermitIdsByAction =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [ActionNames.AccountRead] = "read.Permit",
+            [ActionNames.AccountCreate] = "account.create.Permit",
+            [ActionNames.TransactionCreate] = "transaction.create.Permit",
+            [ActionNames.TransactionApprove] = "approval.Permit",
+            [ActionNames.TransactionReject] = "approval.Permit",
+        };
+
+    // The permit id governing an action. Falls back to the raw action name for an unmapped action so
+    // explanation surfacing (an additive, non-decision path) never throws or fails the decision.
+    public static string PermitIdForAction(string action) =>
+        PermitIdsByAction.TryGetValue(action, out var id) ? id : action;
+
     // Builds the PolicySet from explicit Policy(source, id) objects so the native engine echoes our
     // stable ids in the authorization-response reason set (parsed once by the provider, never per call).
     public static PolicySet Build()

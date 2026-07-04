@@ -316,4 +316,139 @@ public sealed class CedarDecisionProviderTests
         Assert.Equal("cedar", active.Name);
         Assert.IsType<CedarDecisionProvider>(active);
     }
+
+    // CS16 explainability: beyond Decision + reason code, the adapter surfaces a normalized
+    // DecisionExplanation carrying the DETERMINING Cedar policy id(s) as a cedar-policy trace. These
+    // are ADDITIVE — the decision/reason/obligation parity above is unchanged.
+
+    // A representative single-forbid deny carries the cedar engine label, the normalized rule for its
+    // reason, and exactly the determining forbid id as a cedar-policy reference (detail = reason code).
+    [Fact]
+    public void Deny_SurfacesDeterminingCedarPolicyIdExplanation()
+    {
+        var provider = new CedarDecisionProvider();
+        // scope, role and subject-is-maker all satisfied; only the tenant forbid fires.
+        var request = PdpRequests.For(
+            PdpRequests.User("user-teller1", PdpRequests.Contoso, RoleNames.Teller),
+            ActionNames.TransactionCreate,
+            new Resource("transaction", Tenant: PdpRequests.Fabrikam, Amount: 250m, MakerId: "user-teller1"),
+            ScopeNames.TransactionsWrite);
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.TenantMismatch, decision.Reasons[0].Code);
+
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("cedar", explanation.Engine);
+        Assert.Equal(DeterminingRules.Tenant, explanation.DeterminingRule);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.CedarPolicy, reference.Kind);
+        Assert.Equal("transaction.create.TenantMismatch", reference.Reference);
+        Assert.Equal(ReasonCodes.TenantMismatch, reference.Detail);
+    }
+
+    // A combined-failure deny lists EVERY determining forbid id, first-failing (lowest precedence)
+    // first, so the primary determining forbid heads the trace and mirrors the primary reason code.
+    [Fact]
+    public void Deny_CombinedFailure_ListsDeterminingForbidsFirstFailingFirst()
+    {
+        var provider = new CedarDecisionProvider();
+        // No scope, wrong maker, cross-tenant: MissingScope -> SubjectNotMaker -> TenantMismatch.
+        var request = PdpRequests.For(
+            PdpRequests.User("user-teller1", PdpRequests.Contoso, RoleNames.Teller),
+            ActionNames.TransactionCreate,
+            new Resource("transaction", Tenant: PdpRequests.Fabrikam, Amount: 250m, MakerId: "user-manager1"));
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.MissingScope, decision.Reasons[0].Code);
+
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("cedar", explanation.Engine);
+        Assert.Equal(DeterminingRules.Scope, explanation.DeterminingRule);
+        Assert.Equal(
+            new[]
+            {
+                "transaction.create.MissingScope",
+                "transaction.create.SubjectNotMaker",
+                "transaction.create.TenantMismatch",
+            },
+            explanation.PolicyReferences.Select(r => r.Reference).ToArray());
+        Assert.All(explanation.PolicyReferences, r => Assert.Equal(PolicyReferenceKinds.CedarPolicy, r.Kind));
+    }
+
+    // A permit carries the matched permit policy id as a cedar-policy reference and the
+    // all-rules-satisfied rule.
+    [Fact]
+    public void Permit_SurfacesMatchedPermitPolicyIdExplanation()
+    {
+        var provider = new CedarDecisionProvider();
+        var request = PdpRequests.For(
+            PdpRequests.User("user-teller1", PdpRequests.Contoso, RoleNames.Teller),
+            ActionNames.TransactionCreate,
+            new Resource("transaction", Tenant: PdpRequests.Contoso, Amount: 250m, MakerId: "user-teller1"),
+            ScopeNames.TransactionsWrite);
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Permit, decision.Decision);
+
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("cedar", explanation.Engine);
+        Assert.Equal(DeterminingRules.AllRulesSatisfied, explanation.DeterminingRule);
+        Assert.All(explanation.PolicyReferences, r => Assert.Equal(PolicyReferenceKinds.CedarPolicy, r.Kind));
+        Assert.Contains(explanation.PolicyReferences, r => r.Reference == "transaction.create.Permit");
+    }
+
+    // An unknown action carries the unknown-action rule and a reason-code reference (pre-Cedar early
+    // return, so there is no cedar-policy id to name).
+    [Fact]
+    public void UnknownAction_SurfacesUnknownActionExplanation()
+    {
+        var provider = new CedarDecisionProvider();
+        var request = PdpRequests.For(
+            PdpRequests.User("user-teller1", PdpRequests.Contoso, RoleNames.Teller),
+            "bank.account.delete",
+            new Resource("account", Tenant: PdpRequests.Contoso),
+            ScopeNames.Read);
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.UnknownAction, decision.Reasons[0].Code);
+
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("cedar", explanation.Engine);
+        Assert.Equal(DeterminingRules.UnknownAction, explanation.DeterminingRule);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.ReasonCode, reference.Kind);
+        Assert.Equal(ReasonCodes.UnknownAction, reference.Reference);
+    }
+
+    // A fail-closed decision (degenerate overflow request) carries the engine-unavailable rule and a
+    // reason-code reference naming the provider-local ProviderUnavailable code — never a leaked detail.
+    [Fact]
+    public void FailClosed_SurfacesEngineUnavailableExplanation()
+    {
+        var provider = new CedarDecisionProvider();
+        var request = PdpRequests.For(
+            PdpRequests.User("user-teller1", PdpRequests.Contoso, RoleNames.Teller),
+            ActionNames.TransactionCreate,
+            new Resource("transaction", Tenant: PdpRequests.Contoso, Amount: decimal.MaxValue, MakerId: "user-teller1"),
+            ScopeNames.TransactionsWrite);
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal("ProviderUnavailable", decision.Reasons[0].Code);
+
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("cedar", explanation.Engine);
+        Assert.Equal(DeterminingRules.EngineUnavailable, explanation.DeterminingRule);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.ReasonCode, reference.Kind);
+        Assert.Equal("ProviderUnavailable", reference.Reference);
+    }
 }

@@ -32,13 +32,20 @@ public sealed class PdpDecisionService
 
         var decision = _provider.Evaluate(request);
 
+        // Every decision the service returns must be explainable (CS16): use the provider's richer,
+        // engine-native explanation when present, otherwise attach the shared baseline derived from
+        // the primary reason so audit/telemetry and the returned decision always carry a "why".
+        var explained = decision.Explanation is not null
+            ? decision
+            : decision.WithExplanation(DecisionExplanations.Baseline(_provider.Name, decision));
+
         // Reasons[0] is the contractual primary reason. If a provider violates the contract and
         // returns no reason, fall back to the decision's own name rather than a hardcoded
         // "Permit" — a reasonless Deny must never be mislabelled as a permit in audit/telemetry.
-        var reasonCode = decision.Reasons.Count > 0
-            ? decision.Reasons[0].Code
-            : decision.Decision.ToString();
-        var decisionName = decision.Decision.ToString();
+        var reasonCode = explained.Reasons.Count > 0
+            ? explained.Reasons[0].Code
+            : explained.Decision.ToString();
+        var decisionName = explained.Decision.ToString();
 
         activity?.SetTag("pdp.decision", decisionName);
         activity?.SetTag("pdp.reason", reasonCode);
@@ -61,8 +68,12 @@ public sealed class PdpDecisionService
             ResourceId: request.Resource.Id,
             Decision: decisionName,
             Reason: reasonCode,
-            Tenant: request.Subject.Tenant));
+            Tenant: request.Subject.Tenant,
+            DeterminingRule: explained.Explanation!.DeterminingRule,
+            PolicyReferences: explained.Explanation!.PolicyReferences
+                .Select(p => $"{p.Kind}:{p.Reference}").ToArray(),
+            Narrative: explained.Explanation!.Narrative));
 
-        return decision;
+        return explained;
     }
 }

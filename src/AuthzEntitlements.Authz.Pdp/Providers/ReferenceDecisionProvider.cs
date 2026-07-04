@@ -44,9 +44,9 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
         ActionNames.TransactionApprove or ActionNames.TransactionReject =>
             EvaluateApprovalDecision(request),
         // Fail closed: an action outside the known vocabulary is denied, never permitted.
-        _ => AccessDecision.Deny(new Reason(
+        _ => Explain(AccessDecision.Deny(new Reason(
             ReasonCodes.UnknownAction,
-            $"Action '{request.Action.Name}' is not a recognized bank action.")),
+            $"Action '{request.Action.Name}' is not a recognized bank action."))),
     };
 
     // Reads require the read scope and same-tenant access; no role gate (mirrors the
@@ -55,15 +55,15 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
     {
         if (!HasScope(request, ScopeNames.Read))
         {
-            return MissingScope(ScopeNames.Read);
+            return Explain(MissingScope(ScopeNames.Read));
         }
 
         if (!TenantMatches(request))
         {
-            return TenantMismatch();
+            return Explain(TenantMismatch());
         }
 
-        return Permitted();
+        return Explain(Permitted());
     }
 
     // Creating an account is gated to BranchManager within the caller's own tenant.
@@ -71,16 +71,16 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
     {
         if (!HasRole(request, RoleNames.BranchManager))
         {
-            return RoleNotAuthorized(
-                $"Creating an account requires the {RoleNames.BranchManager} role.");
+            return Explain(RoleNotAuthorized(
+                $"Creating an account requires the {RoleNames.BranchManager} role."));
         }
 
         if (!TenantMatches(request))
         {
-            return TenantMismatch();
+            return Explain(TenantMismatch());
         }
 
-        return Permitted();
+        return Explain(Permitted());
     }
 
     // Creating a transaction requires the write scope, a maker-eligible role, the caller
@@ -90,25 +90,25 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
     {
         if (!HasScope(request, ScopeNames.TransactionsWrite))
         {
-            return MissingScope(ScopeNames.TransactionsWrite);
+            return Explain(MissingScope(ScopeNames.TransactionsWrite));
         }
 
         if (!HasAnyRole(request, MakerEligibleRoles))
         {
-            return RoleNotAuthorized(
-                $"Creating a transaction requires one of: {Join(MakerEligibleRoles)}.");
+            return Explain(RoleNotAuthorized(
+                $"Creating a transaction requires one of: {Join(MakerEligibleRoles)}."));
         }
 
         if (!SubjectIsMaker(request))
         {
-            return AccessDecision.Deny(new Reason(
+            return Explain(AccessDecision.Deny(new Reason(
                 ReasonCodes.SubjectNotMaker,
-                "A caller may only create a transaction as themselves (subject must be the maker)."));
+                "A caller may only create a transaction as themselves (subject must be the maker).")));
         }
 
         if (!TenantMatches(request))
         {
-            return TenantMismatch();
+            return Explain(TenantMismatch());
         }
 
         var amount = request.Resource.Amount ?? 0m;
@@ -116,7 +116,7 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
             ? new Obligation(ObligationIds.RequireApproval)
             : new Obligation(ObligationIds.PostImmediately);
 
-        return AccessDecision.Permit(PermitReason(), obligation);
+        return Explain(AccessDecision.Permit(PermitReason(), obligation));
     }
 
     // Approving/rejecting requires the approvals scope, a checker-eligible role, same-tenant
@@ -128,35 +128,51 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
     {
         if (!HasScope(request, ScopeNames.ApprovalsWrite))
         {
-            return MissingScope(ScopeNames.ApprovalsWrite);
+            return Explain(MissingScope(ScopeNames.ApprovalsWrite));
         }
 
         if (!HasAnyRole(request, CheckerEligibleRoles))
         {
-            return RoleNotAuthorized(
-                $"Deciding an approval requires one of: {Join(CheckerEligibleRoles)}.");
+            return Explain(RoleNotAuthorized(
+                $"Deciding an approval requires one of: {Join(CheckerEligibleRoles)}."));
         }
 
         if (!TenantMatches(request))
         {
-            return TenantMismatch();
+            return Explain(TenantMismatch());
         }
 
         if (!IsPending(request))
         {
-            return AccessDecision.Deny(new Reason(
+            return Explain(AccessDecision.Deny(new Reason(
                 ReasonCodes.NotPending,
-                "Only a pending transaction can be approved or rejected."));
+                "Only a pending transaction can be approved or rejected.")));
         }
 
         if (SubjectIsMaker(request))
         {
-            return AccessDecision.Deny(new Reason(
+            return Explain(AccessDecision.Deny(new Reason(
                 ReasonCodes.MakerEqualsChecker,
-                "Segregation of duties: the checker may not be the maker of the transaction."));
+                "Segregation of duties: the checker may not be the maker of the transaction.")));
         }
 
-        return Permitted();
+        return Explain(Permitted());
+    }
+
+    // Attaches a "reference"-engine DecisionExplanation to every decision (CS16). The reference
+    // engine owns its own role set (no IEngineRoleAuthorizer), so it surfaces a single normalized
+    // pipeline-rule PolicyReference — including for role denials — derived from the decision's
+    // primary reason, mirroring the rule ids FintechRuleEvaluator uses so reference and adapter
+    // explanations compare cleanly. Additive only: decision, reasons, and obligations are untouched.
+    private static AccessDecision Explain(AccessDecision decision)
+    {
+        var reason = decision.Reasons[0];
+        var rule = DecisionExplanations.RuleForReason(reason.Code);
+        return decision.WithExplanation(new DecisionExplanation(
+            Engine: "reference",
+            DeterminingRule: rule,
+            PolicyReferences: [new PolicyReference(PolicyReferenceKinds.Rule, rule)],
+            Narrative: reason.Message));
     }
 
     private static bool HasScope(AccessRequest request, string scope) =>
