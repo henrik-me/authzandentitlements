@@ -23,6 +23,7 @@ says so.
 | [0004](0004-rebac-with-openfga-for-relationships.md) | ReBAC via OpenFGA for relationships | Accepted | CS07, CS20 |
 | [0005](0005-entitlements-via-openfeature-and-usage-metering.md) | Entitlements via OpenFeature + usage metering | Accepted | CS10 |
 | [0006](0006-fail-closed-and-audit-first-decisioning.md) | Fail-closed + audit-first decisioning | Accepted | CS04, CS05, CS13 |
+| [0007](0007-self-host-first-authz-with-managed-optionality.md) | Self-host-first authorization with managed optionality | Accepted | CS05–CS10, CS20, CS25 |
 
 ## Related evaluation material
 
@@ -34,6 +35,9 @@ compares* and *why these choices hold up against the market*:
   support, AuthZEN alignment, and licensing.
 - [Market survey](../eval/market-survey.md) — a broad survey of the ReBAC, policy-engine,
   and entitlements landscape, with strengths, weaknesses, and when-to-use notes per tool.
+- [Managed-vs-self-host TCO](../eval/managed-vs-selfhost-tco.md) — the total-cost-of-ownership,
+  managed-vs-self-host, and Azure cloud-move analysis (CS25): the pricing-model, ops-burden, and
+  cost dimension the matrix does not cover.
 
 ## Authoring a new ADR
 
