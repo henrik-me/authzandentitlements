@@ -574,6 +574,13 @@ public static class GovernanceEndpoints
         // The pure planner mutates the item (and the grant on Revoke) and reports whether it
         // revoked, so the audit event/metric is emitted exactly once.
         var grantRevoked = ReviewCampaignPlanner.ApplyDecision(item, decision, body.ReviewedBy, linkedGrant, now);
+
+        // Persist this item's decision (and any grant revocation) BEFORE checking whether the
+        // campaign is complete. Counting pending items before this save races under concurrency:
+        // two parallel decisions of the last two pending items would each still read the other as
+        // Pending and neither would complete the campaign, leaving it stuck Open (Copilot review).
+        await db.SaveChangesAsync(ct);
+
         if (grantRevoked && linkedGrant is not null)
         {
             metrics.RecordGrantRevoked();
@@ -582,16 +589,21 @@ public static class GovernanceEndpoints
                 GovernanceOutcome.GrantRevoked, "revoked by access review", linkedGrant.Id.ToString());
         }
 
-        // When no other item in the campaign is still pending, the campaign is complete.
-        var pendingRemaining = await db.AccessReviewItems
-            .CountAsync(i => i.CampaignId == item.CampaignId && i.Id != item.Id
-                             && i.Decision == ReviewDecision.Pending, ct);
-        if (pendingRemaining == 0 && campaign is not null)
+        // Now that this item's decision is durable, complete the campaign when NO item remains
+        // Pending — the count INCLUDES the current item (now persisted as decided), so whichever
+        // concurrent decision commits last observes zero pending and completes the campaign;
+        // re-completing an already-Completed campaign is a harmless idempotent no-op.
+        if (campaign is not null && campaign.Status != CampaignStatus.Completed)
         {
-            campaign.Status = CampaignStatus.Completed;
+            var pendingRemaining = await db.AccessReviewItems
+                .CountAsync(i => i.CampaignId == item.CampaignId
+                                 && i.Decision == ReviewDecision.Pending, ct);
+            if (pendingRemaining == 0)
+            {
+                campaign.Status = CampaignStatus.Completed;
+                await db.SaveChangesAsync(ct);
+            }
         }
-
-        await db.SaveChangesAsync(ct);
 
         // Partition the review event by the item's real tenant + principal. Prefer the
         // campaign tenant (authoritative), fall back to the revoked grant's tenant, and only
