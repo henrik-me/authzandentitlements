@@ -85,6 +85,11 @@ public static class PdpAuditSinkServiceCollectionExtensions
         return services;
     }
 
-    private static string EnsureTrailingSlash(string url) =>
-        url.EndsWith('/') ? url : url + "/";
+    private static string EnsureTrailingSlash(string url)
+    {
+        // Trim stray copy/paste whitespace so a value like "http://audit-service " does not slip
+        // past the blank check and then throw UriFormatException when the base address is built.
+        var trimmed = url.Trim();
+        return trimmed.EndsWith('/') ? trimmed : trimmed + "/";
+    }
 }

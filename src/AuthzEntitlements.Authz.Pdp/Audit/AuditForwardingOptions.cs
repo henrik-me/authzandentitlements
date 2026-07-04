@@ -14,8 +14,10 @@ public sealed class AuditForwardingOptions
     // Base URL of the CS13 Audit.Service. Required (non-blank) only when Sink="http".
     public string? ServiceUrl { get; set; }
 
-    // Bounded in-memory buffer between the decision hot path and the forwarding worker.
-    // DropWrite when full so a slow/absent Audit.Service can never block a decision.
+    // Bounded in-memory buffer between the decision hot path and the forwarding worker. The channel
+    // uses FullMode=Wait, but the sink writes with the non-blocking TryWrite (which returns false
+    // when the buffer is full and then drops+counts the event), so a slow or absent Audit.Service
+    // can never block a decision.
     public int ChannelCapacity { get; set; } = 2048;
 
     // Per-request timeout for the forwarding HttpClient.
