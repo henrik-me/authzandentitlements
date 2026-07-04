@@ -31,10 +31,9 @@ public sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         CallCount++;
         LastRequest = request;
-        if (request.Content is not null)
-        {
-            LastBody = await request.Content.ReadAsStringAsync(cancellationToken);
-        }
+        LastBody = request.Content is not null
+            ? await request.Content.ReadAsStringAsync(cancellationToken)
+            : null;
 
         return _responder(request);
     }

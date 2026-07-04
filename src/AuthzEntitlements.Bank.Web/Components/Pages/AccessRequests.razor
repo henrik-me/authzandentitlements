@@ -33,10 +33,10 @@ else
 {
     <p class="hint">Signed in as governance principal <code>@_principal</code>.</p>
 
-    @if (_result is not null)
+    @if (_hasOutcome)
     {
-        <div class="notice" role="@(_result.IsSuccess ? "status" : "alert")">
-            <p><strong>@_resultTitle — @AccessRequestsModel.RequestOutcomeLabel(_result.StatusCode).</strong></p>
+        <div class="notice" role="@(_outcomeSuccess ? "status" : "alert")">
+            <p><strong>@_resultTitle — @AccessRequestsModel.RequestOutcomeLabel(_outcomeStatus).</strong></p>
             @if (!string.IsNullOrWhiteSpace(_resultDetail))
             {
                 <p>@_resultDetail</p>
@@ -218,9 +218,20 @@ else
     private IReadOnlyList<AccessRequestResponse> _requests = [];
     private IReadOnlyList<AccessRequestResponse> _pending = [];
 
-    private ApiResult<AccessRequestResponse>? _result;
+    private bool _hasOutcome;
+    private bool _outcomeSuccess;
+    private int _outcomeStatus;
     private string _resultTitle = string.Empty;
     private string? _resultDetail;
+
+    private void SetOutcome(bool success, int status, string title, string? detail)
+    {
+        _hasOutcome = true;
+        _outcomeSuccess = success;
+        _outcomeStatus = status;
+        _resultTitle = title;
+        _resultDetail = detail;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -249,15 +260,13 @@ else
         var body = AccessRequestsModel.BuildCreateBody(_principal, RequestForm);
         if (string.IsNullOrWhiteSpace(body.AccessPackageCode) || string.IsNullOrWhiteSpace(body.Justification))
         {
-            _result = ApiResult<AccessRequestResponse>.Failure(400, "A package and justification are required.");
-            _resultTitle = "Request rejected";
-            _resultDetail = _result.Error;
+            SetOutcome(false, 400, "Request rejected", "A package and justification are required.");
             return;
         }
 
-        _result = await Governance.CreateRequestAsync(body);
-        _resultTitle = _result.IsSuccess ? "Request submitted" : "Request rejected";
-        _resultDetail = DescribeOutcome(_result);
+        var result = await Governance.CreateRequestAsync(body);
+        SetOutcome(result.IsSuccess, result.StatusCode,
+            result.IsSuccess ? "Request submitted" : "Request rejected", DescribeOutcome(result));
         await LoadAsync();
     }
 
@@ -270,9 +279,7 @@ else
 
         if (ApproveForm.RequestId == Guid.Empty)
         {
-            _result = ApiResult<AccessRequestResponse>.Failure(400, "Select a pending request to approve.");
-            _resultTitle = "Approval denied";
-            _resultDetail = _result.Error;
+            SetOutcome(false, 400, "Approval denied", "Select a pending request to approve.");
             return;
         }
 
@@ -280,13 +287,9 @@ else
         // (segregation of duties) if the approver equals the requester.
         var result = await Governance.ApproveRequestAsync(
             ApproveForm.RequestId, new ApproveRequestBody(_principal));
-        _result = result.IsSuccess
-            ? ApiResult<AccessRequestResponse>.Success(null!, result.StatusCode)
-            : ApiResult<AccessRequestResponse>.Failure(result.StatusCode, result.Error ?? "The approval was denied.");
-        _resultTitle = result.IsSuccess ? "Request approved" : "Approval denied";
-        _resultDetail = result.IsSuccess
-            ? "A time-bound grant was issued for the request."
-            : result.Error;
+        SetOutcome(result.IsSuccess, result.StatusCode,
+            result.IsSuccess ? "Request approved" : "Approval denied",
+            result.IsSuccess ? "A time-bound grant was issued for the request." : result.Error);
         await LoadAsync();
     }
 
@@ -299,17 +302,15 @@ else
 
         if (RejectForm.RequestId == Guid.Empty)
         {
-            _result = ApiResult<AccessRequestResponse>.Failure(400, "Select a pending request to reject.");
-            _resultTitle = "Rejection denied";
-            _resultDetail = _result.Error;
+            SetOutcome(false, 400, "Rejection denied", "Select a pending request to reject.");
             return;
         }
 
         var reason = string.IsNullOrWhiteSpace(RejectForm.Reason) ? null : RejectForm.Reason.Trim();
-        _result = await Governance.RejectRequestAsync(
+        var result = await Governance.RejectRequestAsync(
             RejectForm.RequestId, new RejectRequestBody(_principal, reason));
-        _resultTitle = _result.IsSuccess ? "Request rejected" : "Rejection denied";
-        _resultDetail = DescribeOutcome(_result);
+        SetOutcome(result.IsSuccess, result.StatusCode,
+            result.IsSuccess ? "Request rejected" : "Rejection denied", DescribeOutcome(result));
         await LoadAsync();
     }
 
