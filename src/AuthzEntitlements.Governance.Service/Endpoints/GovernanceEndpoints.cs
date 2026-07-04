@@ -322,19 +322,21 @@ public static class GovernanceEndpoints
     private static async Task<IResult> GetPrincipalGrantsAsync(
         string id, bool? activeOnly, GovernanceDbContext db, CancellationToken ct)
     {
-        var grants = await db.AccessGrants.AsNoTracking().Include(g => g.Roles)
-            .Where(g => g.PrincipalId == id)
-            .ToListAsync(ct);
-
         var now = DateTimeOffset.UtcNow;
-        // Expiry is enforced here at read time via IsActive — no background sweeper needed.
-        var filtered = activeOnly == true ? grants.Where(g => g.IsActive(now)) : grants;
+        var query = db.AccessGrants.AsNoTracking().Include(g => g.Roles)
+            .Where(g => g.PrincipalId == id);
 
-        var response = filtered
-            .OrderByDescending(g => g.GrantedAt)
-            .Select(g => ToGrantResponse(g, now))
-            .ToArray();
+        // Expiry is enforced at read time — no background sweeper. When only active grants are
+        // requested, push the IsActive predicate (RevokedAt == null && now < ExpiresAt) into the
+        // query so expired/revoked rows (and their roles) are never materialised.
+        if (activeOnly == true)
+        {
+            query = query.Where(g => g.RevokedAt == null && g.ExpiresAt > now);
+        }
 
+        var grants = await query.OrderByDescending(g => g.GrantedAt).ToListAsync(ct);
+
+        var response = grants.Select(g => ToGrantResponse(g, now)).ToArray();
         return TypedResults.Ok(response);
     }
 
@@ -348,12 +350,13 @@ public static class GovernanceEndpoints
             return TypedResults.NotFound();
         }
 
-        var grants = await db.AccessGrants.AsNoTracking().Include(g => g.Roles)
-            .Where(g => g.PrincipalId == id)
-            .ToListAsync(ct);
-
         var now = DateTimeOffset.UtcNow;
-        var activeGrants = grants.Where(g => g.IsActive(now)).ToList();
+        // Only currently-active grants contribute to effective access. Push the IsActive predicate
+        // (RevokedAt == null && now < ExpiresAt) into the query so expired/revoked grants and their
+        // roles are never materialised.
+        var activeGrants = await db.AccessGrants.AsNoTracking().Include(g => g.Roles)
+            .Where(g => g.PrincipalId == id && g.RevokedAt == null && g.ExpiresAt > now)
+            .ToListAsync(ct);
 
         var baseline = principal.BaselineRoles
             .Select(r => r.RoleName)
