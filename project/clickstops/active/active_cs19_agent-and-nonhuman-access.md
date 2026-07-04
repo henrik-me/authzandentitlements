@@ -33,11 +33,12 @@ Authorize AI agents / MCP tools / workload identities alongside humans, with on-
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Wave A — PDP agent/OBO contract + reference-provider delegation + audit + scenarios | pending | — | agent-id=yoga-ae/cs19-pdp \| role=implementer \| report-status=pending \| learnings=0; owns src/AuthzEntitlements.Authz.Pdp/** + tests/AuthzEntitlements.Authz.Pdp.Tests/**; delivers Actor contract, constrained-delegation semantics, audit actor fields, agent scenario catalog |
-| Wave B — Keycloak agent workload client + delegated scopes + doc | pending | — | agent-id=yoga-ae/cs19-realm-docs \| role=implementer \| report-status=pending \| learnings=0; owns infra/keycloak/** + docs/authz/agent-and-nonhuman-access.md; runs concurrently with Wave A |
-| Wave C — Bank.Web OBO showcase + Bank.Api/Gateway actor-claim helpers | pending | — | agent-id=yoga-ae/cs19-web \| role=implementer \| report-status=pending \| learnings=0; owns src/AuthzEntitlements.Bank.Web/** + Bank.Api/Gateway Auth actor helpers + web/api/gateway tests; depends on Wave A contract |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
+| Wave A — PDP agent/OBO contract + reference-provider delegation + audit + scenarios | complete | yoga-ae/cs19-pdp | agent-id=yoga-ae/cs19-pdp \| role=implementer \| report-status=complete \| learnings=2; Actor/AgentScopeNames, constrained-delegation wrapper, DelegationScopeMissing, additive audit actor fields, AgentAccessScenarioCatalog + PDP tests |
+| Wave B — Keycloak agent workload client + delegated scopes + doc | complete | yoga-ae/cs19-realm-docs | agent-id=yoga-ae/cs19-realm-docs \| role=implementer \| report-status=complete \| learnings=1; bank-agent + agent-claims/agent.bank.* scopes, service-claims for bank-workload, README + design doc |
+| Wave C — Bank.Web OBO showcase + Bank.Api/Gateway actor-claim helpers | complete | yoga-ae/cs19-web | agent-id=yoga-ae/cs19-web \| role=implementer \| report-status=complete \| learnings=1; AgentAccess page + AgentAccessModel + PdpActorDto, ActorClaims/GatewayActorClaims + web/api/gateway tests |
+| Review fixes — delegate-kind allow-list + CWE-117 log sanitization | complete | yoga-ae/cs19-fix | agent-id=yoga-ae/cs19-fix \| role=implementer \| report-status=complete \| learnings=2; R1 OBO gate {agent,service} ordinal allow-list; Copilot/CodeQL doc + log-forging (CR/LF-sanitize all rendered log fields) |
+| Close-out: docs + restart state | complete | yoga-ae | Updated WORKBOARD.md + CONTEXT.md so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | complete | yoga-ae | Filed LRN-058..060 in LEARNINGS.md; OBO mechanism reused by the already-planned CS21 |
 
 ## Notes / Learnings
 
@@ -85,12 +86,27 @@ LRN-011 (bind to token, fail-closed on missing/blank actor/OBO claims).
 
 | Field | Value |
 |---|---|
-| Implementer models | claude-opus-4.8 |
+| Implementer models | claude-opus-4.8, claude-opus-4.6 |
 | Reviewer model | gpt-5.5 |
 | Implementer agent | yoga-ae |
 | Reviewer agent | rubber-duck |
-| Notes | Planned intent at claim time; finalized at close-out with the models/agents actually used. |
+| Notes | Waves A/B/C claude-opus-4.8; review-fix waves claude-opus-4.6/4.8. Independent GPT-5.5 rubber-duck across 6 impl rounds (R1 NF→R2 Go→R3 Go→R4 Go→R5 NF→R6 Go) + plan-vs-impl GO, interleaved with 3 Copilot rounds + CodeQL. Reviewer model disjoint from implementers (A3). |
 
 ## Plan-vs-implementation review
 
-_Pending — completed via the GPT-5.5 close-out gate before the `active → done` rename (see OPERATIONS.md § Plan-vs-implementation review). NEEDS-FIX blocks close-out._
+**Reviewer:** gpt-5.5 (rubber-duck, agent `cs19-pvi`) — independent of the claude-opus-4.8/4.6 implementers
+**Date:** 2026-07-04
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| Workload/client-credentials identities in Keycloak; scoped, time-boxed agent tokens | match | `bank-agent` confidential service-account (client-credentials) with `agent-claims` (`subject_type=agent`) + delegated `agent.bank.*` scopes (default `read`, write/approvals optional/per-token); `bank-workload` marked `subject_type=service` via `service-claims`; realm `accessTokenLifespan` bounded. |
+| On-behalf-of (agent acts for a user) flow | match | `Actor(Type,Id,Scopes)` + optional `Subject.Actor`; `ReferenceDecisionProvider` constrained-delegation (base decision ∧ delegated scope; `DelegationScopeMissing` fail-closed; Actor==null short-circuit); `ActorClaims`/`GatewayActorClaims` read `subject_type`/`on_behalf_of`/`sub`, fail-closed, `{agent,service}` allow-list. |
+| PDP scenarios for non-human subjects; both human + agent paths showcased | match | `AgentAccessScenarioCatalog` (OBO permit, missing-scope deny, human-deny passthrough, service-as-itself, approvals/write/read); Bank.Web `AgentAccess` + `AgentAccessModel` render human-direct vs agent side-by-side, differing only by `Subject.Actor`. |
+| Exit criterion — scoped, audited OBO action; human path unaffected | match | Scoped = user-permit ∧ delegated scope; audited = `SubjectType`/`ActorId`/`ActorType` on the audit event, populated in `PdpDecisionService`; human path byte-identical via `Actor is null` return + actor-free catalog tests. |
+
+**Test-coverage:** sufficient — CS19 test classes present; targeted PDP/API/Gateway/Web CS19 filters pass (61 + 18 + 13 + 12). Full solution 1064/1064 on the pre-merge branch; 1132+ on merged main.
+
+**Scope:** no substantive drift; every deliverable + exit criterion met. The OBO mechanism is defined here and documented as the CS21 reuse point (no reverse dependency). Non-blocking follow-ups (documented): production RFC 8693 token-exchange OBO issuance, and persisting the actor fields in the tamper-evident Audit.Service store.
