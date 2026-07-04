@@ -39,7 +39,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 |------------|-------|-------|-------|--------|--------------|----------------|
 | CS23 | CS23 — Comparison matrix + market survey | 🟢 Active | yoga-ae-c2 | cs23/content | 2026-07-04 | — |
 | CS21 | CS21 — Break-glass, delegation & on-behalf-of | 🟢 Active | yoga-ae | cs21/content | 2026-07-04 | — |
-| CS34 | CS34 — Log-forging (CWE-117) sanitization at the 4 flagged audit-log sites | 🟢 Active | yoga-ae-c5 | cs34/content | 2026-07-04 | — |
 | CS25 | CS25 — Managed-vs-self-host TCO + cloud move | 🟢 Active | yoga-ae-c4 | cs25/content | 2026-07-04 | — |
 | CS33 | CS33 — Consolidate durable learnings into project-local convention/review doc blocks | 🟢 Active | yoga-ae-c3 | cs33/content | 2026-07-04 | — |
 
