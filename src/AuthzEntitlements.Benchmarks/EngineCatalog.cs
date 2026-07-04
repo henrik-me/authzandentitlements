@@ -51,16 +51,18 @@ public static class EngineCatalog
 
     // Constructs a deterministic in-process provider by name. Same construction as
     // LifecycleTestSupport.ProviderByName so the benchmark and the parity tests share one engine
-    // family. Throws for a non-in-process name (callers guard with IsInProcess first).
-    public static IAuthorizationDecisionProvider CreateInProcessProvider(string name) => name switch
-    {
-        "reference" => new ReferenceDecisionProvider(),
-        "aspnet" => new AspNetCorePolicyProvider(),
-        "casbin" => new CasbinDecisionProvider(),
-        "cedar" => new CedarDecisionProvider(),
-        _ => throw new ArgumentOutOfRangeException(
-            nameof(name), name, "Not a deterministic in-process benchmark engine."),
-    };
+    // family. Name matching is case-insensitive (consistent with IsInProcess); throws for a
+    // non-in-process name (callers guard with IsInProcess first).
+    public static IAuthorizationDecisionProvider CreateInProcessProvider(string name) =>
+        name?.ToLowerInvariant() switch
+        {
+            "reference" => new ReferenceDecisionProvider(),
+            "aspnet" => new AspNetCorePolicyProvider(),
+            "casbin" => new CasbinDecisionProvider(),
+            "cedar" => new CedarDecisionProvider(),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(name), name, "Not a deterministic in-process benchmark engine."),
+        };
 
     // Best-effort reachability probe for a live engine: attempts a short TCP connect to the engine's
     // conventional local endpoint. Returns false on any failure (connection refused, timeout,

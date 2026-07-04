@@ -38,9 +38,17 @@ public static class RegressionDetector
         ArgumentNullException.ThrowIfNull(baseline);
         ArgumentNullException.ThrowIfNull(current);
 
-        var baselineByName = baseline.Engines
-            .Where(e => e.Status == BenchmarkStatus.Measured)
-            .ToDictionary(e => e.EngineName, StringComparer.OrdinalIgnoreCase);
+        var baselineByName = new Dictionary<string, EngineBenchmark>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in baseline.Engines.Where(e => e.Status == BenchmarkStatus.Measured))
+        {
+            // Fail closed on a malformed baseline (duplicate measured engine) rather than letting
+            // ToDictionary throw a bare ArgumentException that escapes the harness uncaught.
+            if (!baselineByName.TryAdd(e.EngineName, e))
+            {
+                throw new BenchmarkDataException(
+                    $"Baseline contains duplicate measured engine '{e.EngineName}'.");
+            }
+        }
 
         var results = new List<EngineRegression>();
         foreach (var engine in current.Engines)

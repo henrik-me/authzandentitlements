@@ -30,6 +30,17 @@ public sealed class RegressionDetectorTests
         RunWith((engine, p95, BenchmarkStatus.Measured));
 
     [Fact]
+    public void Detect_BaselineWithDuplicateMeasuredEngine_FailsClosed()
+    {
+        var baseline = RunWith(
+            ("reference", 1.0, BenchmarkStatus.Measured),
+            ("reference", 1.5, BenchmarkStatus.Measured));
+        var current = Measured("reference", 1.0);
+
+        Assert.Throws<BenchmarkDataException>(() => RegressionDetector.Detect(baseline, current));
+    }
+
+    [Fact]
     public void Detect_LargeIncreaseBeyondToleranceAndFloor_Regresses()
     {
         var baseline = Measured("reference", 1.0);

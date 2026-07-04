@@ -59,7 +59,17 @@ catch (BenchmarkDataException ex)
     return 1;
 }
 
-var report = RegressionDetector.Detect(baseline, run);
+RegressionReport report;
+try
+{
+    report = RegressionDetector.Detect(baseline, run);
+}
+catch (BenchmarkDataException ex)
+{
+    Console.Error.WriteLine($"error: could not evaluate regression: {ex.Message}");
+    return 1;
+}
+
 PrintRegressionReport(report, options.BaselinePath);
 
 if (report.HasRegression)
