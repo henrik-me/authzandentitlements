@@ -229,7 +229,7 @@ if it helps orient a reader skimming this file.)_
 
 ## Blockers / open questions
 
-- **Branch-protection ruleset not applied.** `infra/main-protection-ruleset.json` requires a public repo or GitHub Pro (private repo returns HTTP 403); by decision the repo stays **private**, so the review-gate workflows run on PRs as **CI only (not required-to-merge)**. Apply the ruleset later if the repo goes public or the plan upgrades.
+- **Branch-protection ruleset not applied.** `infra/main-protection-ruleset.json` requires a public repo or GitHub Pro (private repo returns HTTP 403); by decision the repo stays **private**, so all CI checks — the review-gate workflows **and** the CS28 `.NET` build/test (`dotnet-ci.yml`) — run on PRs as **advisory CI only (not required-to-merge)**. **CS28** added `.NET` build+test CI (`pull_request` + `push`→`main`), closing the LRN-035 "no .NET in CI" gap; making it (or any check) *required-to-merge*, plus require-up-to-date / a merge queue to fully *prevent* cross-CS merge-order breaks, still needs branch protection → apply the ruleset if the repo goes public or upgrades to Pro.
 - **Docker daemon must be running** for the container-based engines/infra (Docker Desktop is installed).
 - **Plan review: complete** — all 27 CSs independently reviewed (GPT-5.5) and attested (Go / Go-with-amendments); 13 CSs were amended to fix dependency/scope gaps found in review. No plan-review blocker remains.
 - **Open decision:** whether to promote SpiceDB from the Phase-7 expansion (CS26) into the Phase-2 core for a direct OpenFGA head-to-head.
