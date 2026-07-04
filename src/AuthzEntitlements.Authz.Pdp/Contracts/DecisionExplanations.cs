@@ -19,6 +19,7 @@ public static class DecisionExplanations
         ReasonCodes.SubjectNotMaker => DeterminingRules.SubjectIsMaker,
         ReasonCodes.NotPending => DeterminingRules.PendingStatus,
         ReasonCodes.MakerEqualsChecker => DeterminingRules.SegregationOfDuties,
+        ReasonCodes.SodConflict => DeterminingRules.SegregationOfDuties, // CS11 governance SoD
         ReasonCodes.UnknownAction => DeterminingRules.UnknownAction,
         "NoRelationship" => DeterminingRules.Relationship,     // RebacReasonCodes.NoRelationship
         _ => DeterminingRules.EngineUnavailable,               // ProviderUnavailable/EngineUnavailable/boundary

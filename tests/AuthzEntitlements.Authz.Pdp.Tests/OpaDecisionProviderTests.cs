@@ -231,6 +231,7 @@ public sealed class OpaDecisionProviderTests
     [InlineData("MakerEqualsChecker")]
     [InlineData("NotPending")]
     [InlineData("BranchNotInTenant")]
+    [InlineData("SodConflict")]
     [InlineData("UnknownAction")]
     public void Deny_SurfacesReasonCode(string reasonCode)
     {

@@ -18,7 +18,8 @@
 #   Output: { "decision": "Permit"|"Deny",
 #             "reason":   one of Permit | MissingScope | TenantMismatch |
 #                         RoleNotAuthorized | SubjectNotMaker |
-#                         MakerEqualsChecker | NotPending | UnknownAction,
+#                         MakerEqualsChecker | NotPending | UnknownAction |
+#                         SodConflict (governance.access.request only),
 #             "rule":     the determining check id, "<action-short>.<Reason>"
 #                         (e.g. "read.Permit", "transaction.create.MissingScope",
 #                         "unknown.UnknownAction") — an ADDITIVE explainability
@@ -61,6 +62,9 @@ decision := transaction_create_decision if input.action.name == "bank.transactio
 decision := approval_decision if input.action.name == "bank.transaction.approve"
 
 decision := approval_decision if input.action.name == "bank.transaction.reject"
+
+# CS11 governance segregation-of-duties: a proposed role set is checked for toxic combinations.
+decision := governance_access_decision if input.action.name == "governance.access.request"
 
 # ---------------------------------------------------------------------------
 # Per-action ordered checks. Each `else`-ladder returns the FIRST failing
@@ -111,6 +115,15 @@ approval_decision := deny("approval.MissingScope", "MissingScope") if {
 } else := deny("approval.MakerEqualsChecker", "MakerEqualsChecker") if {
 	subject_is_maker
 } else := permit_no_obligation("approval.Permit")
+
+# governance.access.request: a PURE segregation-of-duties check over the PROPOSED resulting role
+# set carried on subject.roles. Unlike the bank actions it has NO scope / role-eligibility /
+# tenant / maker gate — it asks only whether the proposed role set is internally incompatible. A
+# toxic combination denies SodConflict; an independent set permits with no obligation. Mirrors
+# GovernanceSodPolicy (../../src/AuthzEntitlements.Authz.Pdp/Providers/Sod/GovernanceSodPolicy.cs).
+governance_access_decision := deny("governance.access.request.SodConflict", "SodConflict") if {
+	has_sod_conflict
+} else := permit_no_obligation("governance.access.request.Permit")
 
 # ---------------------------------------------------------------------------
 # Helpers (small and readable, mirroring the reference provider predicates).
@@ -167,6 +180,30 @@ transaction_amount := amount if {
 	amount := object.get(input.resource, "amount", 0)
 	amount != null
 } else := 0
+
+# --- Governance segregation of duties (governance.access.request) ---
+
+# The incompatible (unordered) role pairs: a proposed role set conflicts when it contains BOTH
+# members of any pair. Mirrors GovernanceSodPolicy.IncompatiblePairs — { BranchManager,
+# ComplianceOfficer } (two oversight roles) is deliberately absent, so it is allowed together.
+sod_incompatible_pairs := [
+	{"Teller", "BranchManager"},
+	{"Teller", "ComplianceOfficer"},
+	{"Auditor", "Teller"},
+	{"Auditor", "BranchManager"},
+	{"Auditor", "ComplianceOfficer"},
+]
+
+# The set of roles the subject proposes to hold (exact, case-sensitive). A missing/empty roles
+# array yields the empty set, so an absent or single-role proposal never conflicts.
+proposed_roles := {role | some role in input.subject.roles}
+
+# True when the proposed role set contains both members of some incompatible pair (the pair is a
+# subset of the held roles).
+has_sod_conflict if {
+	some pair in sod_incompatible_pairs
+	pair & proposed_roles == pair
+}
 
 # ---------------------------------------------------------------------------
 # Decision constructors.
