@@ -1,9 +1,9 @@
 # CS33 — Consolidate durable learnings into project-local convention/review doc blocks
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c3
+**Branch:** cs33/content
+**Started:** 2026-07-04
 **Closed:** —
 **Filed by:** yoga-ae-c3 — 2026-07-04, LRN harvest (CS28h): dispositioning open learnings into fix CSs.
 **Depends on:** none
@@ -58,11 +58,25 @@ None — project-local doc content only; no managed-core or code changes.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Consolidate dotnet/Aspire/Keycloak/Blazor/EF/adapter gotchas | pending | — | Into CONVENTIONS.md `conventions.project` local block; each bullet LRN-cited |
+| Consolidate review/Copilot/merge/citation/CI-evidence gotchas | pending | — | Into REVIEWS.md `reviews.project-gates` (and/or OPERATIONS project block); LRN-cited |
+| Flip consolidated how-to LRNs to applied | pending | — | Each LRN → applied with Disposition = the doc block landed |
+| Verify no managed-core edits | pending | — | harness sync --mode=check no drift; edit only allowlisted local blocks |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File/disposition learnings; open follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c3 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
