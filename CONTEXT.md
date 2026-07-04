@@ -125,11 +125,11 @@ run` never need Docker or OPA. Docs at `docs/authz/opa-adapter.md` + `infra/opa/
 /api/authz/scenarios/verify` 22/22 with `Pdp:Provider=opa`. GPT-5.5 rubber-duck R1–R5 (Go) + Copilot (3 rounds: fail-closed
 info-leak, sync-contract comment, untrusted reason-code — all resolved) + plan-vs-impl GO. New learnings LRN-027..029.
 
-**Next claimable:** the remaining engine adapter **CS09 (Cedar)** — Wave 3, unblocked by CS05 (CS07 OpenFGA still in flight); plus
-CS13 (audit pipeline; needs CS05) and **CS11 (governance)** — now unblocked (needs CS02 + CS08, both complete). CS06/CS08
-completion advances CS14 (Blazor product UI; needs CS03/CS04/CS06/CS10/CS11), CS16/CS17/CS20 (need engine behavior; still awaiting
-CS07/CS09), and CS24 (perf benchmark; needs engines + CS12). `harness lint` is green; the remaining CSs carry an independent GPT-5.5
-`## Plan review` attestation.
+**Next claimable:** **CS11 (governance)** — now unblocked (needs CS02 + CS08, both complete) — plus
+CS13 (audit pipeline; needs CS05). All four engine adapters are now claimed or done: CS06 (ASP.NET/Casbin) + CS08 (OPA/Rego)
+done; CS07 (OpenFGA) and CS09 (Cedar) in flight. CS06/CS08 completion advances CS14 (Blazor product UI; needs
+CS03/CS04/CS06/CS10/CS11), CS16/CS17/CS20 (need engine behavior; awaiting CS07/CS09), and CS24 (perf benchmark; needs engines +
+CS12). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
 
 ## Constraints
 
