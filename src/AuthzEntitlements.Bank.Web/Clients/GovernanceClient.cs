@@ -25,6 +25,31 @@ public interface IGovernanceClient
 
     Task<PrincipalAccessResponse?> GetPrincipalAccessAsync(
         string principalId, CancellationToken ct = default);
+
+    // ---- CS21 break-glass grant lifecycle (anonymous endpoints; reads fail closed to empty) ----
+
+    Task<ApiResult<BreakGlassGrantResponse>> IssueBreakGlassAsync(
+        IssueBreakGlassRequest body, CancellationToken ct = default);
+
+    Task<IReadOnlyList<BreakGlassGrantResponse>> GetBreakGlassGrantsAsync(
+        bool activeOnly = false, CancellationToken ct = default);
+
+    Task<IReadOnlyList<BreakGlassGrantResponse>> GetBreakGlassPendingReviewAsync(
+        CancellationToken ct = default);
+
+    Task<ApiResult<BreakGlassGrantResponse>> ReviewBreakGlassAsync(
+        Guid id, ReviewBreakGlassRequest body, CancellationToken ct = default);
+
+    // ---- CS21 manager->delegate delegation grant lifecycle ----
+
+    Task<ApiResult<DelegationGrantResponse>> CreateDelegationAsync(
+        CreateDelegationRequest body, CancellationToken ct = default);
+
+    Task<IReadOnlyList<DelegationGrantResponse>> GetDelegationsAsync(
+        bool activeOnly = false, CancellationToken ct = default);
+
+    Task<ApiResult<DelegationGrantResponse>> RevokeDelegationAsync(
+        Guid id, RevokeDelegationRequest body, CancellationToken ct = default);
 }
 
 public sealed class GovernanceClient(HttpClient http) : IGovernanceClient
@@ -53,6 +78,40 @@ public sealed class GovernanceClient(HttpClient http) : IGovernanceClient
         string principalId, CancellationToken ct = default) =>
         GetOrNullAsync<PrincipalAccessResponse>(
             $"/api/governance/principals/{Uri.EscapeDataString(principalId)}/access", ct);
+
+    public Task<ApiResult<BreakGlassGrantResponse>> IssueBreakGlassAsync(
+        IssueBreakGlassRequest body, CancellationToken ct = default) =>
+        PostAsync<IssueBreakGlassRequest, BreakGlassGrantResponse>(
+            "/api/governance/break-glass", body, ct);
+
+    public Task<IReadOnlyList<BreakGlassGrantResponse>> GetBreakGlassGrantsAsync(
+        bool activeOnly = false, CancellationToken ct = default) =>
+        GetListAsync<BreakGlassGrantResponse>(
+            activeOnly ? "/api/governance/break-glass?activeOnly=true" : "/api/governance/break-glass", ct);
+
+    public Task<IReadOnlyList<BreakGlassGrantResponse>> GetBreakGlassPendingReviewAsync(
+        CancellationToken ct = default) =>
+        GetListAsync<BreakGlassGrantResponse>("/api/governance/break-glass/pending-review", ct);
+
+    public Task<ApiResult<BreakGlassGrantResponse>> ReviewBreakGlassAsync(
+        Guid id, ReviewBreakGlassRequest body, CancellationToken ct = default) =>
+        PostAsync<ReviewBreakGlassRequest, BreakGlassGrantResponse>(
+            $"/api/governance/break-glass/{id}/review", body, ct);
+
+    public Task<ApiResult<DelegationGrantResponse>> CreateDelegationAsync(
+        CreateDelegationRequest body, CancellationToken ct = default) =>
+        PostAsync<CreateDelegationRequest, DelegationGrantResponse>(
+            "/api/governance/delegations", body, ct);
+
+    public Task<IReadOnlyList<DelegationGrantResponse>> GetDelegationsAsync(
+        bool activeOnly = false, CancellationToken ct = default) =>
+        GetListAsync<DelegationGrantResponse>(
+            activeOnly ? "/api/governance/delegations?activeOnly=true" : "/api/governance/delegations", ct);
+
+    public Task<ApiResult<DelegationGrantResponse>> RevokeDelegationAsync(
+        Guid id, RevokeDelegationRequest body, CancellationToken ct = default) =>
+        PostAsync<RevokeDelegationRequest, DelegationGrantResponse>(
+            $"/api/governance/delegations/{id}/revoke", body, ct);
 
     private async Task<IReadOnlyList<T>> GetListAsync<T>(string uri, CancellationToken ct)
     {
