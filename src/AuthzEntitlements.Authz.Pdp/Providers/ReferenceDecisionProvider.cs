@@ -129,6 +129,17 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
             return baseDecision;
         }
 
+        // Even with an active grant, break-glass may elevate ONLY a *pure* missing-capability denial.
+        // EvaluateCore returns just the FIRST failing reason and the capability gates (scope, role) run
+        // BEFORE the integrity gates (tenant isolation, subject-is-maker, pending-status, maker-checker /
+        // SoD) — so a MissingScope/RoleNotAuthorized primary reason can MASK a co-occurring integrity
+        // violation. This guard re-checks every hard invariant for the action independently, so emergency
+        // access can never bypass one: if any would fail, the base Deny stands (no elevation).
+        if (!PassesHardInvariants(request))
+        {
+            return baseDecision;
+        }
+
         return Explain(AccessDecision.Permit(
             new Reason(
                 ReasonCodes.BreakGlassInvoked,
@@ -137,6 +148,28 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
                 $"justification: {grant.Justification}. Mandatory post-review required."),
             new Obligation(ObligationIds.RequireBreakGlassReview)));
     }
+
+    // The hard integrity invariants for each action, evaluated INDEPENDENTLY of the capability (scope /
+    // role) gates. Break-glass may elevate a missing-capability denial only when ALL of these still hold,
+    // so an active grant can never bypass tenant isolation, subject-is-maker, pending-status, or
+    // maker-checker / segregation-of-duties. Reuses the SAME predicates the EvaluateXxx methods use (no
+    // duplicated rule logic), by action:
+    //   read / account create -> same-tenant
+    //   transaction create     -> subject is the maker AND same-tenant
+    //   approve / reject        -> same-tenant AND pending AND checker != maker (SoD)
+    //   governance SoD          -> no toxic role combination
+    //   unknown action          -> never (fail-closed)
+    private static bool PassesHardInvariants(AccessRequest request) => request.Action.Name switch
+    {
+        ActionNames.AccountRead => TenantMatches(request),
+        ActionNames.AccountCreate => TenantMatches(request),
+        ActionNames.TransactionCreate => SubjectIsMaker(request) && TenantMatches(request),
+        ActionNames.TransactionApprove or ActionNames.TransactionReject =>
+            TenantMatches(request) && IsPending(request) && !SubjectIsMaker(request),
+        ActionNames.GovernanceAccessRequest =>
+            GovernanceSodPolicy.FindConflict(request.Subject.Roles) is null,
+        _ => false,
+    };
 
     // A break-glass grant is active + matching for this request when it names this subject and action
     // and has not expired against the INJECTED decision clock (Context.Now). Fail-closed: a blank grant

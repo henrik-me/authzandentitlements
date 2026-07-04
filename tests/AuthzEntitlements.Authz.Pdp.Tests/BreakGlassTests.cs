@@ -160,6 +160,113 @@ public sealed class BreakGlassTests
         Assert.Equal(ReasonCodes.UnknownAction, decision.Reasons[0].Code);
     }
 
+    // ---- Break-glass must NOT elevate when a missing-capability denial MASKS an integrity violation ----
+    // EvaluateCore returns only the FIRST failing reason and capability gates run BEFORE integrity gates,
+    // so a request that lacks the scope/role AND violates an integrity invariant surfaces the elevatable
+    // MissingScope/RoleNotAuthorized as its primary reason. Without the hard-invariant guard these would be
+    // wrongly elevated (tenant isolation / SoD / maker bypass). Each asserts Deny AND that no elevation
+    // happened (reason != BreakGlassInvoked, no review obligation).
+
+    [Fact]
+    public void BreakGlass_DoesNotElevate_MissingScope_MaskingTenantMismatch()
+    {
+        // No read scope (base MissingScope) AND cross-tenant read (integrity: tenant) + active grant.
+        var decision = Evaluate(
+            Teller(), ActionNames.AccountRead, Account("FABRIKAM"),
+            Grant("user-teller1", ActionNames.AccountRead), Now); // no ScopeNames.Read
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.NotEqual(ReasonCodes.BreakGlassInvoked, decision.Reasons[0].Code);
+        Assert.DoesNotContain(decision.Obligations, o => o.Id == ObligationIds.RequireBreakGlassReview);
+    }
+
+    [Fact]
+    public void BreakGlass_DoesNotElevate_RoleNotAuthorized_MaskingTenantMismatch()
+    {
+        // Teller lacks BranchManager (base RoleNotAuthorized) AND cross-tenant create (integrity: tenant).
+        var decision = Evaluate(
+            Teller(), ActionNames.AccountCreate, Account("FABRIKAM"),
+            Grant("user-teller1", ActionNames.AccountCreate), Now);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.NotEqual(ReasonCodes.BreakGlassInvoked, decision.Reasons[0].Code);
+        Assert.DoesNotContain(decision.Obligations, o => o.Id == ObligationIds.RequireBreakGlassReview);
+    }
+
+    [Fact]
+    public void BreakGlass_DoesNotElevate_MissingScope_MaskingSubjectNotMaker()
+    {
+        // No transactions.write scope (base MissingScope) AND subject != maker (integrity: subject-is-maker).
+        var decision = Evaluate(
+            Teller(), ActionNames.TransactionCreate,
+            Transaction(250m, "user-someone-else"),
+            Grant("user-teller1", ActionNames.TransactionCreate), Now); // no ScopeNames.TransactionsWrite
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.NotEqual(ReasonCodes.BreakGlassInvoked, decision.Reasons[0].Code);
+        Assert.DoesNotContain(decision.Obligations, o => o.Id == ObligationIds.RequireBreakGlassReview);
+    }
+
+    [Fact]
+    public void BreakGlass_DoesNotElevate_MissingScope_MaskingMakerEqualsChecker()
+    {
+        // No approvals.write scope (base MissingScope) AND self-approval (integrity: maker == checker).
+        var decision = Evaluate(
+            Manager(), ActionNames.TransactionApprove,
+            Transaction(15_000m, "user-manager1", "Pending"),
+            Grant("user-manager1", ActionNames.TransactionApprove), Now); // no ScopeNames.ApprovalsWrite
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.NotEqual(ReasonCodes.BreakGlassInvoked, decision.Reasons[0].Code);
+        Assert.DoesNotContain(decision.Obligations, o => o.Id == ObligationIds.RequireBreakGlassReview);
+    }
+
+    [Fact]
+    public void BreakGlass_DoesNotElevate_MissingScope_MaskingNotPending()
+    {
+        // No approvals.write scope (base MissingScope) AND target not pending (integrity: pending-status).
+        var decision = Evaluate(
+            Manager(), ActionNames.TransactionApprove,
+            Transaction(15_000m, "user-teller1", "Approved"),
+            Grant("user-manager1", ActionNames.TransactionApprove), Now); // no ScopeNames.ApprovalsWrite
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.NotEqual(ReasonCodes.BreakGlassInvoked, decision.Reasons[0].Code);
+        Assert.DoesNotContain(decision.Obligations, o => o.Id == ObligationIds.RequireBreakGlassReview);
+    }
+
+    // ---- Positive controls: a PURE missing-capability denial (every hard invariant still holds) DOES
+    // elevate — the guard must not over-block legitimate emergency access ----
+
+    [Fact]
+    public void BreakGlass_Elevates_MissingScope_WhenSubjectIsMaker_AndSameTenant()
+    {
+        // No transactions.write scope, but subject IS the maker and same-tenant: only capability is missing.
+        var decision = Evaluate(
+            Teller(), ActionNames.TransactionCreate,
+            Transaction(250m, "user-teller1"),
+            Grant("user-teller1", ActionNames.TransactionCreate), Now);
+
+        Assert.Equal(Decision.Permit, decision.Decision);
+        Assert.Equal(ReasonCodes.BreakGlassInvoked, decision.Reasons[0].Code);
+        Assert.Contains(decision.Obligations, o => o.Id == ObligationIds.RequireBreakGlassReview);
+    }
+
+    [Fact]
+    public void BreakGlass_Elevates_MissingScope_ForValidChecker_OnPendingSameTenant()
+    {
+        // No approvals.write scope, but a valid checker (different maker), pending, same-tenant: only
+        // capability is missing => elevates.
+        var decision = Evaluate(
+            Manager(), ActionNames.TransactionApprove,
+            Transaction(15_000m, "user-teller1", "Pending"),
+            Grant("user-manager1", ActionNames.TransactionApprove), Now);
+
+        Assert.Equal(Decision.Permit, decision.Decision);
+        Assert.Equal(ReasonCodes.BreakGlassInvoked, decision.Reasons[0].Code);
+        Assert.Contains(decision.Obligations, o => o.Id == ObligationIds.RequireBreakGlassReview);
+    }
+
     // ---- Fail-closed: expiry boundary, null clock, blank/mismatched grant ----
 
     [Fact]

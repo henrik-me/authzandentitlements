@@ -51,11 +51,14 @@ public sealed class PdpDecisionService
             : explained.Decision.ToString();
         var decisionName = explained.Decision.ToString();
 
-        // CS21 heightened audit: flag ONLY an ACTUAL break-glass elevation (a BreakGlassInvoked permit),
+        // CS21 heightened audit: flag ONLY an ACTUAL break-glass elevation (a BreakGlassInvoked PERMIT),
         // not merely the presence of a grant in context, so the audit trail distinguishes a real
         // emergency access from a grant that was carried but never used (e.g. because the base permitted).
+        // Belt-and-suspenders: require the Permit decision too, so the code can never mislabel a
+        // (contract-violating) non-permit that happened to carry the BreakGlassInvoked reason.
         var breakGlassInvoked =
-            string.Equals(reasonCode, ReasonCodes.BreakGlassInvoked, StringComparison.Ordinal);
+            explained.Decision == Decision.Permit
+            && string.Equals(reasonCode, ReasonCodes.BreakGlassInvoked, StringComparison.Ordinal);
 
         activity?.SetTag("pdp.decision", decisionName);
         activity?.SetTag("pdp.reason", reasonCode);

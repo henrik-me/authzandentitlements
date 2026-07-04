@@ -76,8 +76,17 @@ An expired grant, a grant issued to a **different** subject, or a grant for a **
 does **not** elevate — the deny stands (fail-closed). This is the core fintech control: **emergency
 access grants a missing capability; it does not break segregation-of-duties or tenant isolation.**
 
-The elevatable-reason set and the integrity invariants are defined in `ReferenceDecisionProvider`
-(`ElevatableReasons`); the reason codes are in
+**Even when a missing-capability denial *masks* an integrity violation, the deny stands.** The rule
+evaluators check capability (scope/role) *before* integrity (tenant/maker/pending/SoD) and surface
+only the first failure, so a request that lacks a scope *and* crosses tenants reports `MissingScope`
+as its primary reason. Break-glass therefore does **not** elevate on the primary reason alone: before
+elevating it runs an independent hard-invariant guard (`PassesHardInvariants`) that re-checks every
+integrity invariant for the action, and refuses elevation if any would fail. So the elevation applies
+only to a *pure* missing-capability denial.
+
+The elevatable-reason set, the independent hard-invariant guard, and the integrity invariants are
+defined in `ReferenceDecisionProvider` (`ElevatableReasons` + `PassesHardInvariants`); the reason
+codes are in
 [`Reason.cs`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/Reason.cs) and the obligation id in
 [`Obligation.cs`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/Obligation.cs).
 
@@ -165,8 +174,18 @@ reusing the CS19 OBO seam. The effective decision is the **intersection** of thr
 A delegation grant is created with a set of delegated scopes and a positive duration
 ([`DelegationGrantStore.Create`](../../src/AuthzEntitlements.Governance.Service/Delegation/DelegationGrantStore.cs));
 a **self-delegation** (manager == delegate) or an **empty scope set** is rejected **400**. A grant can
-be revoked early (`revokedBy`); revoking an already-revoked grant is **409**. A revoked or expired
-grant is simply **not passed into the PDP context**, so the delegate loses the borrowed capability.
+be revoked early (`revokedBy`); revoking an already-revoked grant is **409**.
+
+**Expiry vs. revocation — where each is enforced.** *Expiry* is authoritative in the PDP itself:
+the reference provider re-checks `Now < ExpiresAt` against the injected decision clock and denies
+`DelegationNotActive` on an expired grant regardless of who constructed the context. *Revocation*,
+by contrast, is a **trust-boundary convention**: the PDP `DelegationGrant` contract carries no
+revocation field, so a caller MUST source grants from the Governance store's active list
+([`DelegationGrantStore`](../../src/AuthzEntitlements.Governance.Service/Delegation/DelegationGrantStore.cs)
+`ListActive`/`IsActive` exclude revoked and expired) and never build PDP context from a revoked
+grant. A caller that (incorrectly) passes a revoked-but-unexpired grant into the context would still
+authorize until expiry — revocation is enforced at the caller, expiry is enforced again at the PDP as
+defence in depth. Making revocation authoritative at PDP evaluation time is a documented follow-up.
 
 **Emergency-elevated OBO — the composition note.** A break-glass elevation applies to the **base**
 decision and is independent of the `Actor`. It does **not** remove the OBO constraints: a delegate

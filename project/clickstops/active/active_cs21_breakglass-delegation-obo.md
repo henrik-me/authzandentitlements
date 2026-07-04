@@ -63,9 +63,13 @@ AFTER the base decision. A base **Deny** whose reason is in the *elevatable* set
 (non-expired, subject+action-matching) break-glass grant is present, carrying reason
 `BreakGlassInvoked` + obligation `RequireBreakGlassReview` (mandatory post-review). Integrity
 invariants `{TenantMismatch, MakerEqualsChecker, SodConflict, SubjectNotMaker, NotPending,
-UnknownAction}` are **never** overridden — the base Deny stands even under an active grant.
-Expired/absent grant ⇒ no elevation. This is the core fintech control: emergency access grants
-missing capability, it does not break segregation-of-duties or tenant isolation.
+UnknownAction}` are **never** overridden. Because `EvaluateCore` surfaces only the FIRST failing
+reason and capability gates run before integrity gates, elevation is NOT decided on the primary
+reason alone: an independent hard-invariant guard (`PassesHardInvariants`) re-checks every integrity
+invariant for the action and refuses elevation if any would fail, so a missing-capability denial can
+never *mask* (and thereby bypass) a co-occurring integrity violation. Expired/absent grant ⇒ no
+elevation. This is the core fintech control: emergency access grants missing capability, it does not
+break segregation-of-duties or tenant isolation.
 
 **Delegation (manager→delegate) = OBO intersection + an active grant (Wave A).** When
 `EvaluationContext.Delegation` is present it is enforced orthogonally to `Actor.Type`:

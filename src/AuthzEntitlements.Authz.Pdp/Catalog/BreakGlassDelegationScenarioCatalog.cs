@@ -73,6 +73,24 @@ public static class BreakGlassDelegationScenarioCatalog
                     BreakGlass(Manager1, ActionNames.TransactionApprove, Active)),
                 Decision.Deny, ReasonCodes.MakerEqualsChecker),
 
+            // ---- Break-glass must NOT elevate when a missing-capability deny MASKS an integrity
+            // violation (regression for the ordering bug: EvaluateCore surfaces the FIRST failure, so a
+            // missing scope can hide a co-occurring tenant/SoD violation). The deny must stand. ----
+            Scenario("break-glass-missing-scope-masking-tenant-mismatch",
+                "No read scope AND cross-tenant: the elevatable MissingScope masks the tenant violation, " +
+                "but break-glass must not elevate — the deny stands.",
+                Teller(Teller1, Contoso), ActionNames.AccountRead, Account(Fabrikam),
+                BreakGlassContext([], BreakGlass(Teller1, ActionNames.AccountRead, Active)),
+                Decision.Deny, ReasonCodes.MissingScope),
+
+            Scenario("break-glass-missing-scope-masking-sod",
+                "No approvals scope AND self-approval: the elevatable MissingScope masks the SoD violation, " +
+                "but break-glass must not elevate — the deny stands.",
+                Manager(Manager1, Contoso), ActionNames.TransactionApprove,
+                Transaction(Contoso, 15_000m, Manager1, "Pending"),
+                BreakGlassContext([], BreakGlass(Manager1, ActionNames.TransactionApprove, Active)),
+                Decision.Deny, ReasonCodes.MissingScope),
+
             // ---- Manager->delegate delegation ----
             Scenario("delegation-active-grant-permits",
                 "A delegate holding the delegated scope acts for a manager under an active grant: permit.",
