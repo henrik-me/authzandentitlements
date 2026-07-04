@@ -219,4 +219,15 @@ time; they have repeatedly been review blockers (LRN-011, LRN-017):
   `xmin` **retry** loop (re-read + re-evaluate) and, on sustained-contention retry exhaustion,
   fails closed with a transient **503** (never a 200 business deny or a 429), per the
   fail-closed convention above (LRN-017).
+
+### Architecture Decision Records (ADRs)
+
+Project ADRs under `docs/adr/` **extend** the base ADR structure (title, date, status,
+context, decision, consequences) with two additional H2 sections, placed after
+`## Consequences` in this order: **`## Alternatives considered`** and
+**`## When to use / when not`**. The when-to-use section carries the CS23 "when to use"
+guidance per engine/decision; the companion evidence lives in the comparison matrix
+(`docs/eval/comparison-matrix.md`) and market survey (`docs/eval/market-survey.md`). ADRs
+are **retrospective** where they formalize an already-shipped decision — each records the
+realizing clickstop in its metadata line (`Realized in: CS<NN>`).
 <!-- harness:local-end id=conventions.project -->
