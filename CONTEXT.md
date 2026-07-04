@@ -252,9 +252,12 @@ translates; contextual/ABAC gates stay with the ABAC engines (documented). `dotn
 `build-test` CI green, `harness lint` 22/0. GPT-5.5 rubber-duck R1–R4 (Go) + 3 Copilot rounds (OpenFGA relation-rule
 correctness + nits, all resolved) + plan-vs-impl GO. New learnings LRN-044..045.
 
-**Next claimable:** with **CS11, CS13, CS16, CS17, CS18, CS20, and CS28 DONE** — and **CS14** (Blazor product UI) + **CS24**
-(perf benchmark) now **active** under other orchestrators — the ready-and-unowned queue includes **CS22**
-(compliance mapping; needs CS11+CS12+CS13) and **CS15** (playground + audit explorer; needs engines + CS13). All five engine
+**CS24 (performance benchmark + tracking) complete** (PR #75, squash-merged 2026-07-04 as `b8c2720`). A new zero-dependency `AuthzEntitlements.Benchmarks` console + test project measures PDP authorization latency by running the shared `FintechScenarioCatalog` through each engine and timing every `Evaluate` allocation-free (`Stopwatch.GetTimestamp`/`GetElapsedTime`): in-process `reference`/`aspnet`/`casbin`/`cedar` are measured; live `opa`/`openfga` **probe-and-self-skip** offline (cancellation-bounded TCP probe — no Docker on the default path). `LatencyStatistics` computes cold + warm **p50/p95/p99** + throughput (nearest-rank); `ResultStore` persists runs as camelCase JSON and is **fail-closed** (malformed/empty/null/unsupported-`schemaVersion`; timeout-bounded git-sha capture); `RegressionDetector` flags warm-p95 regressions vs a committed baseline (25% relative **and** 0.10 ms absolute floor) and `--check` exits non-zero to alert. For live trend tracking, an **append-only `pdp.evaluate.duration` histogram** was added to `PdpTelemetry` + recorded in `PdpDecisionService` (behavior preserved), visualized by a new Grafana `infra/observability/grafana/dashboards/pdp-performance.json` (p50/p95/p99 via `histogram_quantile` + decision throughput). Doc at `docs/eval/performance-benchmarks.md`. `dotnet build` 0/0; full solution `dotnet test` **868/868** (Benchmarks.Tests 52). GPT-5.5 rubber-duck (full-diff Go) + **6 Copilot rounds** — each a real fail-closed/robustness hardening (subprocess hang, dup-engine/dup-baseline, `schemaVersion` validation, probe-cancel, frozen `JsonSerializerOptions` + non-negative tolerance) all resolved — + plan-vs-impl GO. Plan D2 "caching" was scoped to the cold/warm split (not explicit cache hit/miss — documented divergence; test-coverage follow-ups noted). New learnings LRN-046..047.
+
+**Next claimable:** with **CS11, CS13, CS16, CS17, CS18, CS20, CS24, and CS28 DONE** — and **CS14** (Blazor product UI) now
+**active** under another orchestrator — the ready-and-unowned queue includes **CS22**
+(compliance mapping; needs CS11+CS12+CS13) and **CS15** (playground + audit explorer; needs engines + CS13). CS24 done does not
+yet unblock CS23 (still needs CS15) or CS25 (still needs CS23). All five engine
 adapters + the unified explanation model are DONE; `harness lint` is green and the remaining CSs carry an independent GPT-5.5
 `## Plan review` attestation.
 

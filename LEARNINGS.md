@@ -916,6 +916,47 @@ tags: [ci, copilot, review-gates, github-actions]
 **Implications carried forward:**
 - Every .NET content-PR (CS22/CS24/CS14/CS15…): after the final fix commit, re-request Copilot at the merge HEAD, then re-run the failed `read-only-gates` job once Copilot's current-HEAD review lands; expect the review-triggered re-run to need a manual nudge.
 
+### LRN-046
+
+```yaml
+id: LRN-046
+date: 2026-07-04
+category: tooling
+source_cs: CS24
+status: open
+tags: [dotnet, system-text-json, framework-reference, build]
+```
+
+**Problem:** Two .NET build/runtime gotchas surfaced building CS24's benchmark project (a plain `Microsoft.NET.Sdk` console/test project referencing the ASP.NET-Core `Authz.Pdp` project, and freezing a shared `JsonSerializerOptions`).
+
+**Finding:** (1) `JsonSerializerOptions.MakeReadOnly()` (parameterless) throws `InvalidOperationException: ... must specify a TypeInfoResolver ... before being marked as read-only` for the default reflection-based serializer; use the `MakeReadOnly(populateMissingResolver: true)` overload to populate the default reflection resolver **and** freeze the instance (freezing is worth doing — a shared mutable `JsonSerializerOptions` that defines an on-disk contract is a footgun). (2) `<FrameworkReference Include="Microsoft.AspNetCore.App" />` does **not** transitively propagate from a referenced `Microsoft.NET.Sdk.Web` project to a plain console/test `Microsoft.NET.Sdk` project; any project that transitively touches ASP.NET-Core types (e.g. constructs the `aspnet` engine adapter) must declare the `FrameworkReference` itself.
+
+**Evidence:** CS24 PR #75 — the benchmark console + test csproj each needed `<FrameworkReference Include="Microsoft.AspNetCore.App" />`; `BenchmarkJson.Options` failed at type-init with the bare `MakeReadOnly()` (`ResultStoreTests` → `TypeInitializationException`) until switched to `MakeReadOnly(populateMissingResolver: true)`.
+
+**Implications carried forward:**
+- Any new non-Web .NET project referencing a `Sdk.Web` src project: add the `FrameworkReference` up front (matches the CS-tests convention).
+- Freeze reflection-based shared `JsonSerializerOptions` with `MakeReadOnly(populateMissingResolver: true)`.
+
+### LRN-047
+
+```yaml
+id: LRN-047
+date: 2026-07-04
+category: process
+source_cs: CS24
+status: open
+tags: [review, copilot, dotnet, fail-closed, robustness]
+```
+
+**Problem:** CS24's new .NET benchmark CLI passed a full-diff GPT-5.5 rubber-duck review (Go, no findings), but Copilot then surfaced a distinct legitimate robustness issue on each of 6 consecutive rounds.
+
+**Finding:** For new .NET tool/CLI/parsing code, budget multiple Copilot rounds and expect Copilot to systematically catch **fail-closed / resource-cleanliness** gaps the rubber-duck misses: a subprocess `ReadToEnd`-before-`WaitForExit` hang, silently-accepted duplicate inputs (`--engines`, duplicate baseline keys), missing `schemaVersion` validation on deserialize, an uncancelled/unobserved async connect on a timeout probe, a mutable shared `JsonSerializerOptions`, and unvalidated numeric arguments. Each was a real hardening — treat "one Copilot finding per round" as convergence-in-progress, not noise (cf. LRN-031/024). Decline only with an explicit on-thread rationale (e.g. the leading-`-` value guard is intentional per LRN-040).
+
+**Evidence:** CS24 PR #75 — 6 Copilot rounds (`fa0dd95`→`93408c8`), one valid fail-closed/robustness finding each, all fixed with tests (benchmark tests 46→52); the GPT-5.5 full-diff review found none of them.
+
+**Implications carried forward:**
+- CS22/CS15 and any new .NET CLI/tool code: pre-empt these classes (bounded subprocesses, dedupe inputs, validate schema + numeric args, cancel/await async probes, freeze shared config) before first review to cut Copilot rounds.
+
 ## Applied
 
 _(no entries yet)_
