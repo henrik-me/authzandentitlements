@@ -29,6 +29,12 @@ public static class PdpServiceCollectionExtensions
         services.AddSingleton<OpenFgaRebacService>();
         services.AddSingleton<IAuthorizationDecisionProvider, OpenFgaProvider>();
 
+        // Cedar adapter (CS09): a genuine in-process Cedar policy engine (MonoCloud.Cedar native
+        // bindings) that owns the FULL fintech decision natively — the head-to-head with OPA. No
+        // HttpClient/options needed (in-process). Selection stays config-driven: "Pdp:Provider"
+        // defaults to "reference", so registering this adapter does not change the active engine.
+        services.AddSingleton<IAuthorizationDecisionProvider, Adapters.Cedar.CedarDecisionProvider>();
+
         // OPA adapter (CS08): an out-of-process Rego engine reached over its REST data API. Bind
         // its options, register a named HttpClient (base address + timeout from config), and add
         // the provider. Selection stays config-driven — "Pdp:Provider" defaults to "reference", so

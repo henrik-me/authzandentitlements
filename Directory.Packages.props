@@ -98,6 +98,16 @@
     <PackageVersion Include="Casbin.NET" Version="2.21.2" />
   </ItemGroup>
 
+  <!--
+    CS09 (Adapter: Cedar). MonoCloud.Cedar is the in-process Cedar policy engine backing the
+    "cedar" PDP adapter — a fork of cedar-policy/cedar-java that ships prebuilt native bindings
+    (win/linux/osx x64+arm64) and targets .NET 10, so Cedar owns the full fintech decision
+    natively (head-to-head with OPA) with no separate process. 0.1.0 is the latest stable.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="MonoCloud.Cedar" Version="0.1.0" />
+  </ItemGroup>
+
   <!-- CS02: xUnit test stack for the pure-domain unit tests. -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
