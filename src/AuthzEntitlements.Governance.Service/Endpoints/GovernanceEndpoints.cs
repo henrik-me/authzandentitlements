@@ -495,12 +495,16 @@ public static class GovernanceEndpoints
             return Problem("campaign has already been run", StatusCodes.Status409Conflict);
         }
 
+        var now = DateTimeOffset.UtcNow;
+        // Only currently-active grants receive a review item — push the IsActive predicate
+        // (RevokedAt == null && now < ExpiresAt) into the query so expired/revoked grants are never
+        // materialised. The pure planner re-checks IsActive defensively, so passing only active
+        // grants keeps the result identical.
         var grants = await db.AccessGrants.AsNoTracking()
-            .Where(g => g.TenantCode == campaign.TenantCode)
+            .Where(g => g.TenantCode == campaign.TenantCode
+                        && g.RevokedAt == null && g.ExpiresAt > now)
             .ToListAsync(ct);
 
-        var now = DateTimeOffset.UtcNow;
-        // Pure planner materialises one Pending item per currently-active grant in tenant.
         var items = ReviewCampaignPlanner.BuildItems(campaign, grants, now);
         foreach (var item in items)
         {
