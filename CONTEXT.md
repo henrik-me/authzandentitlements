@@ -220,11 +220,28 @@ the `push`→`main` run detects such breaks reactively. Verified **live**: `buil
 review (Go-with-amendments) + content rubber-duck (Go, 2 Copilot rounds) + plan-vs-impl GO. LRN-035 updated (core gap
 addressed; enforcement residual kept open).
 
-**Next claimable:** with **CS11, CS13, CS16, and CS17 DONE**,
-the ready-and-unowned queue includes **CS18** (security hardening; needs CS04+CS05),
-**CS20** (migration & portability; needs CS05–CS08), and **CS24** (perf benchmark; needs engines + CS12). **All five engine adapters
-plus the unified explanation model are DONE**; CS11 completion advances **CS14** (Blazor product UI; needs CS03/CS04/CS06/CS10/CS11) and
-**CS22** (compliance mapping; needs CS11+CS12+CS13). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
+**CS18 (security hardening + threat model) complete** (PR #69, squash-merged 2026-07-04 as `8fb4106`). A STRIDE threat
+model for the authorization system itself: `docs/security/threat-model.md` maps 10 trust boundaries and every STRIDE
+category to its **shipped, `file:line`-cited** control, residual risk, and tracked follow-on — covering the four
+called-out threats (token replay/forgery, confused-deputy, tuple/policy tampering, fail-closed-on-PDP-outage). Recon
+confirmed the posture was **already strong** (issuer/audience/signature/lifetime token validation, `MapInboundClaims=false`,
+HTTPS-metadata-outside-Dev; maker/checker/tenant bound to the token or the trusted resource row, never caller input;
+fail-closed-on-outage across every PDP engine + entitlements + governance SoD — all built+tested in CS03–CS11), so CS18 is
+predominantly **threat-model + verification + targeted hardening**. Hardening: both JWT setups (`AuthenticationSetup.cs`,
+`GatewayAuthenticationSetup.cs`) gain an explicit tightened `ClockSkew` (30s, from the 5-min default) + `RequireExpirationTime`
++ `RequireSignedTokens` + `ValidateIssuerSigningKey`, with new offline token-security tests (config assertions + functional
+expired/tampered/wrong-aud/wrong-iss/missing-exp rejection) in both test projects. `docs/security/secrets-and-least-privilege.md`
+inventories the dev-only committed secrets (all confirmed dev-only; the Postgres password is an Aspire parameter), a
+least-privilege review, and a production hardening checklist. Engine tuple/policy **cryptographic signing** is a tracked
+follow-on (R1 plan-review amendment — drift detection ≠ signature). `dotnet build` 0/0; full solution `dotnet test`
+**784/784**; `build-test` CI green. GPT-5.5 rubber-duck R1+R2 (Go) + Copilot (4 comments → explicit `ValidateIssuerSigningKey`
++ test hygiene, all addressed) + plan-vs-impl GO. New learnings LRN-042..043.
+
+**Next claimable:** with **CS11, CS13, CS16, CS17, CS18, and CS28 DONE** — and **CS14** (Blazor product UI) + **CS20**
+(migration & portability) now **active** under other orchestrators — the ready-and-unowned queue includes **CS24**
+(perf benchmark; needs engines + CS12), **CS22** (compliance mapping; needs CS11+CS12+CS13), and **CS15** (playground +
+audit explorer; needs engines + CS13). All five engine adapters + the unified explanation model are DONE; `harness lint`
+is green and the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
 
 ## Constraints
 

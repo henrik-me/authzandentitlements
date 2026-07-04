@@ -1,10 +1,10 @@
 # CS18 — Security hardening + threat model
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae
 **Branch:** cs18/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
 **Depends on:** CS04, CS05
