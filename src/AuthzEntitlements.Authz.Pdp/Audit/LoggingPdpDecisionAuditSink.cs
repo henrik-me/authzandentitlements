@@ -16,17 +16,25 @@ public sealed class LoggingPdpDecisionAuditSink(ILogger<LoggingPdpDecisionAuditS
             decisionEvent.Decision,
             decisionEvent.Reason,
             decisionEvent.Provider,
-            decisionEvent.Action,
-            decisionEvent.ResourceType,
-            decisionEvent.ResourceId,
-            decisionEvent.SubjectId,
-            decisionEvent.SubjectType,
-            decisionEvent.ActorType,
-            decisionEvent.ActorId,
-            decisionEvent.Tenant,
+            Clean(decisionEvent.Action),
+            Clean(decisionEvent.ResourceType),
+            Clean(decisionEvent.ResourceId),
+            Clean(decisionEvent.SubjectId),
+            Clean(decisionEvent.SubjectType),
+            Clean(decisionEvent.ActorType),
+            Clean(decisionEvent.ActorId),
+            Clean(decisionEvent.Tenant),
             decisionEvent.DeterminingRule,
             string.Join(" | ", decisionEvent.PolicyReferences),
-            decisionEvent.Narrative,
+            Clean(decisionEvent.Narrative),
             decisionEvent.TraceId,
             decisionEvent.TimestampUtc);
+
+    // Strip CR/LF from request-derived values before they reach the rendered log line, so an
+    // untrusted subject/actor id or type (the /evaluate body is anonymous, caller-controlled)
+    // cannot inject newlines to forge a fake log entry (CWE-117 log injection). Only the
+    // human-readable log string is sanitized; the audit-of-record (PdpDecisionAuditEvent ->
+    // Audit.Service hash chain) keeps the raw values.
+    private static string? Clean(string? value) =>
+        value?.Replace('\r', ' ').Replace('\n', ' ');
 }

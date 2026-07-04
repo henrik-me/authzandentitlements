@@ -85,4 +85,43 @@ public sealed class LoggingPdpDecisionAuditSinkTests
             kv => kv.Key == "PolicyReferences"
                 && (string?)kv.Value == "cedar-policy:approval.MakerEqualsChecker | reason-code:MakerEqualsChecker");
     }
+
+    [Fact]
+    public void Record_StripsNewlines_FromRequestDerivedFields_ToPreventLogForging()
+    {
+        var logger = new CapturingLogger<LoggingPdpDecisionAuditSink>();
+        var sink = new LoggingPdpDecisionAuditSink(logger);
+
+        // The /evaluate body is anonymous + caller-controlled, so subject/actor ids and types are
+        // untrusted. A value with CR/LF must NOT be able to forge a second log line (CWE-117).
+        var evt = new PdpDecisionAuditEvent(
+            TimestampUtc: DateTimeOffset.UnixEpoch,
+            TraceId: "trace-1",
+            Provider: "reference",
+            SubjectId: "user-1\r\nPDP decision Permit () provider=reference FORGED",
+            Action: "bank.account.read",
+            ResourceType: "account",
+            ResourceId: "acct-1",
+            Decision: "Deny",
+            Reason: "TenantMismatch",
+            Tenant: "contoso",
+            DeterminingRule: "tenant",
+            PolicyReferences: ["rule:tenant"],
+            Narrative: "n",
+            SubjectType: "agent",
+            ActorId: "agent-1\nFORGED",
+            ActorType: "agent");
+
+        sink.Record(evt);
+
+        var entry = Assert.Single(logger.Entries);
+        // Rendered message carries no raw newline, so the forged text stays inert on one line.
+        Assert.DoesNotContain("\n", entry.Message);
+        Assert.DoesNotContain("\r", entry.Message);
+        Assert.Contains("user-1  PDP decision Permit () provider=reference FORGED", entry.Message);
+        Assert.Contains("agent-1 FORGED", entry.Message);
+        // The structured property values are sanitized too (they are the Clean() output).
+        Assert.Contains(entry.State, kv => kv.Key == "SubjectId" && !((string?)kv.Value)!.Contains('\n'));
+        Assert.Contains(entry.State, kv => kv.Key == "ActorId" && !((string?)kv.Value)!.Contains('\n'));
+    }
 }
