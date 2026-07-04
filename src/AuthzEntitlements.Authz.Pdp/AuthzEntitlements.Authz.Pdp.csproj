@@ -10,6 +10,11 @@
     <ProjectReference Include="..\AuthzEntitlements.ServiceDefaults\AuthzEntitlements.ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <!-- CS07: OpenFGA (ReBAC) engine client. Version is centrally managed (CPM). -->
+  <ItemGroup>
+    <PackageReference Include="OpenFga.Sdk" />
+  </ItemGroup>
+
   <!-- CS06: Casbin.NET backs the in-process "casbin" RBAC/ABAC PDP adapter. -->
   <ItemGroup>
     <PackageReference Include="Casbin.NET" />

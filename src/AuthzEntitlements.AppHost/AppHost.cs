@@ -46,7 +46,7 @@ var postgres = builder.AddPostgres("postgres")
     .WithDataVolume();
 
 var bankDb = postgres.AddDatabase("bank");
-postgres.AddDatabase("openfga");
+var openfgaDb = postgres.AddDatabase("openfga");
 var entitlementsDb = postgres.AddDatabase("entitlements");
 postgres.AddDatabase("governance");
 postgres.AddDatabase("audit");
@@ -150,13 +150,50 @@ builder.AddProject<Projects.AuthzEntitlements_Bank_Web>("bank-web")
     .WaitFor(observability)
     .WithExternalHttpEndpoints();
 
+// CS07 — OpenFGA (ReBAC / Zanzibar) engine backing the config-gated "openfga" PDP provider.
+// Kept OFF the default critical path exactly like Unleash: both containers use
+// .WithExplicitStart() so `aspire run` and the deterministic reference PDP never start or block
+// on OpenFGA, and authz-pdp is given the endpoint coordinates WITHOUT a hard WaitFor. OpenFGA
+// stores its ReBAC tuples in its own `openfga` database on the shared postgres server; the
+// datastore URI is assembled from the postgres endpoint host/port and password parameter (the
+// same pattern the Unleash wiring uses). The image tag is pinned for determinism.
+const string openfgaImage = "openfga/openfga";
+const string openfgaImageTag = "v1.18.1";
+
+// postgres://postgres:{password}@{host}:{port}/openfga?sslmode=disable — the DSN OpenFGA's
+// postgres datastore expects, built as a ReferenceExpression so the runtime host/port/password
+// are resolved by Aspire (not captured at build time).
+var openfgaDatastoreUri = ReferenceExpression.Create(
+    $"postgres://postgres:{postgres.Resource.PasswordParameter}@{postgres.Resource.PrimaryEndpoint.Property(EndpointProperty.Host)}:{postgres.Resource.PrimaryEndpoint.Property(EndpointProperty.Port)}/openfga?sslmode=disable");
+
+// One-shot schema migration for OpenFGA's postgres datastore. Explicit-start so it never runs on
+// a plain `aspire run`; the server below waits for it to complete before serving.
+var openfgaMigrate = builder.AddContainer("openfga-migrate", openfgaImage, openfgaImageTag)
+    .WithArgs("migrate")
+    .WithEnvironment("OPENFGA_DATASTORE_ENGINE", "postgres")
+    .WithEnvironment("OPENFGA_DATASTORE_URI", openfgaDatastoreUri)
+    .WaitFor(openfgaDb)
+    .WithExplicitStart();
+
+// The OpenFGA server. HTTP API on 8080 (gRPC 8081, playground 3000 are not exposed). Runs the
+// migration first, then serves; explicit-start keeps it off the default path.
+var openfga = builder.AddContainer("openfga", openfgaImage, openfgaImageTag)
+    .WithArgs("run")
+    .WithEnvironment("OPENFGA_DATASTORE_ENGINE", "postgres")
+    .WithEnvironment("OPENFGA_DATASTORE_URI", openfgaDatastoreUri)
+    .WithHttpEndpoint(targetPort: 8080, name: "http")
+    .WaitForCompletion(openfgaMigrate)
+    .WithExplicitStart();
+
 // CS05 — unified AuthZEN-aligned fine-grained PDP. A standalone in-process reference host
 // (no database, no WithReference): it answers the shared decision contract with the
 // deterministic reference engine. Wiring Bank.Api to call it is deliberately out of CS05
 // scope; the adapter engines (CS06-CS09) register behind its config-driven provider seam.
+// CS07 injects OpenFGA's endpoint (no hard WaitFor — matching Unleash) so switching
+// Pdp__Provider=openfga works once the explicit-start container is running. CS12 fans the PDP's
+// own PDP-decision OTLP telemetry out to the persistent observability collector like the other services.
 builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-pdp")
-    // CS12 — authz-pdp uses ServiceDefaults and emits its own PDP-decision ActivitySource/Meter,
-    // so fan its OTLP telemetry out to the persistent observability collector like the other services.
+    .WithEnvironment("Pdp__OpenFga__ApiUrl", openfga.GetEndpoint("http"))
     .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
     // CS08 — OPA coordinates for the config-gated `opa` provider. Injected unconditionally (like the
     // Unleash coordinates) so Pdp__Provider=opa works without further wiring; no WaitFor(opa) keeps

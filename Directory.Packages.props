@@ -76,6 +76,18 @@
   </ItemGroup>
 
   <!--
+    CS07 (Adapter: OpenFGA / ReBAC — Zanzibar). OpenFga.Sdk is the official .NET client
+    for the OpenFGA relationship-based authorization engine. It backs the config-gated
+    "openfga" PDP provider (Pdp:Provider=openfga) and is never on the default tested path:
+    the reference engine stays the default, and the client is built lazily only when the
+    openfga provider is actually exercised against a running server. Pinned to 0.10.3 for
+    reproducible restores.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="OpenFga.Sdk" Version="0.10.3" />
+  </ItemGroup>
+
+  <!--
     CS06 (Adapters: ASP.NET Core policies + Casbin.NET). Casbin.NET is the in-process
     RBAC/ABAC engine backing the "casbin" PDP adapter, part of the container-free "lite"
     profile. 2.21.2 is the latest stable (targets netstandard2.0/2.1; forward-compatible
