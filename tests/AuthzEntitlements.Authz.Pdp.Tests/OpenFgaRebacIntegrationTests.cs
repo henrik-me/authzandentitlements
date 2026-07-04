@@ -1,5 +1,8 @@
+using System.Text.Json;
 using AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
 using Microsoft.Extensions.Options;
+using OpenFga.Sdk.Client;
+using OpenFga.Sdk.Client.Model;
 using Xunit;
 
 namespace AuthzEntitlements.Authz.Pdp.Tests;
@@ -98,5 +101,49 @@ public sealed class OpenFgaRebacIntegrationTests
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.EnsureBootstrappedAsync());
         Assert.Contains("ApiUrl", ex.Message);
+    }
+
+    [Fact]
+    public async Task PinnedModelId_Bootstraps_WithoutWritingANewModelVersion()
+    {
+        // LRN-031: a PINNED authorization-model id must bootstrap WITHOUT writing a new model version
+        // (the per-boot growth this pin exists to stop) yet still seed tuples and answer forward checks.
+        // The test writes a model directly (owning its id), records the model-version count, bootstraps a
+        // service pinned to that id, and asserts the count is UNCHANGED and every forward scenario still
+        // resolves. Self-skips offline like the others.
+        var url = Environment.GetEnvironmentVariable("OPENFGA_TEST_API_URL");
+        if (string.IsNullOrWhiteSpace(url)) { return; } // Soft-skip: no server configured.
+
+        var storeName = $"authz-rebac-pin-{Guid.NewGuid():N}";
+        using var admin = new OpenFgaClient(new ClientConfiguration { ApiUrl = url });
+        var store = await admin.CreateStore(new ClientCreateStoreRequest { Name = storeName });
+        admin.StoreId = store.Id;
+
+        var modelRequest = JsonSerializer.Deserialize<ClientWriteAuthorizationModelRequest>(RebacModel.Json)
+            ?? throw new InvalidOperationException("The embedded ReBAC model failed to parse.");
+        var written = await admin.WriteAuthorizationModel(modelRequest);
+        var pinnedModelId = written.AuthorizationModelId;
+
+        var modelsBefore = (await admin.ReadAuthorizationModels()).AuthorizationModels.Count;
+
+        var pinned = new OpenFgaRebacService(Options.Create(new OpenFgaOptions
+        {
+            ApiUrl = url,
+            StoreName = storeName,
+            AuthorizationModelId = pinnedModelId,
+        }));
+        await pinned.EnsureBootstrappedAsync();
+
+        // The pin wrote NO new authorization-model version — the whole point of LRN-031.
+        var modelsAfter = (await admin.ReadAuthorizationModels()).AuthorizationModels.Count;
+        Assert.Equal(modelsBefore, modelsAfter);
+
+        // ...and the pinned model still answers the forward-check catalog (seed tuples were reconciled).
+        foreach (var s in RebacScenarioCatalog.Forward)
+        {
+            var allowed = await pinned.CheckAsync(
+                $"{RebacTypes.User}:{s.UserId}", s.Relation, $"{RebacTypes.Account}:{s.ObjectId}");
+            Assert.True(allowed == s.ExpectAllowed, $"{s.Id}: expected {s.ExpectAllowed} got {allowed}");
+        }
     }
 }

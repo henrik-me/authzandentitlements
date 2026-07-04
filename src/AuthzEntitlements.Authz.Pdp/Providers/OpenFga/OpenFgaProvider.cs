@@ -25,10 +25,10 @@ public sealed class OpenFgaProvider : IAuthorizationDecisionProvider
     private const string EngineUnavailableMessage =
         "The OpenFGA authorization engine could not be reached; failing closed (deny).";
 
-    private readonly OpenFgaRebacService _service;
+    private readonly IOpenFgaCheckClient _service;
     private readonly ILogger<OpenFgaProvider> _logger;
 
-    public OpenFgaProvider(OpenFgaRebacService service, ILogger<OpenFgaProvider> logger)
+    public OpenFgaProvider(IOpenFgaCheckClient service, ILogger<OpenFgaProvider> logger)
     {
         _service = service;
         _logger = logger;
