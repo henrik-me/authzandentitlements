@@ -37,22 +37,25 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
 
     public string Name => "reference";
 
-    // Constrained delegation (CS19). The public entry point computes the base (human) decision
-    // unchanged, then applies the on-behalf-of (OBO) constraint when the Subject carries an Actor:
+    // The public entry point composes three stages over the pure base decision (EvaluateCore):
     //
-    //   * Actor == null            -> return the base decision byte-identical (direct human/service
-    //                                 path; the "human path unaffected" guarantee).
-    //   * Actor present, base Deny -> return the base Deny unchanged (the human is not permitted, so
-    //                                 the agent — which can never exceed the human — is not either;
-    //                                 the human reason is preserved so the denial is explained the
-    //                                 same way for the agent as for the user).
-    //   * Actor present, base Permit -> require the delegated scope for the action class. The agent
-    //                                 is authorized only at the INTERSECTION of the human's rights
-    //                                 and its own delegated scopes; a missing/unmapped delegated
-    //                                 scope denies DelegationScopeMissing (fail-closed).
+    //   1. BREAK-GLASS ELEVATION (CS21, independent of Actor). A base Deny for a MISSING CAPABILITY
+    //      (MissingScope / RoleNotAuthorized) is raised to a Permit when an active, matching break-glass
+    //      grant is present; integrity denials are never elevated. See ApplyBreakGlass.
+    //   2. CONSTRAINED DELEGATION (CS19). When the Subject carries an Actor the (possibly elevated)
+    //      decision is constrained to the on-behalf-of (OBO) intersection:
+    //        * Actor == null            -> return the base decision byte-identical (direct human/service
+    //                                      path; the "human path unaffected" guarantee).
+    //        * Actor present, base Deny -> return the base Deny unchanged (the human is not permitted, so
+    //                                      the agent — which can never exceed the human — is not either).
+    //        * Actor present, base Permit -> require the delegated scope for the action class; a missing/
+    //                                      unmapped delegated scope denies DelegationScopeMissing.
+    //   3. MANAGER->DELEGATE GRANT (CS21). When Context.Delegation is present the OBO call additionally
+    //      requires an active, matching delegation grant (manager==Subject, delegate==Actor, not expired),
+    //      else DelegationNotActive. Absent Delegation ⇒ exactly the CS19 agent-OBO behaviour.
     public AccessDecision Evaluate(AccessRequest request)
     {
-        var baseDecision = EvaluateCore(request);
+        var baseDecision = ApplyBreakGlass(request, EvaluateCore(request));
 
         if (request.Subject.Actor is null)
         {
@@ -73,16 +76,94 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
             && actor.Scopes is not null
             && actor.Scopes.Any(s => string.Equals(s, required, StringComparison.Ordinal));
 
-        if (satisfied)
+        if (!satisfied)
+        {
+            return Explain(AccessDecision.Deny(new Reason(
+                ReasonCodes.DelegationScopeMissing,
+                $"Agent '{actor.Id}' is not authorized to '{request.Action.Name}' on behalf of subject " +
+                $"'{request.Subject.Id}': missing delegated scope '{required ?? "(none defined)"}'.")));
+        }
+
+        // CS21 manager->delegate grant: when a delegation grant is carried in context it must be active
+        // and match this manager (Subject) -> delegate (Actor); otherwise fail closed. Absent grant ⇒
+        // the CS19 agent-OBO path is unchanged (this check is skipped entirely).
+        if (request.Context.Delegation is { } delegation && !IsActiveDelegation(delegation, request))
+        {
+            return Explain(AccessDecision.Deny(new Reason(
+                ReasonCodes.DelegationNotActive,
+                $"Delegate '{actor.Id}' may not act for manager '{request.Subject.Id}': delegation grant " +
+                $"'{delegation.GrantId}' is not active (absent, expired, or non-matching).")));
+        }
+
+        return baseDecision;
+    }
+
+    // The break-glass elevatable reason set (CS21): a base Deny whose primary reason is a MISSING
+    // CAPABILITY (the subject lacks a scope or an eligible role). ONLY these are ever raised by a
+    // break-glass grant; every integrity invariant (tenant isolation, maker-checker / SoD,
+    // subject-is-maker, pending-status, unknown-action) is deliberately absent, so an active grant
+    // can never bypass it — emergency access grants missing capability, it does not break integrity.
+    private static readonly HashSet<string> ElevatableReasons =
+        new(StringComparer.Ordinal)
+        {
+            ReasonCodes.MissingScope,
+            ReasonCodes.RoleNotAuthorized,
+        };
+
+    // Break-glass emergency elevation (CS21), applied AFTER the base decision and INDEPENDENTLY of any
+    // Actor. A base Deny whose primary reason is elevatable is raised to a Permit carrying
+    // BreakGlassInvoked + the mandatory-post-review obligation ONLY when an active, matching break-glass
+    // grant is present. Fail-closed: a non-Deny base, an empty reason list, a non-elevatable reason, an
+    // absent grant, or an inactive/mismatched grant all leave the base decision untouched.
+    private static AccessDecision ApplyBreakGlass(AccessRequest request, AccessDecision baseDecision)
+    {
+        if (baseDecision.Decision != Decision.Deny
+            || baseDecision.Reasons.Count == 0
+            || !ElevatableReasons.Contains(baseDecision.Reasons[0].Code))
         {
             return baseDecision;
         }
 
-        return Explain(AccessDecision.Deny(new Reason(
-            ReasonCodes.DelegationScopeMissing,
-            $"Agent '{actor.Id}' is not authorized to '{request.Action.Name}' on behalf of subject " +
-            $"'{request.Subject.Id}': missing delegated scope '{required ?? "(none defined)"}'.")));
+        if (request.Context.BreakGlass is not { } grant || !IsActiveBreakGlass(grant, request))
+        {
+            return baseDecision;
+        }
+
+        return Explain(AccessDecision.Permit(
+            new Reason(
+                ReasonCodes.BreakGlassInvoked,
+                $"Break-glass grant '{grant.GrantId}' elevates a denied request " +
+                $"({baseDecision.Reasons[0].Code}) for subject '{request.Subject.Id}' to permit; " +
+                $"justification: {grant.Justification}. Mandatory post-review required."),
+            new Obligation(ObligationIds.RequireBreakGlassReview)));
     }
+
+    // A break-glass grant is active + matching for this request when it names this subject and action
+    // and has not expired against the INJECTED decision clock (Context.Now). Fail-closed: a blank grant
+    // subject, a blank request subject, a null clock, or Now >= ExpiresAt all mean "not active". Expiry
+    // uses strict '<' so the exact expiry instant is already expired.
+    private static bool IsActiveBreakGlass(BreakGlassGrant grant, AccessRequest request) =>
+        !string.IsNullOrWhiteSpace(grant.SubjectId)
+        && !string.IsNullOrWhiteSpace(request.Subject.Id)
+        && string.Equals(grant.SubjectId, request.Subject.Id, StringComparison.Ordinal)
+        && string.Equals(grant.Action, request.Action.Name, StringComparison.Ordinal)
+        && request.Context.Now is { } now
+        && now < grant.ExpiresAt;
+
+    // A delegation grant is active + matching when it names this manager (the human Subject) and this
+    // delegate (the Actor) and has not expired against the injected clock. Fail-closed on a blank
+    // manager/delegate id, a missing Actor, a null clock, or Now >= ExpiresAt. Strict '<' so the expiry
+    // instant is already expired.
+    private static bool IsActiveDelegation(DelegationGrant grant, AccessRequest request) =>
+        request.Subject.Actor is { } actor
+        && !string.IsNullOrWhiteSpace(grant.ManagerId)
+        && !string.IsNullOrWhiteSpace(request.Subject.Id)
+        && string.Equals(grant.ManagerId, request.Subject.Id, StringComparison.Ordinal)
+        && !string.IsNullOrWhiteSpace(grant.DelegateId)
+        && !string.IsNullOrWhiteSpace(actor.Id)
+        && string.Equals(grant.DelegateId, actor.Id, StringComparison.Ordinal)
+        && request.Context.Now is { } now
+        && now < grant.ExpiresAt;
 
     private AccessDecision EvaluateCore(AccessRequest request) => request.Action.Name switch
     {

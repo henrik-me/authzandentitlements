@@ -51,6 +51,12 @@ public sealed class PdpDecisionService
             : explained.Decision.ToString();
         var decisionName = explained.Decision.ToString();
 
+        // CS21 heightened audit: flag ONLY an ACTUAL break-glass elevation (a BreakGlassInvoked permit),
+        // not merely the presence of a grant in context, so the audit trail distinguishes a real
+        // emergency access from a grant that was carried but never used (e.g. because the base permitted).
+        var breakGlassInvoked =
+            string.Equals(reasonCode, ReasonCodes.BreakGlassInvoked, StringComparison.Ordinal);
+
         activity?.SetTag("pdp.decision", decisionName);
         activity?.SetTag("pdp.reason", reasonCode);
 
@@ -88,7 +94,12 @@ public sealed class PdpDecisionService
             Narrative: explained.Explanation!.Narrative,
             SubjectType: request.Subject.Type,
             ActorId: request.Subject.Actor?.Id,
-            ActorType: request.Subject.Actor?.Type));
+            ActorType: request.Subject.Actor?.Type,
+            // Heightened audit reflects an ACTUAL break-glass permit; the grant id is recorded only when
+            // it was invoked. DelegationId records any delegation grant carried in context (matched or not).
+            BreakGlass: breakGlassInvoked,
+            BreakGlassGrantId: breakGlassInvoked ? request.Context.BreakGlass?.GrantId : null,
+            DelegationId: request.Context.Delegation?.GrantId));
 
         return explained;
     }

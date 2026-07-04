@@ -31,6 +31,8 @@ public static class DeterminingRules
     public const string UnknownAction = "unknown-action";              // UnknownAction
     public const string EngineUnavailable = "engine-unavailable";      // provider-local fail-closed
     public const string DelegationScope = "delegation-scope";          // DelegationScopeMissing (CS19 OBO)
+    public const string BreakGlass = "break-glass";                    // BreakGlassInvoked (CS21)
+    public const string Delegation = "delegation";                     // DelegationNotActive (CS21)
 }
 
 // The kinds of engine-native policy artifacts surfaced in PolicyReference.Kind.
