@@ -5,8 +5,7 @@
 > moving to patched package versions (so their suppressions were dropped) and which pin
 > is **retained** with a dated justification, so the build-time audit gate stays
 > meaningful rather than accumulating stale suppressions. It closes the **LRN-003** and
-> **LRN-005** re-evaluation debt tracked by
-> [`active_cs30_nuget-suppression-pin-reeval.md`](../../project/clickstops/active/active_cs30_nuget-suppression-pin-reeval.md).
+> **LRN-005** re-evaluation debt tracked by the **CS30** clickstop plan.
 
 ## Status & scope
 
@@ -64,8 +63,8 @@ Revisit this note when either upstream ships a fix that lets a pin drop:
 
 ## References
 
-- [CS30 plan](../../project/clickstops/active/active_cs30_nuget-suppression-pin-reeval.md) —
-  goal, decisions, deliverables, and exit criteria.
+- **CS30 clickstop plan** (`project/clickstops/` — `active/` while in flight, `done/` after
+  close-out) — goal, decisions, deliverables, and exit criteria.
 - [`Directory.Packages.props`](../../Directory.Packages.props) — the OTel version bumps
   and the MessagePack / Microsoft.Build.* transitive pins.
 - [`Directory.Build.props`](../../Directory.Build.props) — `TreatWarningsAsErrors` and
