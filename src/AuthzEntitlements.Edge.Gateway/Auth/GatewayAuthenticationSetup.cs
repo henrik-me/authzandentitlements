@@ -25,6 +25,13 @@ public static class GatewayAuthenticationSetup
     public const string DefaultRealm = "authz-bank";
     public const string DefaultAudience = "bank-api";
 
+    // CS18 hardening: tightened lifetime-validation clock skew. The .NET default is a
+    // lenient 5 minutes, which widens the expired-token / replay acceptance window.
+    // Host-local clocks in this lab are trivially in sync, so 30s is ample. Exposed as
+    // a constant so security tests can assert it. See docs/security/threat-model.md
+    // (Spoofing/Tampering). MIRRORS Bank.Api's AuthenticationSetup.MaxClockSkew.
+    public static readonly TimeSpan MaxClockSkew = TimeSpan.FromSeconds(30);
+
     // Resolves the token issuer/authority from configuration, applying the
     // documented precedence: an explicit full realm URL wins; otherwise the
     // authority is constructed from the base URL + realm. Returns null when
@@ -115,6 +122,14 @@ public static class GatewayAuthenticationSetup
                     ValidateAudience = true,
                     ValidAudience = audience,
                     ValidateLifetime = true,
+                    // CS18 hardening: shrink the replay/expired-token window, reject
+                    // unsigned or non-expiring tokens, and validate the token signing key
+                    // explicitly (defense against token forgery/replay). See
+                    // docs/security/threat-model.md (Spoofing/Tampering).
+                    ClockSkew = MaxClockSkew,
+                    RequireExpirationTime = true,
+                    RequireSignedTokens = true,
+                    ValidateIssuerSigningKey = true,
                     RoleClaimType = GatewayClaims.RolesClaimType,
                     NameClaimType = GatewayClaims.NameClaimType,
                 };
