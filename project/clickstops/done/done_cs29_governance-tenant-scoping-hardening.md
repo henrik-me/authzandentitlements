@@ -1,10 +1,10 @@
 # CS29 — Governance service tenant-scoping & fail-closed hardening
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs29/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Filed by:** yoga-ae-c3 — 2026-07-04, LRN harvest (CS28h): dispositioning open learnings into fix CSs.
 **Depends on:** CS11, CS14
 
