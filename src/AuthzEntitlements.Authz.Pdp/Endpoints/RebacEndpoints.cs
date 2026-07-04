@@ -170,8 +170,8 @@ public static class RebacEndpoints
 
         if (principal.Contains(':'))
         {
-            return $"Query parameter '{principalName}' must be a bare id without a type prefix " +
-                $"(e.g. 'acme-checking', not 'account:acme-checking'); the adapter qualifies it.";
+            return $"Query parameter '{principalName}' must be a bare id with no 'type:' prefix " +
+                $"— the adapter adds the type qualifier itself.";
         }
 
         if (string.IsNullOrWhiteSpace(type) || !QueryableTypes.Contains(type))
