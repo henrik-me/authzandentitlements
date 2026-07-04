@@ -65,12 +65,12 @@ public sealed class OpenFgaRegistrationTests
     [Fact]
     public void UnknownProvider_StillFailsClosed_ListingOpenFga()
     {
-        using var provider = Build("cedar");
+        using var provider = Build("does-not-exist");
 
         var factory = provider.GetRequiredService<AuthorizationDecisionProviderFactory>();
 
         var ex = Assert.Throws<InvalidOperationException>(() => factory.GetActiveProvider());
-        Assert.Contains("cedar", ex.Message);
+        Assert.Contains("does-not-exist", ex.Message);
         Assert.Contains("openfga", ex.Message);
     }
 

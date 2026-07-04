@@ -314,6 +314,9 @@ An action outside `ActionNames` is denied with `UnknownAction` (fail closed) —
 > **Shipped adapters:** CS06 ships the first two engines against this seam — `aspnet`
 > (ASP.NET Core policies) and `casbin` (Casbin.NET RBAC). See
 > [adapters-aspnet-casbin.md](adapters-aspnet-casbin.md) for their design and selection.
+> Later clickstops add `opa` (out-of-process OPA / Rego — see
+> [opa-adapter.md](opa-adapter.md)) and `cedar` (in-process Cedar / ABAC, with Amazon
+> Verified Permissions as the managed option — see [cedar-adapter.md](cedar-adapter.md)).
 
 This is the seam an adapter author implements against. Three steps:
 
