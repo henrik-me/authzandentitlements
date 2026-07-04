@@ -11,7 +11,10 @@ namespace AuthzEntitlements.Authz.Pdp.Tests;
 // user x permission grid, the emitted graph's Check matches the RBAC IsAllowed.
 public sealed class RbacToRebacTranslatorTests
 {
-    private const string ResourceObject = "resource:core";
+    // The fully-qualified resource object the translated graph writes permission grants against —
+    // sourced from the graph's own ResourceObject property rather than hardcoding the "resource:" prefix.
+    private static readonly string ResourceObject =
+        RbacToRebacTranslator.Translate(FintechRbacPolicy.Policy).ResourceObject;
 
     private static readonly string[] ExpectedPermissions =
     [
@@ -35,6 +38,16 @@ public sealed class RbacToRebacTranslatorTests
         }
 
         throw new Xunit.Sdk.XunitException($"type '{type}' not found in emitted model");
+    }
+
+    [Fact]
+    public void ResourceObject_IsTheFullyQualifiedObjectString()
+    {
+        var graph = Translate();
+
+        Assert.Equal("core", graph.ResourceObjectId);
+        Assert.Equal("resource:core", graph.ResourceObject);
+        Assert.Equal($"resource:{graph.ResourceObjectId}", graph.ResourceObject);
     }
 
     [Fact]

@@ -42,14 +42,16 @@ public static class RbacToRebacTranslator
 
         var (permissionToRelation, relationToPermission) = BuildRelationMap(permissions);
         var modelJson = BuildModelJson(permissions, permissionToRelation);
-        var tuples = BuildTuples(policy, roles, permissionToRelation);
+        var resourceObject = $"{ResourceType}:{ResourceObjectId}";
+        var tuples = BuildTuples(policy, roles, permissionToRelation, resourceObject);
 
         return new TranslatedRebacGraph(
-            modelJson, tuples, permissionToRelation, relationToPermission, ResourceObjectId);
+            modelJson, tuples, permissionToRelation, relationToPermission, ResourceObjectId, resourceObject);
     }
 
-    // Maps each permission to a valid OpenFGA relation name (lowercase; '.', ':', '#', '@' and
-    // whitespace collapse to '_'). The map is bidirectional; a name collision between two distinct
+    // Maps each permission to a valid OpenFGA relation name (see Sanitize: lowercased, every
+    // character outside [a-z0-9_] collapsed to '_', then validated against the OpenFGA relation
+    // identifier shape). The map is bidirectional; a name collision between two distinct
     // permissions is a fail-closed error because it would silently merge their grants.
     private static (IReadOnlyDictionary<string, string> ToRelation, IReadOnlyDictionary<string, string> ToPermission)
         BuildRelationMap(IReadOnlyList<string> permissions)
@@ -160,10 +162,10 @@ public static class RbacToRebacTranslator
     private static IReadOnlyList<RebacTuple> BuildTuples(
         RbacPolicy policy,
         IReadOnlyList<string> roles,
-        IReadOnlyDictionary<string, string> permissionToRelation)
+        IReadOnlyDictionary<string, string> permissionToRelation,
+        string resourceObject)
     {
         var tuples = new List<RebacTuple>();
-        var resourceObject = $"{ResourceType}:{ResourceObjectId}";
 
         // User -> role assignments: user:{u} is an assignee of role:{r}.
         foreach (var user in policy.UserRoles.Keys.OrderBy(u => u, StringComparer.Ordinal))

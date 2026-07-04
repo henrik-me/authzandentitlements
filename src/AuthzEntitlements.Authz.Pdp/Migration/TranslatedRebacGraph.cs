@@ -20,13 +20,15 @@ public sealed class TranslatedRebacGraph
         IReadOnlyList<RebacTuple> tuples,
         IReadOnlyDictionary<string, string> permissionToRelation,
         IReadOnlyDictionary<string, string> relationToPermission,
-        string resourceObjectId)
+        string resourceObjectId,
+        string resourceObject)
     {
         ModelJson = modelJson;
         Tuples = tuples;
         PermissionToRelation = permissionToRelation;
         RelationToPermission = relationToPermission;
         ResourceObjectId = resourceObjectId;
+        ResourceObject = resourceObject;
         _tuples = new HashSet<RebacTuple>(tuples);
     }
 
@@ -39,8 +41,13 @@ public sealed class TranslatedRebacGraph
     public IReadOnlyDictionary<string, string> RelationToPermission { get; }
 
     // The bare object id (e.g. "core") the permission relations are written against; the full
-    // OpenFGA object string is "resource:{ResourceObjectId}".
+    // OpenFGA object string is exposed as ResourceObject.
     public string ResourceObjectId { get; }
+
+    // The fully-qualified OpenFGA object string (e.g. "resource:core") the permission relations are
+    // written against and that Check expects — exposed so callers pass it directly rather than
+    // re-deriving the "resource:" prefix themselves.
+    public string ResourceObject { get; }
 
     // Evaluates the roles-as-usersets model directly over the emitted tuples, mirroring how an
     // OpenFGA Check would resolve it: the user has the permission relation on the resource iff

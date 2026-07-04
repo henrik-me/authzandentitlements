@@ -108,17 +108,19 @@ The emitted OpenFGA schema-1.1 model has **three types**:
 - `role` — one relation, `assignee: [user]`, so `role:R#assignee` is the userset of R's members.
 - `resource` — **one relation per RBAC permission**, each `directly_related_user_types` set to
   `role#assignee`, so granting a role a permission is a single tuple against the shared resource
-  object (`resource:core`, exposed as `TranslatedRebacGraph.ResourceObjectId`).
+  object. That object is `resource:core`, exposed as `TranslatedRebacGraph.ResourceObject` (its bare
+  id half, `core`, is `TranslatedRebacGraph.ResourceObjectId`).
 
 Permission names are sanitized into valid OpenFGA relation names — OpenFGA relation identifiers must
 match `^[a-z][a-z0-9_]{0,62}$` (start with a lowercase letter, then lowercase letters / digits /
 underscores, up to 63 characters). The sanitizer lowercases and collapses **every** character
 outside `[a-z0-9_]` (including `.`, `:`, `#`, `@`, `/`, `-`, and whitespace) to `_` (so
-`bank.transaction.create` → `bank_transaction_create`). Any result that is **not** a valid OpenFGA
-relation identifier — empty, starting with a digit or `_`, or exceeding 63 characters — is rejected
-fail-closed with an `ArgumentException` rather than emitted as an invalid model. The map is
-bidirectional (`PermissionToRelation` / `RelationToPermission`); a name collision between two distinct
-permissions is likewise a fail-closed `ArgumentException` because it would silently merge grants.
+`bank.transaction.create` → `bank_transaction_create`). An empty or whitespace-only permission is
+rejected outright, and any sanitized result that is **not** a valid OpenFGA relation identifier —
+starting with a digit or `_`, or exceeding 63 characters — is likewise rejected fail-closed with an
+`ArgumentException` rather than emitted as an invalid model. The map is bidirectional
+(`PermissionToRelation` / `RelationToPermission`); a name collision between two distinct permissions
+is likewise a fail-closed `ArgumentException` because it would silently merge grants.
 
 The graph carries two **tuple forms** (reusing
 [`RebacTuple`](../../src/AuthzEntitlements.Authz.Pdp/Providers/OpenFga/RebacSeedTuples.cs) `(User,
