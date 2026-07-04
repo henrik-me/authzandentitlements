@@ -1,10 +1,10 @@
 # CS30 — Supply-chain: re-evaluate NuGet audit suppressions & transitive pins
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs30/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Filed by:** yoga-ae-c3 — 2026-07-04, LRN harvest (CS28h): dispositioning open learnings into fix CSs.
 **Depends on:** CS01, CS02, CS18
 
@@ -58,18 +58,18 @@ None — this is dependency hygiene. If no suppression or pin can yet be dropped
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Bump OpenTelemetry pins to patched stable | pending | — | Directory.Packages.props: Exporter/Extensions.Hosting/Instrumentation.AspNetCore/Http → 1.16.0, Instrumentation.Runtime → 1.15.1 (>= patched 1.15.3 for Api/Exporter advisories) |
-| Add MessagePack transitive pin (remediate, not suppress) | pending | — | CPM transitive pin MessagePack 2.5.302 (>= patched 2.5.301); resolves 11 advisories on transitive 2.5.192 via Aspire.AppHost.Sdk |
-| Drop resolved NuGetAuditSuppress entries | pending | — | Directory.Build.props: remove all 15 suppressions (4 OTel + 11 MessagePack) now resolved by patched versions |
-| Retain MSBuild transitive pin with dated note | pending | — | Keep Microsoft.Build.Tasks.Core/Utilities.Core 17.14.28; EF Core Design rc.1 still drags 17.14.8 (GHSA-w3q9-fxm7-j8fq); add dated re-confirmation + advisory link |
-| Security re-evaluation note | pending | — | docs/security/ note recording 2026-07-04 re-eval date + outcome (15 dropped, MSBuild pin retained) |
-| Verify | pending | — | dotnet build 0/0 under TreatWarningsAsErrors; dotnet test green; dotnet list package --vulnerable --include-transitive clean |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and security docs so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | Flip LRN-003/LRN-005 to applied; file/disposition learnings; open follow-up CSs for unresolved issues (EF Core RC1→GA MSBuild pin drop) |
+| Bump OpenTelemetry pins to patched stable | done | yoga-ae-c4 | Directory.Packages.props: Exporter/Extensions.Hosting/Instrumentation.AspNetCore/Http → 1.16.0, Instrumentation.Runtime → 1.15.1 (Api resolves transitively to 1.16.0 ≥ patched 1.15.3) |
+| Add MessagePack transitive pin (remediate, not suppress) | done | yoga-ae-c4 | CPM transitive pin MessagePack 2.5.302 (≥ patched 2.5.301); resolves 11 advisories on transitive 2.5.192 via Aspire.AppHost.Sdk |
+| Drop resolved NuGetAuditSuppress entries | done | yoga-ae-c4 | Directory.Build.props: removed all 15 suppressions (4 OTel + 11 MessagePack), now resolved by patched versions |
+| Retain MSBuild transitive pin with dated note | done | yoga-ae-c4 | Kept Microsoft.Build.Tasks.Core/Utilities.Core 17.14.28; EF Core Design rc.1 still drags 17.14.8 (GHSA-w3q9-fxm7-j8fq); dated re-confirmation + advisory link added |
+| Security re-evaluation note | done | yoga-ae-c4 | docs/security/nuget-audit-reeval-2026-07-04.md records re-eval date + outcome (15 dropped, MSBuild pin retained) |
+| Verify | done | yoga-ae-c4 | dotnet build 0/0 under TreatWarningsAsErrors; dotnet test 1063/1063; dotnet list --vulnerable clean across all 20 projects |
+| Close-out: docs + restart state | done | yoga-ae-c4 | Updated WORKBOARD (row removed), CONTEXT.md, and added the security re-eval doc |
+| Close-out: learnings + follow-ups | done | yoga-ae-c4 | Flipped LRN-003/LRN-005 to applied; next-drop triggers documented in the security note (EF Core RC1→GA + stable Aspire MessagePack) |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+Landed as content PR #95 (squash `23e4036`). All 15 NuGet audit suppressions (4 OpenTelemetry + 11 MessagePack) were **remediated** via patched stable versions — OTel bumped to 1.16.0 (Instrumentation.Runtime 1.15.1) and a MessagePack 2.5.302 CPM transitive pin — clearing `dotnet list --vulnerable` across all 20 projects with a 0/0 build under `TreatWarningsAsErrors`. The `Microsoft.Build.*` 17.14.28 pin is **retained** (dropping it reverts EF Core Design rc.1 to vulnerable 17.14.8) with a dated re-confirmation; the drop-trigger (EF Core RC1→GA) and the MessagePack-pin drop-trigger (stable Aspire with patched MessagePack) are recorded in `docs/security/nuget-audit-reeval-2026-07-04.md`. LRN-003 + LRN-005 flipped to `applied`. Reviewed by GPT-5.5 across R1/R2/R3 (all Go) plus Copilot; Copilot caught a durable-doc clickstop-link durability issue and an OTel wording ambiguity, both fixed.
 
 ## Model audit
 
@@ -82,4 +82,20 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T20:10:00Z
+**Outcome:** GO
+
+Per-deliverable / exit-criteria outcome table:
+
+| Item | Outcome | Evidence |
+|---|---|---|
+| D1 — props drop resolved suppressions/pins or retain-with-dated-note | match | `Directory.Build.props` drops all 15 `NuGetAuditSuppress` entries; `Directory.Packages.props` bumps OpenTelemetry, adds `MessagePack` 2.5.302, and retains `Microsoft.Build.*` 17.14.28 with a dated CS30 advisory-linked justification. |
+| D2 — docs/security re-eval note | match | `docs/security/nuget-audit-reeval-2026-07-04.md` records the 2026-07-04 method, disposition table, outcomes, advisory links, and retained-pin rationale. |
+| E1 — every suppression/pin dropped or retained-with-dated-justification | match | All 15 prior suppressions removed; the one retained pin carries a dated CS30 note + advisory link — no entry left unreviewed. |
+| E2 — build clean under TreatWarningsAsErrors | match | Reviewer ran `dotnet build AuthzEntitlements.sln` → 0 Warning(s) / 0 Error(s). |
+| E3 — `--vulnerable` surfaces no unaccounted advisory | match | Reviewer ran `dotnet list … --vulnerable --include-transitive` → no vulnerable packages across all 20 projects. |
+
+**Test-coverage assessment:** sufficient — CS30 is a dependency/config/doc remediation; the appropriate gates (build under `TreatWarningsAsErrors` + the `--vulnerable` scan) are clean, and no runtime-logic test gap is material.
+
+Reviewer independently inspected the active CS plan, `git show 23e4036 --stat`, the merged diff (`git diff 4704143 23e4036`), and the final on-`main` files, and ran the build + vulnerable scan.

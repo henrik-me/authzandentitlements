@@ -37,7 +37,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS30 | CS30 — Supply-chain: re-evaluate NuGet audit suppressions & transitive pins | 🟢 Active | yoga-ae-c4 | cs30/content | 2026-07-04 | — |
 | CS31 | CS31 — Engine-adapter test seams & degenerate-input parity | 🟢 Active | yoga-ae-c3 | cs31/content | 2026-07-04 | — |
 
 > **Note:** WORKBOARD shows live coordination state only — active orchestrators and their active work. The queue lives in `project/clickstops/planned/` (priority order via filename + per-file `**Depends on:**`); historical record lives in `project/clickstops/done/`. Do not duplicate either here.
