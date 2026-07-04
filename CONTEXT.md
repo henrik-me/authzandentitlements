@@ -278,7 +278,7 @@ correctness + nits, all resolved) + plan-vs-impl GO. New learnings LRN-044..045.
 
 **CS25 (managed-vs-self-host TCO + cloud move) complete** (PR #114, squash-merged 2026-07-04, on main as `d311d1a`; close-out PR #123). Docs-only Eval-lab deliverable. (1) `docs/eval/managed-vs-selfhost-tco.md` — a TCO/ops comparison of the five managed offerings (Auth0/Okta FGA, AuthZed Cloud, Oso Cloud, Permit.io, Amazon Verified Permissions) vs self-hosted OSS, grounded in the lab's real stack (in-process `reference`/`aspnet`/`casbin`/`cedar`, out-of-process `opa`/`openfga`, the six shared-Postgres logical DBs, Aspire, OTLP→Grafana), with a per-option cost/ops/lock-in table, an **Azure cloud-move** section feeding CS27 (ACA vs AKS, Azure Database for PostgreSQL Flexible Server, OTLP re-point, and the load-bearing **AVP-is-AWS-only** constraint), and a dated honesty caveat + Sources (pricing at the model/cost-driver level, not stale figures). (2) `docs/adr/0007-self-host-first-authz-with-managed-optionality.md` — the self-host-first-with-managed-optionality decision (Accepted; `Realized in` shipped-only, Azure/CS27 marked forward), bidirectionally cross-referenced with CS23's `comparison-matrix.md` + `market-survey.md`. Claimed while CS23 was in flight (cross-refs/ADR initially deferred); CS23 merged mid-CS (PR #111) so the ADR + cross-refs completed in the same content PR. Independent GPT-5.5 rubber-duck R1 Go → R2 Needs-Fix (unshipped CS27 in a shipped-only `Realized in`) → R3 Go → Copilot (same field, deeper) → R4 Go; plan-vs-impl **GO**. New learning **LRN-064** (author eval-lab TCO docs at the pricing-model level with a dated caveat + Sources). No code/tests.
 
-**Next claimable:** with **CS11, CS13, CS14, CS15, CS16, CS17, CS18, CS19, CS20, CS22, CS23, CS24, CS25, CS28, CS29, CS30, CS31, CS32, CS33, and CS34 DONE**, **CS25-done newly unblocks CS27** (full OpenMeter + Azure deploy — needs CS10+CS12+CS14+CS15+CS25, all done; the CS25 TCO doc's Azure cloud-move section is the direct input). **CS19-done unblocks CS21** (break-glass, delegation & OBO — CS05+CS11+CS13+CS14+CS19, all done; reuses the CS19 OBO mechanism — `Subject.Actor`, the `{agent,service}` delegate allow-list, `ActorClaims`/`GatewayActorClaims`). Also ready: **CS26** (expansion engines — CS05+CS15). The **CS28h-harvest queue is complete** (CS29/CS30/CS31/CS32/CS33 done). Check each file's `**Depends on:**` and the WORKBOARD (some are actively owned) before claiming. `harness lint` is green and the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
+**Next claimable:** with **CS11, CS13, CS14, CS15, CS16, CS17, CS18, CS19, CS20, CS22, CS23, CS24, CS25, CS28, CS29, CS30, CS31, CS32, CS33, and CS34 DONE**, **CS25-done newly unblocks CS27** (Azure deployment of the app via azd → ACA — needs CS10+CS12+CS14+CS15+CS25, all done; the CS25 TCO doc's Azure cloud-move section is the direct input). **CS27 was rescoped 2026-07-04**: the original "full OpenMeter + Azure deploy" was split so the app cloud-deploy is decoupled from metering infra — full OpenMeter metering moved to **CS43** (local — CS10+CS12, ready now) and Azure deployment of OpenMeter to **CS44** (CS25+CS27+CS43). **CS19-done unblocks CS21** (break-glass, delegation & OBO — CS05+CS11+CS13+CS14+CS19, all done; reuses the CS19 OBO mechanism — `Subject.Actor`, the `{agent,service}` delegate allow-list, `ActorClaims`/`GatewayActorClaims`). Also ready: **CS26** (expansion engines — CS05+CS15). The **CS28h-harvest queue is complete** (CS29/CS30/CS31/CS32/CS33 done). Check each file's `**Depends on:**` and the WORKBOARD (some are actively owned) before claiming. `harness lint` is green and the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
 
 ## Constraints
 
@@ -335,7 +335,9 @@ carries **Phase**, **Lane**, and **Depends on** fields. A claim-time `## Plan re
 | CS24 | Performance benchmark + tracking | Eval | CS06, CS07, CS08, CS09, CS12 |
 | CS25 | Managed-vs-self-host TCO | Eval | CS23, CS24 |
 | CS26 | Expansion engines | Expansion | CS05, CS15 |
-| CS27 | Full OpenMeter + Azure deploy | Expansion | CS10, CS12, CS14, CS15, CS25 |
+| CS27 | Azure deployment of the app (azd → ACA) | Expansion | CS10, CS12, CS14, CS15, CS25 |
+| CS43 | Full OpenMeter metering (local) | Expansion | CS10, CS12 |
+| CS44 | Azure deployment of OpenMeter | Expansion | CS25, CS27, CS43 |
 
 ### Parallelization (waves)
 
@@ -345,5 +347,6 @@ carries **Phase**, **Lane**, and **Depends on** fields. A claim-time `## Plan re
 - **Wave 4 (after engines):** CS16, CS17, CS20 (need engine behavior); CS24 (engines + CS12); CS22 (CS11+CS12+CS13); CS14 product (CS03+CS04+CS06+CS10+CS11); CS15 playground (engines + CS13); CS18 (CS04+CS05).
 - **Wave 5:** CS19 (CS13+CS14), CS23 (CS15+CS24), CS26 (CS05+CS15).
 - **Wave 6:** CS21 (CS19+CS13+CS14), CS25 (CS23+CS24), CS27 (CS14+CS15+CS25).
+- **Wave 7 (OpenMeter split, 2026-07-04):** CS43 (full OpenMeter local — CS10+CS12, ready now); CS44 (OpenMeter on Azure — CS25+CS27+CS43, after CS27+CS43).
 
 A fleet of orchestrators can each `harness claim` an independent, dependency-satisfied CS.
