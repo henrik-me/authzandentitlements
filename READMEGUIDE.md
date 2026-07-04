@@ -299,13 +299,13 @@ human reviewer has to say a word.
 ## Running the linter
 
 ```bash
-npx -y github:henrik-me/agent-harness#v0.15.0 lint
+npx -y github:henrik-me/agent-harness#v0.16.0 lint
 ```
 
 With suppressed per-finding output (summary only):
 
 ```bash
-npx -y github:henrik-me/agent-harness#v0.15.0 lint --quiet
+npx -y github:henrik-me/agent-harness#v0.16.0 lint --quiet
 ```
 
 Exit codes:

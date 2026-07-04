@@ -1,8 +1,8 @@
 {
-  "harness_ref": "0.15.0",
-  "resolved_sha": "db2a8ef4f456faf64a2cc59372128ed996a78f20",
+  "harness_ref": "0.16.0",
+  "resolved_sha": "1a15ad85973e19ca816f8675c3867d9c5893a403",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-07-04T01:18:06.780Z",
+  "synced_at": "2026-07-04T01:36:55.529Z",
   "files": [
     {
       "target": "TRACKING.md",
@@ -15,14 +15,14 @@
       "target": "RETROSPECTIVES.md",
       "source_template": "template/managed/RETROSPECTIVES.md",
       "class": "managed",
-      "rendered_hash": "73b6ceff4f4237d1b182eb2f9b5f3b64ec949b20825a1c5a9af0cd94e14601b3",
+      "rendered_hash": "eff61195db7d0e13d5984bf05775d8a1de735559e4da88659d3f0ec99b873408",
       "action": "skipped"
     },
     {
       "target": "READMEGUIDE.md",
       "source_template": "template/managed/READMEGUIDE.md",
       "class": "managed",
-      "rendered_hash": "3e7579c844d427c5bd24824e939679a4dffa7fa8b37891ad50bf6a6687008968",
+      "rendered_hash": "007a05c7b99434ea69c175ec01b7e19adb1d13ee9fc00144eb5bb1da28ad9356",
       "action": "skipped"
     },
     {
@@ -71,7 +71,7 @@
       "target": "INSTRUCTIONS.md",
       "source_template": "template/composed/INSTRUCTIONS.md",
       "class": "composed",
-      "rendered_hash": "f0558d17bba8b60c76b2d5eb2f11a9b852e5c2ae7689eb6b126af41f183ec238",
+      "rendered_hash": "523fafe0e0c137b9f4518a92dec89001a466339d8ac040711c6bb9e2c2b4f21e",
       "action": "skipped",
       "blocks": [
         {
@@ -80,18 +80,18 @@
             "start": 612,
             "end": 632
           },
-          "body_hash": "c7a0b6c2f90d4f3506da81117b29041d90231a17b1cb9e31c25759aa4d901e6c",
+          "body_hash": "a66eb9bb84e37a2837187aaa4a35459afc54b0c488119bf4bb9e5ca2e3ae91ca",
           "template_marker_hash": "a1d7aa0bc8405304204b5543d04415b6a9536f8bdc156ff1afba8eb5ca3ef444",
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "3e68c43c69d5d76a7c01560823b2472eda08376d7d46c891004cef84301de389"
+      "template_prose_hash": "a3b43aeb54779d9f18602e42cc7a06d7da3f28665eae58c3b79f1f75ca8bbcb6"
     },
     {
       "target": "CONVENTIONS.md",
       "source_template": "template/composed/CONVENTIONS.md",
       "class": "composed",
-      "rendered_hash": "0041ea2d26d0b7e4d7e944db21539b1f9fe17eeae7ecd94106544bb417e4dc92",
+      "rendered_hash": "7963a4568ff15d80c5a2138a296942efb9d3315795ac34668a1c1a47af70ebca",
       "action": "skipped",
       "blocks": [
         {
@@ -105,27 +105,27 @@
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "740d0fc07518739c9a8ef41bb70e690e5a0852c5b8d6c4c71c497f1c7dad375b"
+      "template_prose_hash": "9a17e8a0f83bba1db90a5714e1abc017074a5d4ca332e7f4e1ee33acf68d8f6d"
     },
     {
       "target": "OPERATIONS.md",
       "source_template": "template/composed/OPERATIONS.md",
       "class": "composed",
-      "rendered_hash": "e9adc4d452c885c810a625fcf0c94e33c6268723ab0028d74dac00e08aa8d936",
+      "rendered_hash": "b105f1aed9bb3757d472046919b52d947b417f70736d033257088aac99fbb826",
       "action": "skipped",
       "blocks": [
         {
           "id": "operations.project-deploy",
           "source_line_range": {
-            "start": 2761,
-            "end": 2763
+            "start": 2827,
+            "end": 2829
           },
           "body_hash": "35a13a15deb994c17bb4db02b4b9870c0de1f5192f68f996c3835465549f4093",
           "template_marker_hash": "c538812699662e1747082864f419826b433df6e5164cdd28e870df72fcc559e5",
           "provenance": "seeded-empty"
         }
       ],
-      "template_prose_hash": "58289fd227f3769b119d2ec935ece51b110a638bff13d184309746f845f0c318"
+      "template_prose_hash": "f9c62c5388ced3176fad9d9453a8e03282c6520bb7603feba9050d4635a6ab13"
     },
     {
       "target": "REVIEWS.md",
@@ -151,7 +151,7 @@
       "target": ".github/copilot-instructions.md",
       "source_template": "template/composed/.github/copilot-instructions.md",
       "class": "composed",
-      "rendered_hash": "5ef69d5ddfe9cdc5438e3462436e9f91e6f97d46ac9cdbe543395fd3a6fbf417",
+      "rendered_hash": "743968a91bc04831466ce4b5c2234b94ad2dfd1be1828a9a1aad1cb51dd181ed",
       "action": "skipped",
       "blocks": [
         {
@@ -165,7 +165,7 @@
           "provenance": "seeded-empty"
         }
       ],
-      "template_prose_hash": "eefa786300cb60091ae1bfce7df2660cbe0b939d82cdd74859c56c3871bc7d6a"
+      "template_prose_hash": "bea29d88ee85c45ef087e3e5f2c9b9299dee2befd6d9625fef6d7f1cce634d3b"
     },
     {
       "target": ".github/pull_request_template.md",
