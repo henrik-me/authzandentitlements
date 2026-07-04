@@ -31,9 +31,10 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddSingleton<GovernanceMetrics>();
 builder.Services.AddSingleton<IGovernanceAuditSink, LoggingGovernanceAuditSink>();
 
-// CS21 — break-glass and delegation grants are in-memory, time-boxed stores (no EF migration,
-// no Postgres) so they must be process-wide singletons to be the system-of-record across
-// requests. They mirror the AccessGrant.IsActive(now) read-time-expiry pattern.
+// CS21 — break-glass and delegation grants are in-memory, time-boxed stores (they add no NEW EF
+// entity or migration; the Governance service itself still requires Postgres for its durable
+// entitlement grants). They are process-wide singletons to be the system-of-record across
+// requests, mirroring the AccessGrant.IsActive(now) read-time-expiry pattern.
 builder.Services.AddSingleton<BreakGlassGrantStore>();
 builder.Services.AddSingleton<DelegationGrantStore>();
 

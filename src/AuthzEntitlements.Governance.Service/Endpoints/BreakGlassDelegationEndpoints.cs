@@ -22,7 +22,7 @@ public static class BreakGlassDelegationEndpoints
     {
         var group = app.MapGroup("/api/governance");
 
-        group.MapPost("/break-glass", IssueBreakGlassAsync);
+        group.MapPost("/break-glass", IssueBreakGlass);
         group.MapGet("/break-glass", ListBreakGlass);
         // The literal "pending-review" cannot collide with the {id:guid} route below (it is not
         // a Guid), so ordering is not load-bearing — listed first only for readability.
@@ -40,7 +40,7 @@ public static class BreakGlassDelegationEndpoints
 
     // ---- Break-glass ----
 
-    private static IResult IssueBreakGlassAsync(
+    private static IResult IssueBreakGlass(
         IssueBreakGlassRequest? body,
         BreakGlassGrantStore store,
         IGovernanceAuditSink audit,
