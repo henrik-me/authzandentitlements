@@ -1,10 +1,10 @@
 # CS33 — Consolidate durable learnings into project-local convention/review doc blocks
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs33/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Filed by:** yoga-ae-c3 — 2026-07-04, LRN harvest (CS28h): dispositioning open learnings into fix CSs.
 **Depends on:** none
 
