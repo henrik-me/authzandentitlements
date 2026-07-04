@@ -48,4 +48,4 @@ jobs:
       - name: Build (restore + compile; warnings are errors via Directory.Build.props)
         run: dotnet build AuthzEntitlements.sln
       - name: Test (reuse the build; live-engine tests self-skip offline)
-        run: dotnet test AuthzEntitlements.sln --no-build
+        run: dotnet test AuthzEntitlements.sln --no-build --no-restore

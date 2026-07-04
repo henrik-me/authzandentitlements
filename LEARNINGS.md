@@ -710,7 +710,7 @@ tags: [ci, testing, posture, process]
 **Evidence:** `docs/authz/policy-lifecycle.md` CI note + adoption snippet; PR #55 Notes (escalation); the plan-vs-impl review in `done_cs17_*` (D1-CI = diverged, Outcome GO).
 
 **Implications carried forward:**
-- **Resolved by CS28** (maintainer approved adopting .NET in CI on 2026-07-04): CS28 adds `.github/workflows/dotnet-ci.yml` — full-solution `dotnet build` + `dotnet test` on `pull_request` + `push`→`main` (advisory).
+- **Core gap addressed by CS28** (maintainer approved adopting .NET in CI on 2026-07-04): CS28 adds `.github/workflows/dotnet-ci.yml` — full-solution `dotnet build` + `dotnet test` on `pull_request` + `push`→`main`. **Advisory** (see residual below); the "no .NET in CI" gap itself is closed, but this learning stays `open` for the enforcement follow-up.
 - **Residual (needs branch protection → public repo or GitHub Pro):** the check cannot be required-to-merge, and the merge-order class (CS13↔CS16-style stale-green logical conflicts) is only fully *prevented* by require-up-to-date / a merge queue. CS28's `push`→`main` run detects it reactively; full prevention is a CS28 follow-up.
 - Future eval/testing CSs (CS23/CS24) that mention "CI" can now rely on the CS28 `dotnet-ci` check.
 
