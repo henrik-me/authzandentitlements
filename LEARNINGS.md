@@ -75,7 +75,7 @@ id: LRN-003
 date: 2026-07-03
 category: architectural
 source_cs: CS01
-status: open
+status: applied
 tags: [security, nuget, aspire, opentelemetry]
 claim_area: security-hardening
 ```
@@ -89,7 +89,7 @@ claim_area: security-hardening
 **Implications carried forward:**
 - CS18 (security hardening) must revisit: drop suppression entries as non-vulnerable stable Aspire 13 / OTel packages ship, or pin patched versions via CPM.
 
-**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS30** (NuGet suppression/pin re-evaluation) — `project/clickstops/planned/planned_cs30_nuget-suppression-pin-reeval.md`. Status stays `open` until CS30 closes.
+**Disposition:** **Applied by CS30** (content PR #95, squash `23e4036`, 2026-07-04): all 15 suppressions dropped — OpenTelemetry bumped to 1.16.0 (Instrumentation.Runtime 1.15.1) and MessagePack pinned to the patched 2.5.302 via CPM transitive pinning; `dotnet list --vulnerable` clean across all 20 projects under `TreatWarningsAsErrors`. See `docs/security/nuget-audit-reeval-2026-07-04.md`.
 
 ### LRN-004
 
@@ -120,7 +120,7 @@ id: LRN-005
 date: 2026-07-03
 category: tooling
 source_cs: CS02
-status: open
+status: applied
 tags: [nuget, cpm, security, efcore, msbuild]
 claim_area: security-hardening
 ```
@@ -135,7 +135,7 @@ claim_area: security-hardening
 - CS18 (security hardening): drop the MSBuild pin once EF Core Design ships against patched MSBuild.
 - Prefer patched-version CPM transitive pinning over suppression for any new transitive advisory (extends LRN-002/003).
 
-**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS30** (NuGet suppression/pin re-evaluation) — `project/clickstops/planned/planned_cs30_nuget-suppression-pin-reeval.md`. Status stays `open` until CS30 closes.
+**Disposition:** **Applied by CS30** (content PR #95, squash `23e4036`, 2026-07-04): the re-evaluation ran and **retained** the `Microsoft.Build.*` 17.14.28 pin — EF Core Design 10.0.0-rc.1 still resolves the vulnerable 17.14.8 without it (verified: GHSA-w3q9-fxm7-j8fq High reappears). The drop-trigger (EF Core RC1→GA build referencing patched MSBuild) is now tracked durably in `docs/security/nuget-audit-reeval-2026-07-04.md`.
 
 ### LRN-007
 
