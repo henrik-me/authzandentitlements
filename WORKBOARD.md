@@ -34,5 +34,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
 | CS11 | CS11 — Access-governance entitlements (Entra pattern) | 🟢 Active | yoga-ae | cs11/content | 2026-07-04 | — |
+| CS13 | CS13 — Tamper-evident audit log pipeline | 🟢 Active | yoga-ae-c2 | cs13/content | 2026-07-04 | — |
 
 > **Note:** WORKBOARD shows live coordination state only — active orchestrators and their active work. The queue lives in `project/clickstops/planned/` (priority order via filename + per-file `**Depends on:**`); historical record lives in `project/clickstops/done/`. Do not duplicate either here.
