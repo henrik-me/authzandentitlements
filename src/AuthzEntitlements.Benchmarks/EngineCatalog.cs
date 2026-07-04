@@ -77,8 +77,13 @@ public static class EngineCatalog
         try
         {
             using var client = new TcpClient();
-            var connect = client.ConnectAsync(endpoint.Host, endpoint.Port);
-            return connect.Wait(timeoutMs) && client.Connected;
+            using var cts = new CancellationTokenSource(timeoutMs);
+
+            // Await the connect under a hard cancellation so an unreachable endpoint is bounded AND the
+            // in-flight connect is aborted on timeout (rather than left running until the OS timeout as
+            // an unobserved background task). Any failure/timeout/cancellation means "not reachable".
+            client.ConnectAsync(endpoint.Host, endpoint.Port, cts.Token).AsTask().GetAwaiter().GetResult();
+            return client.Connected;
         }
         catch
         {
