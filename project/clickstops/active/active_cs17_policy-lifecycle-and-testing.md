@@ -33,10 +33,10 @@ Treat policies as code with a full lifecycle and rigorous validation (key).
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Policy CI + versioning | pending | — | |
-| Golden/negative/property tests | pending | — | |
-| AuthZEN conformance suite | pending | — | |
-| Shadow-run harness | pending | — | |
+| Policy CI + versioning | done | yoga-ae-c3 | Golden-snapshot version hash + drift (`GoldenDecisionSnapshot`, `GET /policy/version`); policy test suite is the gate + adoption snippet in docs |
+| Golden/negative/property tests | done | yoga-ae-c3 | `GoldenDecisionTests`, `PolicyInvariantTests` (determinism, fail-closed totality, threshold obligations, cross-engine parity) |
+| AuthZEN conformance suite | done | yoga-ae-c3 | `Lifecycle/AuthZen` mapper + `POST /authzen/evaluation` + `AuthZenConformanceTests` (full-catalog round-trip) |
+| Shadow-run harness | done | yoga-ae-c3 | `ShadowRunner` + `POST /shadow{,/catalog}` + what-if (`WhatIfEvaluator`, `POST /whatif`); `ShadowRunnerTests`, `WhatIfEvaluatorTests` |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 

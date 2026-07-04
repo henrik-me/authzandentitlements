@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using AuthzEntitlements.Authz.Pdp.Contracts;
 using Microsoft.Extensions.Options;
 
@@ -58,18 +59,53 @@ public sealed class AuthorizationDecisionProviderFactory
 
     public IAuthorizationDecisionProvider GetActiveProvider()
     {
-        var match = _providers.FirstOrDefault(
-            p => string.Equals(p.Name, _configuredProvider, StringComparison.OrdinalIgnoreCase));
-        if (match is not null)
+        if (TryGetProvider(_configuredProvider, out var match))
         {
             return match;
         }
 
-        var available = _providers.Count == 0
-            ? "(none registered)"
-            : string.Join(", ", _providers.Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
         throw new InvalidOperationException(
             $"No IAuthorizationDecisionProvider named '{_configuredProvider}' is registered. " +
-            $"Available providers: [{available}]. Set \"Pdp:Provider\" to one of these.");
+            $"Available providers: [{AvailableProviders()}]. Set \"Pdp:Provider\" to one of these.");
     }
+
+    // The names of every registered provider, so lifecycle tooling (shadow-run, what-if) can
+    // enumerate and target engines by name rather than only the single configured active one.
+    public IReadOnlyList<string> ProviderNames =>
+        _providers.Select(p => p.Name).ToList();
+
+    // Resolves a provider by name (case-insensitive) — the by-name analogue of GetActiveProvider
+    // the shadow-run + what-if harness use to target a specific engine. Fails closed with a clear,
+    // engine-naming error when no such provider is registered, never a silent wrong-engine result.
+    public IAuthorizationDecisionProvider GetProvider(string name)
+    {
+        if (TryGetProvider(name, out var provider))
+        {
+            return provider;
+        }
+
+        throw new InvalidOperationException(
+            $"No IAuthorizationDecisionProvider named '{name}' is registered. " +
+            $"Available providers: [{AvailableProviders()}].");
+    }
+
+    // Non-throwing lookup so a request-boundary caller (endpoint) can return a 400 for an unknown
+    // engine name instead of surfacing a 500. The name is trimmed so accidental surrounding
+    // whitespace (from env/secret/query sources) still resolves — consistent with the constructor
+    // trimming PdpOptions.Provider. A blank name never matches (fail closed). The out is nullable +
+    // [NotNullWhen(true)] so callers get a compiler warning if they read it without checking the bool.
+    public bool TryGetProvider(string? name, [NotNullWhen(true)] out IAuthorizationDecisionProvider? provider)
+    {
+        var trimmed = name?.Trim();
+        provider = string.IsNullOrEmpty(trimmed)
+            ? null
+            : _providers.FirstOrDefault(
+                p => string.Equals(p.Name, trimmed, StringComparison.OrdinalIgnoreCase));
+        return provider is not null;
+    }
+
+    private string AvailableProviders() =>
+        _providers.Count == 0
+            ? "(none registered)"
+            : string.Join(", ", _providers.Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
 }

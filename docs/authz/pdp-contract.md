@@ -6,7 +6,10 @@
 > request/response wire shape, the reference provider's rules, the provider-selection seam, the
 > scenario catalog, and the audit/OTel hooks. See
 > [ARCHITECTURE.md](../../ARCHITECTURE.md) "Unified AuthZEN-aligned PDP abstraction" decision and the
-> [coarse- vs. fine-grained boundary](../architecture/coarse-vs-fine-boundary.md).
+> [coarse- vs. fine-grained boundary](../architecture/coarse-vs-fine-boundary.md). For the policy
+> **lifecycle** built on this contract — versioning, what-if simulation, shadow / dual-run
+> comparison, drift detection, AuthZEN conformance, and the policy test gate — see
+> [policy lifecycle & testing](policy-lifecycle.md) (CS17).
 
 > **Status / scope (CS05).** CS05 ships the *contract* + the in-process *reference provider* + the
 > *scenario catalog* + audit/OTel *hooks*. Engine adapters are **CS06–CS09**; the live
