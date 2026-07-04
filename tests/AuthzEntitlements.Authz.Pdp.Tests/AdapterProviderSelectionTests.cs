@@ -59,10 +59,14 @@ public sealed class AdapterProviderSelectionTests
 
         var names = provider.GetServices<IAuthorizationDecisionProvider>()
             .Select(p => p.Name)
-            .OrderBy(n => n, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(new[] { "aspnet", "casbin", "reference" }, names);
+        // The reference engine and both CS06 adapters must be registered. Asserted as membership
+        // (not an exact set) so later engine adapters — e.g. CS08's "opa" — registering alongside
+        // them do not break this CS06 selection test.
+        Assert.Contains("reference", names);
+        Assert.Contains("aspnet", names);
+        Assert.Contains("casbin", names);
     }
 
     [Theory]
