@@ -1,9 +1,9 @@
 # CS23 — Comparison matrix + market survey
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c2
+**Branch:** cs23/content
+**Started:** 2026-07-04
 **Closed:** —
 **Phase:** 6 — Evaluation lab
 **Lane:** Eval
@@ -37,7 +37,22 @@ Produce the evaluation-lab deliverables: comparison matrix + broad market survey
 | Author survey docs | pending | — | |
 | Write ADRs | pending | — | |
 | Strengths/weaknesses/when-to-use | pending | — | |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and the eval docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; open follow-up CSs for unresolved survey/matrix gaps |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c2 |
+| Reviewer agent | rubber-duck |
+
+## Plan-vs-implementation review
+
+> _(filled at close-out per the gate)_
