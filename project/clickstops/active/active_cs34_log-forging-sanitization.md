@@ -1,9 +1,9 @@
 # CS34 — Log-forging (CWE-117) sanitization at the 4 flagged audit-log sites
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c5
+**Branch:** cs34/content
+**Started:** 2026-07-04
 **Closed:** —
 **Filed by:** yoga-ae-c5 — 2026-07-04; surfaced during branch-protection hardening — the `code_scanning` ruleset rule (`alerts_threshold: errors`) blocks every merge while 4 open `cs/log-forging` CodeQL alerts (error-level) remain, forcing admin bypass on all PRs.
 **Depends on:** none
@@ -69,11 +69,26 @@ None — security hardening of log output only; no API, response, audit-record, 
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Add shared `LogSanitizer.Clean` in ServiceDefaults + unit tests | pending | — | `public static` CR/LF→space; null/empty-safe; ~6 cases (\r, \n, \r\n, control, null, clean pass-through) |
+| Refactor `LoggingPdpDecisionAuditSink` to delegate to the shared helper | pending | — | Behavior-preserving; existing `LoggingPdpDecisionAuditSinkTests` still pass |
+| Sanitize the 3 flagged log sites | pending | — | `OpenFgaProvider.cs:95`, `GatewayAuditMiddleware.cs:86`, `BankAuthorizationAuditMiddleware.cs:70` — wrap rendered string args in `Clean` |
+| Behavior tests per site | pending | — | CR/LF-bearing input emitted without newline chars at each of the 3 sites |
+| Verify CodeQL clears the 4 alerts + build/test green | pending | — | Content-PR CodeQL 0 open `cs/log-forging`; `dotnet build` 0/0; `dotnet test` pass; `harness lint` 0 failed |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and security/feature docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File/disposition learnings; record the CS32 middleware-overlap resolution; open follow-up CSs if any |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c5 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
