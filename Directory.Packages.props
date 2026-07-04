@@ -106,6 +106,19 @@
   </ItemGroup>
 
   <!--
+    CS26 (Adapter: SpiceDB / ReBAC — Zanzibar). Authzed.Net is the official .NET gRPC client
+    for the SpiceDB relationship-based authorization engine. It backs the config-gated
+    "spicedb" PDP provider (Pdp:Provider=spicedb) and is never on the default tested path:
+    the reference engine stays the default, and the gRPC client is built lazily only when the
+    spicedb provider is actually exercised against a running server. SpiceDB is the head-to-head
+    ReBAC counterpart to OpenFGA (same account questions, gRPC vs SDK). Targets net8.0;
+    forward-compatible on the net10 runtime. Pinned to 1.6.0 for reproducible restores.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Authzed.Net" Version="1.6.0" />
+  </ItemGroup>
+
+  <!--
     CS06 (Adapters: ASP.NET Core policies + Casbin.NET). Casbin.NET is the in-process
     RBAC/ABAC engine backing the "casbin" PDP adapter, part of the container-free "lite"
     profile. 2.21.2 is the latest stable (targets netstandard2.0/2.1; forward-compatible
