@@ -177,6 +177,14 @@ public sealed class BenchmarkOptions
                     $"Unknown engine '{part}'. Known engines: {string.Join(", ", EngineCatalog.AllEngineNames)}, or 'all'.");
             }
 
+            // Fail closed on duplicates rather than silently running an engine twice (which would
+            // emit duplicate engineName entries in the persisted run).
+            if (selected.Contains(match))
+            {
+                throw new OptionsParseException(
+                    $"Duplicate engine '{match}' in '--engines'. List each engine at most once.");
+            }
+
             selected.Add(match);
         }
 

@@ -101,9 +101,26 @@ public static class ResultStore
                 return "unknown";
             }
 
+            // Wait for exit FIRST with a hard timeout: reading StandardOutput before the process
+            // has exited would block indefinitely if git hangs, defeating the timeout. `git rev-parse
+            // --short HEAD` emits a few bytes (far under the OS pipe buffer), so reading after exit
+            // cannot deadlock on a full buffer.
+            if (!process.WaitForExit(2000))
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                    // best-effort kill; fall through to "unknown".
+                }
+
+                return "unknown";
+            }
+
             var output = process.StandardOutput.ReadToEnd().Trim();
-            process.WaitForExit(2000);
-            return process.HasExited && process.ExitCode == 0 && output.Length > 0
+            return process.ExitCode == 0 && output.Length > 0
                 ? output
                 : "unknown";
         }

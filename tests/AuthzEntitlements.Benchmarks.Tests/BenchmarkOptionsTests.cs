@@ -97,6 +97,18 @@ public sealed class BenchmarkOptionsTests
     }
 
     [Fact]
+    public void Parse_DuplicateEngines_Throws()
+    {
+        Assert.Throws<OptionsParseException>(() => BenchmarkOptions.Parse(["--engines", "reference,reference"]));
+    }
+
+    [Fact]
+    public void Parse_DuplicateEnginesCaseInsensitive_Throws()
+    {
+        Assert.Throws<OptionsParseException>(() => BenchmarkOptions.Parse(["--engines", "reference,REFERENCE"]));
+    }
+
+    [Fact]
     public void Parse_NonPositiveIterations_Throws()
     {
         Assert.Throws<OptionsParseException>(() => BenchmarkOptions.Parse(["--iterations", "0"]));
