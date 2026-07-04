@@ -713,6 +713,86 @@ tags: [ci, testing, posture, process]
 - Maintainer decision pending: adopt a scoped `.NET` policy-tests workflow, or keep the local-gate posture? Until decided, CS17's gate is the local `dotnet test` suite.
 - Future eval/testing CSs (CS23/CS24) that mention "CI" should resolve this posture first.
 
+### LRN-036
+
+```yaml
+id: LRN-036
+date: 2026-07-04
+category: tooling
+source_cs: CS16
+status: open
+tags: [dotnet, line-endings, lint, windows, ci]
+```
+
+**Problem:** The dotnet dispatch profile's `dotnet format --verify-no-changes` self-check is incompatible with this repo's enforced LF convention (`.gitattributes` `* text=auto eol=lf`). With no `.editorconfig` `end_of_line`, `dotnet format` defaults to CRLF and flags LF files that have comments inside argument/parameter lists — a whole-solution run flags 6+ PRE-EXISTING untouched files (AppHost.cs, AuthorizationSetup.cs, BankSeeder.cs, ...), so the gate already fails on `main`. Separately, the file-authoring tool writes **CRLF** for new `.cs` files on Windows, and the `harness lint` **text-encoding gate did NOT flag** those CRLF `.cs` files (lint passed green) — the CRLF only surfaced as a `git add` "CRLF will be replaced by LF" warning.
+
+**Finding:** `harness lint` (text-encoding) + `.gitattributes eol=lf` are the AUTHORITATIVE line-ending gates, NOT `dotnet format`. Do not convert files to CRLF to satisfy `dotnet format`. For authored/new `.cs` (or any) files, explicitly convert working-copy CRLF→LF (`[IO.File]::WriteAllText($p, ($t -replace "\r\n","\n"), (New-Object Text.UTF8Encoding $false))`) before committing — do not rely on the text-encoding lint to catch `.cs` CRLF; git's eol=lf will normalize the committed blob, but a clean working copy avoids the add-time warning and reviewer confusion. Treat the dotnet-profile `dotnet format --verify-no-changes` self-check as advisory for this repo until a repo `.editorconfig` with `end_of_line = lf` is added (or the check is dropped from the profile).
+
+**Evidence:** CS16 foundation sub-agent report (dotnet format flags 8 files, 6 pre-existing untouched); this session's `git add` emitted "CRLF will be replaced by LF" for 3 foundation-created `.cs` files while `harness lint` had reported 22/0 with those files present. Repo enforces LF via `.gitattributes:2`.
+
+**Implications carried forward:**
+- Any .NET CS with new source files (CS17+/CS20/CS24): convert authored files to LF explicitly; trust `harness lint` + `.gitattributes`, not `dotnet format`, for line endings. Consider a dedicated CS to add `.editorconfig end_of_line = lf` so `dotnet format` aligns with the repo mandate.
+
+### LRN-037
+
+```yaml
+id: LRN-037
+date: 2026-07-04
+category: tooling
+source_cs: CS16
+status: open
+tags: [opa, rego, testing, windows]
+```
+
+**Problem:** A Rego-editing task needs `opa test` to validate policy changes, but the `opa` CLI is not preinstalled on the dev box, and the .NET test suite (which mocks the OPA HTTP response) does not exercise the actual Rego.
+
+**Finding:** The official OPA binary at `https://openpolicyagent.org/downloads/latest/opa_windows_amd64.exe` runs **standalone** (no install/PATH changes): download it, run `opa test infra/opa/policy -v`, then delete it. CS16's OPA sub-agent used this to validate the added `rule` field (`opa test` 51/51) without any environment setup.
+
+**Evidence:** CS16 `cs16-opa` sub-agent report (fetched OPA 1.18.2, ran `opa test` 51/51, removed the binary). AppHost pins `openpolicyagent/opa:1.18.2-static` for the container path.
+
+**Implications carried forward:**
+- CS17 (policy lifecycle/testing), CS20, CS24 and any Rego-touching CS: validate Rego edits with the standalone `opa` download rather than assuming a preinstalled CLI or relying solely on the mocked C# adapter tests.
+
+### LRN-038
+
+```yaml
+id: LRN-038
+date: 2026-07-04
+category: architectural
+source_cs: CS16
+status: open
+tags: [openfga, rebac, testing, mocking, fail-closed]
+```
+
+**Problem:** CS16 needed to assert the OpenFGA adapter's permit/deny `DecisionExplanation` (engine=openfga, DeterminingRule=relationship, the relationship-tuple ref) in the OFFLINE default test suite, but `OpenFgaProvider.Evaluate` reaches the explanation only after a live `Check`, and `OpenFgaRebacService` is a **sealed, non-virtual** concrete class with no seam to force `allowed=true` offline (a blank `ApiUrl` throws in `BuildClient`).
+
+**Finding:** The offline suite can only verify the relationship-tuple reference FORMAT (from the pure `OpenFgaRequestMapper` output) + the fail-closed/boundary explanations; the actual permit/deny Engine/DeterminingRule assertion requires the live-server integration suite (self-skipping) or a runtime smoke. To make ReBAC permit/deny explanations unit-testable offline, `OpenFgaRebacService` would need an extracted interface (e.g. `IOpenFgaCheckClient`) the provider depends on — a small refactor deferred out of CS16 (additive-only) but worth doing when ReBAC is next touched.
+
+**Evidence:** CS16 `cs16-openfga` sub-agent report; `OpenFgaRebacService` is `sealed` with concrete `CheckAsync`; CS16 verified the permit/deny explanation via the runtime `/evaluate` smoke instead.
+
+**Implications carried forward:**
+- CS20 (migration/portability), CS24 (perf), or any ReBAC-touching CS: extract an `IOpenFgaCheckClient` seam so ReBAC decisions/explanations are unit-testable without a live OpenFGA server.
+
+### LRN-039
+
+```yaml
+id: LRN-039
+date: 2026-07-04
+category: process
+source_cs: CS16
+status: open
+tags: [ci, review-evidence, pr-body, review-log]
+```
+
+**Problem:** The `read-only-gates` / `review-log-evidence` CI gate rejected the CS16 content PR body with "## Review log row N contains template placeholder cell(s)" even though every row was fully filled — the offending cells merely contained the literal word "placeholder(s)" (e.g. "placeholders/args aligned") and `<role>`/`<action>` angle-bracket tokens inside a prose evidence cell.
+
+**Finding:** `check-review-evidence` scans Review-log cells for template-placeholder patterns and flags the literal substring `placeholder` and `<...>` angle-bracket tokens ANYWHERE in a cell (not just the template's `_(...)_` form). When authoring Review-log evidence prose, avoid the word "placeholder" and any `<...>` tokens (write "format-string/arg alignment", "the `p, role, action` policy line", etc.). Also: the A3+A4 gate requires a `verdict=Go` row whose `analyzed_head` equals the CURRENT PR HEAD SHA — every new commit needs a fresh decisive-review row at the new HEAD.
+
+**Evidence:** CS16 PR #56 CI: `review-log-evidence` failed on "row 4 contains template placeholder cell(s)" until "placeholders/args aligned" → "format-string + args aligned" and "`p, <role>, <action>`" → "`p, role, action`"; `A3+A4 review-evidence` failed until a `Go` row at HEAD `8f3b8cf`/`6f5e025` was appended.
+
+**Implications carried forward:**
+- Every content-PR review-log author: keep evidence cells free of the word "placeholder" and `<...>` tokens, and append a fresh `Go`-at-HEAD row after each new commit (including review-fix commits) or the gate fails.
+
 ## Applied
 
 _(no entries yet)_

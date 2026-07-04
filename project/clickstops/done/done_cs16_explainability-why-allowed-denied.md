@@ -1,10 +1,10 @@
 # CS16 — Explainability: why allowed / why denied
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs16/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
 **Depends on:** CS05, CS06, CS07, CS08, CS09
@@ -58,4 +58,18 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-_Pending — completed at close-out per OPERATIONS.md § Plan-vs-implementation review (close-out gate). The GO/NEEDS-FIX outcome is recorded here before the active → done rename._
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T03:52:00Z
+**Outcome:** GO
+
+Independent plan-vs-implementation review (GPT-5.5, independent of the claude-opus-4.8/4.6 implementers) against the merged content squash `6f17c05`.
+
+| # | CS16 plan deliverable | Outcome | Assessment |
+|---|---|---|---|
+| 1 | Normalized reason/obligation model in the PDP contract. | match | `DecisionExplanation`, `PolicyReference`, normalized `DeterminingRules`/`PolicyReferenceKinds`, and `AccessDecision.Explanation` were added while preserving existing reasons/obligations. |
+| 2 | Per-engine explanation extraction. | match | All engines attach structured explanations: reference/shared-evaluator `rule` ids, Casbin matched policy line, ASP.NET requirement, OPA Rego rule id + package path, Cedar determining policy id(s), and OpenFGA checked relationship tuple. |
+| 3 | Surfaced in Playground + Audit Explorer; documented comparison of explanation quality. | match | Per the Plan review R1 amendment, CS16 shipped the DATA surface (`/evaluate` + `/scenarios/verify` responses, `PdpDecisionAuditEvent` fields + the default logging sink) plus `docs/authz/explainability.md` (explanation-quality comparison); interactive UI rendering remains CS15. |
+
+Material additions beyond the plan: a central baseline-explanation guarantee in `PdpDecisionService` (no decision is ever unexplained), structured emission of the explanation fields in `LoggingPdpDecisionAuditSink`, and runtime `/evaluate` smoke evidence for permit + deny.
+
+**Test-coverage assessment:** sufficient. Full solution `dotnet test` 546/546; PDP 406/406; `opa test` 51/51; runtime smoke confirmed. Non-blocking caveat: OpenFGA permit/deny relationship explanations rely on mapper/unit coverage + the live runtime smoke rather than a fully offline fake-server unit test (OpenFgaRebacService is sealed/non-mockable — see LRN-038).
