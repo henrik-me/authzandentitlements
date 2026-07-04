@@ -1,10 +1,10 @@
 # CS13 — Tamper-evident audit log pipeline
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c2
 **Branch:** cs13/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** 4 — Observability + audit
 **Lane:** Observability
 **Depends on:** CS05
