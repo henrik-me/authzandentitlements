@@ -1,10 +1,10 @@
 # CS14 — Blazor fintech product UI
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c2
 **Branch:** cs14/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** 5 — Product + playground
 **Lane:** Product
 **Depends on:** CS03, CS04, CS06, CS10, CS11
