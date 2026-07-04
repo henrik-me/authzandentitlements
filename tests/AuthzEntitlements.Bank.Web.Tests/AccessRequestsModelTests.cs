@@ -26,6 +26,46 @@ public class AccessRequestsModelTests
             DecidedBy: null,
             DecidedAt: null);
 
+    private static AccessRequestResponse RequestForTenant(string tenant) =>
+        new(
+            Id: Guid.NewGuid(),
+            PrincipalId: "user-teller1",
+            TenantCode: tenant,
+            AccessPackageCode: "branch-approver",
+            Justification: "j",
+            RequestedDurationMinutes: null,
+            Status: "Pending",
+            SodOutcome: "NotEvaluated",
+            SodReason: null,
+            RequestedAt: DateTimeOffset.UnixEpoch,
+            DecidedBy: null,
+            DecidedAt: null);
+
+    [Fact]
+    public void ForTenant_keeps_only_the_matching_tenant_case_insensitively()
+    {
+        var reqs = new[]
+        {
+            RequestForTenant("CONTOSO"),
+            RequestForTenant("FABRIKAM"),
+            RequestForTenant("contoso"),
+        };
+
+        var scoped = AccessRequestsModel.ForTenant(reqs, "CONTOSO");
+
+        Assert.Equal(2, scoped.Count);
+        Assert.All(scoped, r => Assert.Equal("contoso", r.TenantCode, ignoreCase: true));
+    }
+
+    [Fact]
+    public void ForTenant_fails_closed_to_empty_when_tenant_is_missing()
+    {
+        var reqs = new[] { RequestForTenant("CONTOSO") };
+
+        Assert.Empty(AccessRequestsModel.ForTenant(reqs, null));
+        Assert.Empty(AccessRequestsModel.ForTenant(reqs, "   "));
+    }
+
     [Fact]
     public void Pending_keeps_only_requests_with_status_Pending()
     {

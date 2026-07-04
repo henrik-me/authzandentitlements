@@ -30,6 +30,16 @@ public class CurrentUserTests
     }
 
     [Fact]
+    public void GovernancePrincipalId_lowercases_username()
+    {
+        // Governance seed principal ids are lower-case (user-teller1); a token whose
+        // preferred_username differs in casing must still map to the seeded principal.
+        var current = new CurrentUser(Accessor("Teller1", "CONTOSO", "Teller"), new FakeBankApi());
+
+        Assert.Equal("user-teller1", current.GovernancePrincipalId);
+    }
+
+    [Fact]
     public void GovernancePrincipalId_is_null_without_username()
     {
         var accessor = new HttpContextAccessor

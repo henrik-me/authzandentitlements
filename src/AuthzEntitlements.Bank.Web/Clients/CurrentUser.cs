@@ -60,7 +60,7 @@ public sealed class CurrentUser(
         Principal?.FindAll(RolesClaim).Select(c => c.Value).ToList() ?? [];
 
     public string? GovernancePrincipalId =>
-        Username is null ? null : $"user-{Username}";
+        Username is null ? null : $"user-{Username.ToLowerInvariant()}";
 
     public bool IsInRole(string role) =>
         Roles.Contains(role, StringComparer.Ordinal);

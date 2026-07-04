@@ -246,7 +246,11 @@ else
     private async Task LoadAsync()
     {
         _packages = await Governance.GetAccessPackagesAsync();
-        _requests = await Governance.GetRequestsAsync();
+        // Fail closed: scope the governance requests to the signed-in user's tenant so a
+        // checker never sees or decides another tenant's requests (the anonymous
+        // Governance.Service is not itself tenant-scoped). A missing tenant claim -> empty.
+        var all = await Governance.GetRequestsAsync();
+        _requests = AccessRequestsModel.ForTenant(all, CurrentUser.TenantCode);
         _pending = AccessRequestsModel.Pending(_requests);
     }
 

@@ -22,6 +22,15 @@ public static class AccessRequestsModel
     public static bool IsPending(AccessRequestResponse req) =>
         string.Equals(req.Status, PendingStatus, StringComparison.Ordinal);
 
+    // Scope requests to the signed-in user's tenant (case-insensitive). Fails closed to an
+    // empty list when the tenant is missing, so a checker never sees or decides another
+    // tenant's requests — the anonymous Governance.Service is not itself tenant-scoped.
+    public static IReadOnlyList<AccessRequestResponse> ForTenant(
+        IEnumerable<AccessRequestResponse> reqs, string? tenant) =>
+        string.IsNullOrWhiteSpace(tenant)
+            ? []
+            : reqs.Where(r => string.Equals(r.TenantCode, tenant, StringComparison.OrdinalIgnoreCase)).ToList();
+
     // Human-readable label for a server-reported SoD outcome. Mirrors the
     // Governance.Service SodOutcome enum wire values (Permit/Deny/Unavailable/NotEvaluated);
     // "Allowed"/"Denied" are accepted as synonyms so the label is robust to wording. An
