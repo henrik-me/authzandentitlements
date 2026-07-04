@@ -439,6 +439,78 @@ public sealed class AuditHashChainTests
         Assert.Equal(syncTampered.BrokenAtSequence, asyncTampered.BrokenAtSequence);
     }
 
+    [Fact]
+    public async Task Verify_And_VerifyAsync_ReportSameEntryCount_OnTamper()
+    {
+        // Tamper at sequence 3: entries 1-2 verify, so the verified-prefix EntryCount is 2. The
+        // list and streaming verifiers must agree on that count (R2 finding: no path divergence).
+        var chain = BuildChain(Enumerable.Range(0, 5).Select(MakeSeries).ToList());
+        chain[2].Decision = "Deny";
+
+        var sync = AuditHashChain.Verify(chain);
+        var async = await AuditHashChain.VerifyAsync(ToAsync(chain), null, default);
+
+        Assert.False(sync.Valid);
+        Assert.Equal(2, sync.EntryCount);
+        Assert.Equal(sync.EntryCount, async.EntryCount);
+        Assert.Equal(sync.BrokenAtSequence, async.BrokenAtSequence);
+    }
+
+    [Fact]
+    public void Checkpoint_TryParse_NeitherParam_YieldsNoCheckpoint()
+    {
+        Assert.True(AuditCheckpoint.TryParse(null, null, out var checkpoint, out var error));
+        Assert.Null(checkpoint);
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public void Checkpoint_TryParse_OnlySequence_FailsClosed()
+    {
+        Assert.False(AuditCheckpoint.TryParse(3, null, out var checkpoint, out var error));
+        Assert.Null(checkpoint);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void Checkpoint_TryParse_OnlyRowHash_FailsClosed()
+    {
+        Assert.False(AuditCheckpoint.TryParse(null, new string('a', 64), out var checkpoint, out var error));
+        Assert.Null(checkpoint);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void Checkpoint_TryParse_NonPositiveSequence_FailsClosed()
+    {
+        Assert.False(AuditCheckpoint.TryParse(0, new string('a', 64), out _, out var error));
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void Checkpoint_TryParse_ShortHash_FailsClosed()
+    {
+        Assert.False(AuditCheckpoint.TryParse(1, "abcd", out _, out var error));
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void Checkpoint_TryParse_NonHexHash_FailsClosed()
+    {
+        Assert.False(AuditCheckpoint.TryParse(1, new string('g', 64), out _, out var error));
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void Checkpoint_TryParse_ValidParams_YieldsCheckpoint_LowercasingHash()
+    {
+        Assert.True(AuditCheckpoint.TryParse(7, new string('A', 64), out var checkpoint, out var error));
+        Assert.Null(error);
+        Assert.NotNull(checkpoint);
+        Assert.Equal(7, checkpoint!.Sequence);
+        Assert.Equal(new string('a', 64), checkpoint.RowHash);
+    }
+
     private static async IAsyncEnumerable<AuditEntry> ToAsync(IEnumerable<AuditEntry> entries)
     {
         foreach (var entry in entries)

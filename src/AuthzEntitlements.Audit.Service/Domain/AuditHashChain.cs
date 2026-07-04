@@ -12,12 +12,56 @@ namespace AuthzEntitlements.Audit.Service.Domain;
 // full-suffix rewrite (an actor able to rewrite EVERY row from some point on re-links a
 // self-consistent chain). Both change the row hash at the checkpoint sequence, so the anchor
 // catches them.
-public sealed record AuditCheckpoint(long Sequence, string RowHash);
+public sealed record AuditCheckpoint(long Sequence, string RowHash)
+{
+    // Parse the optional verify-endpoint checkpoint query params, FAIL-CLOSED. A partial checkpoint
+    // (only one of the two params), a non-positive sequence, or a non-64-hex-char hash is REJECTED
+    // (returns false with an error) rather than silently ignored — a monitoring typo must never let
+    // a truncated or rewritten chain be reported as valid. Returns true with a null checkpoint when
+    // neither param is supplied (a plain, checkpoint-less verify).
+    public static bool TryParse(
+        long? sequence, string? rowHash, out AuditCheckpoint? checkpoint, out string? error)
+    {
+        checkpoint = null;
+        error = null;
 
-// Outcome of verifying an ordered audit chain. BrokenAtSequence points at the first entry that
-// fails a check (or the expected sequence for a gap / a failed checkpoint); it is null when Valid.
-// TailSequence/TailRowHash echo the last verified row so a caller can keep them as its next
-// trusted checkpoint.
+        var hasSequence = sequence.HasValue;
+        var hasHash = !string.IsNullOrWhiteSpace(rowHash);
+
+        if (!hasSequence && !hasHash)
+        {
+            return true;
+        }
+
+        if (hasSequence != hasHash)
+        {
+            error = "Both 'expectedSequence' and 'expectedRowHash' must be supplied together, or neither.";
+            return false;
+        }
+
+        if (sequence!.Value <= 0)
+        {
+            error = "'expectedSequence' must be a positive chain sequence number.";
+            return false;
+        }
+
+        var hash = rowHash!.Trim();
+        if (hash.Length != 64 || !hash.All(Uri.IsHexDigit))
+        {
+            error = "'expectedRowHash' must be a 64-character hex SHA-256 digest.";
+            return false;
+        }
+
+        checkpoint = new AuditCheckpoint(sequence.Value, hash.ToLowerInvariant());
+        return true;
+    }
+}
+
+// Outcome of verifying an ordered audit chain. EntryCount is the number of entries VERIFIED before
+// any break (so it equals the chain length when Valid); the list and streaming verifiers report it
+// identically. BrokenAtSequence points at the first entry that fails a check (or the expected
+// sequence for a gap / a failed checkpoint); it is null when Valid. TailSequence/TailRowHash echo
+// the last verified row so a caller can keep them as its next trusted checkpoint.
 public sealed record ChainVerificationResult(
     bool Valid,
     long EntryCount,
@@ -115,8 +159,9 @@ public static class AuditHashChain
         {
             if (!verifier.Step(entry))
             {
-                // Preserve the historical contract: on failure report the full input size.
-                return verifier.Failure! with { EntryCount = orderedBySequence.Count };
+                // EntryCount is the verified-prefix length, identical to the streaming VerifyAsync
+                // path so the two verifiers agree on every field.
+                return verifier.Failure!;
             }
         }
 

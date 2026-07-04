@@ -60,13 +60,13 @@ public static class AuditEndpoints
         string? expectedRowHash,
         CancellationToken ct)
     {
-        // Optional trusted checkpoint: a caller that retained a prior (sequence, rowHash) — from an
-        // ingest or a previous verify response — can supply it to detect tail truncation / a full
-        // suffix rewrite that the self-contained chain cannot catch. Both parts must be present.
-        AuditCheckpoint? checkpoint =
-            expectedSequence is > 0 && !string.IsNullOrWhiteSpace(expectedRowHash)
-                ? new AuditCheckpoint(expectedSequence.Value, expectedRowHash)
-                : null;
+        // Optional trusted checkpoint, parsed FAIL-CLOSED: a partial or malformed checkpoint is a
+        // 400 (never a silent bare verification), so a monitoring typo cannot report a truncated or
+        // rewritten chain as valid. Neither param supplied => a plain, checkpoint-less verify.
+        if (!AuditCheckpoint.TryParse(expectedSequence, expectedRowHash, out var checkpoint, out var error))
+        {
+            return TypedResults.BadRequest(error);
+        }
 
         // Stream rows in sequence order and fold verification incrementally, so the whole (ever-
         // growing) audit table is never held in memory at once.

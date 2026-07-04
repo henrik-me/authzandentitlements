@@ -96,9 +96,11 @@ GET /api/audit/verify?expectedSequence=<n>&expectedRowHash=<hex>
 ```
 
 When supplied, verification additionally confirms the row at that sequence still carries that hash —
-so truncation past the checkpoint or a rewrite of the checkpointed row is caught. Both the verify
-and ingest responses echo the current tail (`tailSequence` / `tailRowHash`) so a caller can advance
-its checkpoint after each round-trip.
+so truncation past the checkpoint or a rewrite of the checkpointed row is caught. A partial or
+malformed checkpoint (only one param, a non-positive sequence, or a non-64-hex hash) is rejected
+with `400 Bad Request` rather than silently ignored. The ingest response returns `sequence` /
+`rowHash` and a successful verify returns `tailSequence` / `tailRowHash`; a caller should advance
+its retained checkpoint only from a verify whose `valid` is `true`.
 
 ## The Audit.Service API
 
