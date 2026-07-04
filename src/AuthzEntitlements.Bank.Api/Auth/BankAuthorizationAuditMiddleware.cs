@@ -7,7 +7,8 @@ namespace AuthzEntitlements.Bank.Api.Auth;
 // the fine-grained authorization decision, plus activity tags for telemetry. It
 // runs BEFORE authentication so it observes the FINAL status the pipeline produced,
 // including the 401/403 that auth/authz (or an endpoint-level Forbid for
-// tenant-mismatch/maker-checker/SoD) short-circuit.
+// tenant-mismatch/maker-checker/SoD) short-circuit. Routing non-decisions (an
+// unmatched 404 or a method-mismatch 405) are NOT audited (see ShouldAudit).
 //
 // Unlike the edge gateway proxy, Bank.Api is the terminal fine decider: its own
 // 401/403 ARE its authorization decisions, so classification needs no
@@ -41,6 +42,18 @@ public sealed class BankAuthorizationAuditMiddleware(
         await next(context);
 
         var statusCode = context.Response.StatusCode;
+
+        // A genuine fine-grained authz decision requires that routing matched a REAL
+        // endpoint (authorization runs only after routing). An unmatched path (404 with
+        // no endpoint) or a method mismatch (405, ASP.NET's synthetic method-not-allowed
+        // endpoint) is a routing non-decision, not an authz outcome, so it is not audited
+        // — mirroring the edge gate's ShouldAudit (LRN-013). A business 404/409 from a
+        // matched endpoint is still a genuine allow and IS audited.
+        if (!ShouldAudit(context.GetEndpoint() is not null, statusCode))
+        {
+            return;
+        }
+
         var (decision, reason) = ClassifyDecision(statusCode);
 
         var user = context.User;
@@ -80,6 +93,15 @@ public sealed class BankAuthorizationAuditMiddleware(
         activity?.SetTag("authz.reason", reason);
         activity?.SetTag("authz.tenant", tenant);
     }
+
+    // Whether a /api request represents a genuine fine-grained authz decision worth
+    // auditing. Authorization runs only after routing matches a real endpoint, so an
+    // unmatched path (404 with no endpoint) or a method mismatch (405, ASP.NET's
+    // synthetic method-not-allowed endpoint) is a non-decision and is skipped. Every
+    // matched endpoint — including one whose handler returns a business 404/409 — is a
+    // real authz outcome (the gate allowed the request) and is audited.
+    public static bool ShouldAudit(bool endpointMatched, int statusCode)
+        => endpointMatched && statusCode != StatusCodes.Status405MethodNotAllowed;
 
     // Pure, unit-testable classification of the terminal status into the fine
     // decision/reason vocabulary. Bank.Api's own 401/403 are its authorization

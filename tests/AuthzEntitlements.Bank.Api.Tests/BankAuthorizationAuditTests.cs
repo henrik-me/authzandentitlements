@@ -25,6 +25,27 @@ public sealed class BankAuthorizationAuditTests
         Assert.Equal(expectedReason, reason);
     }
 
+    // ShouldAudit: a fine-grained authz decision is audited only when routing matched a real
+    // endpoint (endpointMatched) AND the status is not a method-mismatch 405. An unmatched
+    // path (404, no endpoint) and a method-mismatch 405 (ASP.NET's synthetic endpoint) are
+    // routing non-decisions and are skipped; a matched endpoint that returns a business
+    // 404/409 is still a genuine allow and is audited (LRN-013, uniform with the edge gate).
+    [Theory]
+    [InlineData(true, 200, true)]    // matched, authorized → allow, audited
+    [InlineData(true, 201, true)]    // matched, authorized → allow, audited
+    [InlineData(true, 401, true)]    // matched, unauthenticated → deny, audited
+    [InlineData(true, 403, true)]    // matched, forbidden → deny, audited
+    [InlineData(true, 404, true)]    // matched, business not-found → allow, audited
+    [InlineData(true, 409, true)]    // matched, business conflict → allow, audited
+    [InlineData(true, 405, false)]   // method mismatch (synthetic endpoint) → non-decision, skipped
+    [InlineData(false, 404, false)]  // unmatched path (no endpoint) → non-decision, skipped
+    [InlineData(false, 405, false)]  // method mismatch with no matched endpoint → skipped
+    [InlineData(false, 200, false)]  // defensive: no matched endpoint → not an authz decision
+    public void ShouldAudit_OnlyForFineGrainedDecisions(bool endpointMatched, int statusCode, bool expected)
+    {
+        Assert.Equal(expected, BankAuthorizationAuditMiddleware.ShouldAudit(endpointMatched, statusCode));
+    }
+
     [Fact]
     public void BankAuditEvent_CarriesConstructedValues()
     {

@@ -1,4 +1,9 @@
 using AuthzEntitlements.Edge.Gateway.Audit;
+using AuthzEntitlements.Edge.Gateway.Auth;
+using Microsoft.AspNetCore.Http;
+using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Forwarder;
+using Yarp.ReverseProxy.Model;
 using Xunit;
 
 namespace AuthzEntitlements.Edge.Gateway.Tests;
@@ -96,5 +101,95 @@ public sealed class GatewayAuditTests
         Assert.Equal("CONTOSO", evt.Tenant);
         Assert.Equal("bank.transactions.write", evt.RequiredScope);
         Assert.Equal("bank-api", evt.Audience);
+    }
+
+    // ---- ResolveRouteMetadata: LRN-013 edge-denial RouteId/RequiredScope enrichment ----
+
+    // Builds an endpoint carrying a YARP RouteModel exactly as ProxyEndpointFactory does
+    // (endpointBuilder.Metadata.Add(route)), so the resolver reads the same metadata that
+    // routing leaves on the context after a short-circuit deny.
+    private static Endpoint EndpointWithRoute(string routeId, string? authorizationPolicy)
+    {
+        var model = new RouteModel(
+            new RouteConfig { RouteId = routeId, AuthorizationPolicy = authorizationPolicy },
+            cluster: null,
+            HttpTransformer.Empty);
+        return new Endpoint(requestDelegate: null, new EndpointMetadataCollection(model), routeId);
+    }
+
+    // The proxy-feature route config (present on an edge allow/routed) always wins over the
+    // endpoint fallback, so the routed/allow path keeps its existing behavior unchanged.
+    [Fact]
+    public void ResolveRouteMetadata_WhenProxyFeatureConfigPresent_TakesPrecedenceOverEndpoint()
+    {
+        var (routeId, requiredScope) = GatewayAuditMiddleware.ResolveRouteMetadata(
+            new RouteConfig
+            {
+                RouteId = "transactions-create",
+                AuthorizationPolicy = CoarseAuthorization.TransactionsWritePolicy,
+            },
+            EndpointWithRoute("read-catch-all", CoarseAuthorization.ReadPolicy));
+
+        Assert.Equal("transactions-create", routeId);
+        Assert.Equal(CoarseAuthorization.TransactionsWriteScope, requiredScope);
+    }
+
+    // On a short-circuit 401/403 deny the IReverseProxyFeature is unset, so the resolver
+    // recovers RouteId + RequiredScope from the matched endpoint's YARP RouteModel — the
+    // LRN-013 gap. coarse.authenticated carries no required scope, so its scope stays null.
+    public static TheoryData<string, string, string> DenyFallbackCases => new()
+    {
+        { "transactions-create", CoarseAuthorization.TransactionsWritePolicy, CoarseAuthorization.TransactionsWriteScope },
+        { "approvals-approve", CoarseAuthorization.ApprovalsWritePolicy, CoarseAuthorization.ApprovalsWriteScope },
+        { "read-catch-all", CoarseAuthorization.ReadPolicy, CoarseAuthorization.ReadScope },
+    };
+
+    [Theory]
+    [MemberData(nameof(DenyFallbackCases))]
+    public void ResolveRouteMetadata_WhenProxyFeatureNull_FallsBackToEndpointRouteModel(
+        string routeId, string policy, string expectedScope)
+    {
+        var (actualRouteId, actualScope) = GatewayAuditMiddleware.ResolveRouteMetadata(
+            proxyRouteConfig: null, EndpointWithRoute(routeId, policy));
+
+        Assert.Equal(routeId, actualRouteId);
+        Assert.Equal(expectedScope, actualScope);
+    }
+
+    [Fact]
+    public void ResolveRouteMetadata_FallbackForAuthenticatedPolicy_HasRouteIdButNoScope()
+    {
+        var (routeId, requiredScope) = GatewayAuditMiddleware.ResolveRouteMetadata(
+            proxyRouteConfig: null,
+            EndpointWithRoute("accounts-create", CoarseAuthorization.AuthenticatedPolicy));
+
+        Assert.Equal("accounts-create", routeId);
+        Assert.Null(requiredScope);
+    }
+
+    // The unmatched-404 (null endpoint) and method-mismatch-405 (ASP.NET's synthetic
+    // endpoint has no RouteModel) non-decisions resolve to (null, null). These are skipped
+    // by ShouldAudit before enrichment runs, but the resolver must still fail safe.
+    [Fact]
+    public void ResolveRouteMetadata_WhenNoEndpoint_IsNull()
+    {
+        var (routeId, requiredScope) =
+            GatewayAuditMiddleware.ResolveRouteMetadata(proxyRouteConfig: null, endpoint: null);
+
+        Assert.Null(routeId);
+        Assert.Null(requiredScope);
+    }
+
+    [Fact]
+    public void ResolveRouteMetadata_WhenEndpointHasNoRouteModel_IsNull()
+    {
+        var endpoint = new Endpoint(
+            requestDelegate: null, EndpointMetadataCollection.Empty, "405 HTTP Method Not Supported");
+
+        var (routeId, requiredScope) =
+            GatewayAuditMiddleware.ResolveRouteMetadata(proxyRouteConfig: null, endpoint);
+
+        Assert.Null(routeId);
+        Assert.Null(requiredScope);
     }
 }
