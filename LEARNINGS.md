@@ -496,7 +496,7 @@ tags: [aspire, dotnet, scaffolding, windows]
 **Implications carried forward:**
 - CS02+ scaffolding should use `dotnet add package` for Aspire integrations and normalize generated files to LF.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-002
 
@@ -518,7 +518,7 @@ tags: [nuget, cpm, build, aspire]
 **Implications carried forward:**
 - CS02+ adding preview packages will hit the same and can reuse the per-advisory pattern.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-004
 
@@ -540,7 +540,7 @@ tags: [efcore, npgsql, concurrency, dotnet]
 **Implications carried forward:**
 - Later EF Core optimistic-concurrency work on Postgres should use `Property<uint>("xmin").IsRowVersion()` and verify the generated SQL (not the migration C#) to confirm the system-column mapping.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-007
 
@@ -562,7 +562,7 @@ tags: [review, verification, efcore]
 **Implications carried forward:**
 - Keep the independent-model rubber-duck as the review-of-record; treat automated-reviewer comments as leads to verify, not directives.
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-008
 
@@ -584,7 +584,7 @@ tags: [keycloak, aspire, realm-import, docker]
 **Implications carried forward:**
 - Any Keycloak-26 realm import with a service account needs `KC_FEATURES_DISABLED=organization`; name realm files `<realm>-realm.json`.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-009
 
@@ -606,7 +606,7 @@ tags: [keycloak, aspire, oidc, issuer]
 **Implications carried forward:**
 - CS04 (edge gateway) and any Aspire+Keycloak OIDC reuse the fixed-port + explicit-stable-authority pattern.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-010
 
@@ -629,7 +629,7 @@ claim_area: security-hardening
 **Implications carried forward:**
 - Any JwtBearer/OIDC wiring with custom claim names needs `MapInboundClaims=false` (bank-web too); add an options-resolution regression test — synthetic-principal tests are insufficient.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-011
 
@@ -652,7 +652,7 @@ claim_area: security-hardening
 **Implications carried forward:**
 - CS04 (edge) and CS05 (PDP) inherit the token-bound-identity + fail-closed-tenant contract; the `branch` claim is carried but not yet enforced (later ABAC).
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-012
 
@@ -674,7 +674,7 @@ tags: [keycloak, oidc, client-scopes, par]
 **Implications carried forward:**
 - When hand-authoring a Keycloak realm export, either include the built-in scopes or carry the required OIDC claims via a custom default scope; only request client scopes the realm defines.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-015
 
@@ -694,7 +694,7 @@ claim_area: entitlements
 
 **Evidence:** PR #18; `src/AuthzEntitlements.Entitlements.Service/Endpoints/EntitlementsEndpoints.cs` `AssignSeatAsync`; runtime concurrency test (30 concurrent → 5 assigned / 25 denied / 0 errors, seatsUsed=5).
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-016
 
@@ -713,7 +713,7 @@ tags: [aspire, dotnet, sub-agent-dispatch]
 
 **Evidence:** PR #18; sub-agent `cs10-entitlements-service` escalation; `AppHost.cs` uses `Projects.AuthzEntitlements_Entitlements_Service`, generated from the `AppHost.csproj` `ProjectReference`.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-017
 
@@ -732,7 +732,7 @@ tags: [dotnet, http, fail-closed, entitlements]
 
 **Evidence:** PR #18; `src/AuthzEntitlements.Entitlements.Service/Endpoints/EntitlementsEndpoints.cs` `ConsumeQuotaAsync`; `src/AuthzEntitlements.Bank.Api/Entitlements/EntitlementsEnforcer.cs` + `EntitlementsContracts.cs`; Copilot PR review (rounds 1–4).
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-018
 
@@ -751,7 +751,7 @@ tags: [git, ci, commit-trailers, windows]
 
 **Evidence:** CS10 PR #18 merge commit `d6fb750` failed B1 (missing trailer) → amended to `ce39399`; close-out rebase left `# Conflicts:` in `COMMIT_EDITMSG` → local `commit-trailers` false-fail → `git commit --amend --no-edit` cleared it (`Total: 23 passed / 0 failed`).
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-019
 
@@ -771,7 +771,7 @@ claim_area: orchestration
 
 **Evidence:** CS10 PR #18 (merged CS04: `.sln` / `Directory.Packages.props` / `AppHost.cs` / `AppHost.csproj` / `Program.cs`) + close-out PR #21 (`WORKBOARD.md` vs the CS05 claim); `.sln` resolved via `checkout --theirs` + `dotnet sln add`.
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-020
 
@@ -790,7 +790,7 @@ tags: [review, copilot]
 
 **Evidence:** CS10 PR #18 — 5 Copilot rounds; the quota-500 + audit-casing comments were re-raised ~4× after being fixed; the one genuinely-new substantive finding each round (release-lock, quota-remaining off-by-one, transient-503 mislabel) was fixed and the rest resolved; merged after the final re-engage + full thread resolution.
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-021
 
@@ -812,7 +812,7 @@ tags: [pdp, authz, parity, adapters]
 **Implications carried forward:**
 - CS06–CS09 adapter briefings must require matching the reference provider's *check order*, verified by `ScenarioCatalogRunner` (primary-reason-code parity), not just decision parity.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-022
 
@@ -834,7 +834,7 @@ tags: [dotnet, opentelemetry, testing, metrics]
 **Implications carried forward:**
 - CS06–CS09 adapter tests and any CS that asserts on the shared PDP telemetry must isolate by an untransformed tag (provider) or a raw span tag, never by the normalized metric `action`.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-023
 
@@ -858,7 +858,7 @@ claim_area: observability
 - For any cross-cutting "all services / all X" deliverable, the close-out plan-vs-impl review MUST enumerate the current set from the merged tree, not the branch-base set — concurrent sibling merges can add members after your branch forks.
 - When a CS adds a new ServiceDefaults service (CS06–CS09 adapters, future services), wire it to the observability collector in the same PR.
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-024
 
@@ -882,7 +882,7 @@ claim_area: observability
 - Any future externally-exposed dev UI backed by an image with a default admin account (Grafana, etc.) must disable BOTH the login form AND Basic Auth for an anonymous-only posture — anonymous role alone is not a boundary.
 - Model non-UI container ingress ports as `tcp` so `WithExternalHttpEndpoints()` does not inadvertently expose them.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-025
 
@@ -904,7 +904,7 @@ tags: [multi-agent, claim, rebase, workboard-auto-approve, ci]
 **Implications carried forward:**
 - In a multi-orchestrator repo, rebase any branch onto latest `origin/main` before push/merge if `main` advanced since branching — especially when a dependency CS may have closed out concurrently.
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-026
 
@@ -927,7 +927,7 @@ claim_area: engines
 **Implications carried forward:**
 - CS07–CS09 adapter authors: reuse the `IEngineRoleAuthorizer` seam for RBAC-only engines. For richer engines — OpenFGA (ReBAC, CS07), OPA/Rego (CS08), Cedar (CS09) — weigh how much of the fintech decision the engine should own *natively* vs. compose via the shared evaluator; don't force the shared-evaluator split where the engine can express the full decision.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-027
 
@@ -950,7 +950,7 @@ claim_area: engines
 **Implications carried forward:**
 - CS07/CS09 out-of-process adapters (OpenFGA, Cedar): sync `HttpClient.Send` via a named client is fine; always fail closed on ANY exception, sanitize caller-facing messages, and validate the engine's decision/reason against `ReasonCodes` before mapping to `AccessDecision`.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-028
 
@@ -973,7 +973,7 @@ claim_area: engines
 **Implications carried forward:**
 - CS09 (Cedar) and any future registry-extending CS: assert your OWN additions are present, never the exhaustive set, so the next parallel adapter doesn't red `main`.
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-029
 
@@ -995,7 +995,7 @@ tags: [opa, rego, csharp, tooling, tests, windows]
 **Implications carried forward:**
 - CS09 (Cedar policy + tests): run the formatter's write mode before the check gate; avoid raw interpolated strings for brace-heavy test fixtures.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-030
 
@@ -1017,7 +1017,7 @@ tags: [authz, pdp, adapter, fail-closed, security, openfga]
 **Implications carried forward:**
 - CS09 (Cedar) and any future out-of-process adapter: fail closed on every engine-error path (Deny + stable message + logged cause), add a fail-closed test, and wrap the entire endpoint flow — the singleton-bootstrap gotcha makes "the first call fails" reasoning wrong.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-032
 
@@ -1040,7 +1040,7 @@ tags: [pdp, adapter, cedar, monocloud, dotnet10, parity]
 - Future declarative-policy adapters (and CS16 explainability / CS20 migration): to recover an ORDERED reason from an unordered engine, encode failures as annotated forbids with stable ids + an explicit precedence map, and select the first-failing (lowest precedence) determining member.
 - CS23/CS24 (comparison/perf): Cedar (in-process, `cedar`) and AVP (managed) are the Cedar data points; AVP runs the same policies managed (documented, not wired).
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-034
 
@@ -1062,7 +1062,7 @@ tags: [pdp, authzen, fail-closed, validation, wire-boundary, security]
 **Implications carried forward:**
 - Any future CS adding a new external decision/enforcement endpoint (CS14/CS15/CS19/CS21): treat the wire boundary as untrusted and add action-aware fail-closed input validation; a passing shared catalog does not prove the boundary is safe.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-036
 
@@ -1084,7 +1084,7 @@ tags: [dotnet, line-endings, lint, windows, ci]
 **Implications carried forward:**
 - Any .NET CS with new source files (CS17+/CS20/CS24): convert authored files to LF explicitly; trust `harness lint` + `.gitattributes`, not `dotnet format`, for line endings. Consider a dedicated CS to add `.editorconfig end_of_line = lf` so `dotnet format` aligns with the repo mandate.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-037
 
@@ -1106,7 +1106,7 @@ tags: [opa, rego, testing, windows]
 **Implications carried forward:**
 - CS17 (policy lifecycle/testing), CS20, CS24 and any Rego-touching CS: validate Rego edits with the standalone `opa` download rather than assuming a preinstalled CLI or relying solely on the mocked C# adapter tests.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-039
 
@@ -1128,7 +1128,7 @@ tags: [ci, review-evidence, pr-body, review-log]
 **Implications carried forward:**
 - Every content-PR review-log author: keep evidence cells free of the word "placeholder" and `<...>` tokens, and append a fresh `Go`-at-HEAD row after each new commit (including review-fix commits) or the gate fails.
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-041
 
@@ -1150,7 +1150,7 @@ tags: [dotnet, channels, concurrency, testing]
 **Implications carried forward:**
 - Any future non-blocking, drop-counting channel producer should use `FullMode=Wait` + `TryWrite`, not `DropWrite`.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-042
 
@@ -1172,7 +1172,7 @@ tags: [docs, citations, review, multi-agent, dotnet]
 **Implications carried forward:**
 - Any docs+code CS: re-grep + re-verify every `file:line` citation to a changed file at integration and after each fix-round; prefer file+narrative for lines a concurrent agent is still moving.
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-043
 
@@ -1194,7 +1194,7 @@ tags: [recon, verification, multi-agent, citations]
 **Implications carried forward:**
 - Treat recon (especially from a cheap model) as a lead, not a fact. Sub-agent briefings must instruct: verify every current-state claim against source before citing; surface corrections in the report.
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-045
 
@@ -1216,7 +1216,7 @@ tags: [ci, copilot, review-gates, github-actions]
 **Implications carried forward:**
 - Every .NET content-PR (CS22/CS24/CS14/CS15…): after the final fix commit, re-request Copilot at the merge HEAD, then re-run the failed `read-only-gates` job once Copilot's current-HEAD review lands; expect the review-triggered re-run to need a manual nudge.
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-046
 
@@ -1239,7 +1239,7 @@ tags: [dotnet, system-text-json, framework-reference, build]
 - Any new non-Web .NET project referencing a `Sdk.Web` src project: add the `FrameworkReference` up front (matches the CS-tests convention).
 - Freeze reflection-based shared `JsonSerializerOptions` with `MakeReadOnly(populateMissingResolver: true)`.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-047
 
@@ -1261,7 +1261,7 @@ tags: [review, copilot, dotnet, fail-closed, robustness]
 **Implications carried forward:**
 - CS22/CS15 and any new .NET CLI/tool code: pre-empt these classes (bounded subprocesses, dedupe inputs, validate schema + numeric args, cancel/await async probes, freeze shared config) before first review to cut Copilot rounds.
 
-**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `REVIEWS.md` `reviews.project-gates` local block by **CS33** (PR #119, `8c71a23`).
 
 ### LRN-048
 
@@ -1283,7 +1283,7 @@ tags: [blazor, dotnet, static-ssr, oidc, warnings-as-errors]
 **Implications carried forward:**
 - CS15 (playground/audit explorer) and any future Blazor UI: default token-protected pages to static SSR + enhanced forms; reserve interactive islands for anonymous-service widgets reading tenant/roles from cascaded auth state; include `MapStaticAssets`; pre-empt BL0008/CS0542 to cut review rounds.
 
-**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119).
+**Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
 ## Obsolete
 
