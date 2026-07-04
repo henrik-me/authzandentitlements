@@ -104,7 +104,8 @@ public sealed class RegressionDetectorTests
     [Fact]
     public void Detect_CustomTolerance_IsHonoured()
     {
-        // +50% would pass the default 25% but not a 100% tolerance.
+        // +50% exceeds the default 25% tolerance (would regress) but is within a 100% tolerance,
+        // so with relativeTolerance: 1.0 the engine does not regress.
         var report = RegressionDetector.Detect(
             Measured("reference", 1.0), Measured("reference", 1.5), relativeTolerance: 1.0);
 

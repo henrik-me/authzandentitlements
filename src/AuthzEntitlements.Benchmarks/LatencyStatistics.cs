@@ -14,9 +14,11 @@ namespace AuthzEntitlements.Benchmarks;
 // throw); a SINGLE-element sample yields that value for min/max/mean and every percentile.
 public static class LatencyStatistics
 {
-    // Computes the full latency distribution from a sample of durations (ms) and the total elapsed
-    // wall time (seconds) the sample represents. Throughput is count / totalElapsedSeconds
-    // (ops/sec); when the elapsed time is non-positive it is reported as zero rather than throwing.
+    // Computes the full latency distribution from a sample of durations (ms) and the total measured
+    // time (seconds) the sample represents. The caller (BenchmarkRunner) passes the summed
+    // per-evaluation durations, so throughput = count / totalElapsedSeconds (ops/sec) is the
+    // steady-state per-engine evaluation rate; when the elapsed time is non-positive it is reported
+    // as zero rather than throwing.
     public static LatencyStats Compute(IReadOnlyList<double> samplesMs, double totalElapsedSeconds)
     {
         ArgumentNullException.ThrowIfNull(samplesMs);
