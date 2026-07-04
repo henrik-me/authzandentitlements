@@ -107,11 +107,12 @@ Run the gate:
 dotnet test tests/AuthzEntitlements.Authz.Pdp.Tests/AuthzEntitlements.Authz.Pdp.Tests.csproj
 ```
 
-> **CI note.** This repository's GitHub Actions deliberately run **process gates only**
-> (`harness lint` + template-drift); .NET build/test is the **local** code-correctness gate that
-> every CS's PR must pass before merge (see `CONTEXT.md`). The policy test suite above **is** that
-> gate. A project that wants the suite enforced in GitHub Actions can adopt a path-filtered
-> workflow — this is an **opt-in** posture change (left to the maintainer, not enabled by CS17):
+> **CI note.** This repository's GitHub Actions deliberately run **harness / process gates only** —
+> `harness lint`, managed/template drift, and the review-evidence gates; .NET build/test is the
+> **local** code-correctness gate that every CS's PR must pass before merge (see `CONTEXT.md`). The
+> policy test suite above **is** that gate. A project that wants the suite enforced in GitHub Actions
+> can adopt a path-filtered workflow — this is an **opt-in** posture change (left to the maintainer,
+> not enabled by CS17):
 >
 > ```yaml
 > # .github/workflows/policy-tests.yml (adoption example — not enabled by default)

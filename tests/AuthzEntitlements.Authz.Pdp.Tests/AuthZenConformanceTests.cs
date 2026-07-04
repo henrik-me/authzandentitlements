@@ -141,4 +141,93 @@ public sealed class AuthZenConformanceTests
             Assert.Equal(expected.ObligationIds, response.Context.Obligations);
         }
     }
+
+    [Fact]
+    public void Validate_EveryCatalogScenario_PassesValidation()
+    {
+        foreach (var scenario in FintechScenarioCatalog.Scenarios)
+        {
+            var parsed = Parse(JsonSerializer.Serialize(AuthZenMapper.ToWireRequest(scenario.Request), Web));
+            Assert.Null(AuthZenRequestValidation.Validate(parsed));
+        }
+    }
+
+    [Fact]
+    public void Validate_MalformedShape_IsRejected()
+    {
+        Assert.NotNull(AuthZenRequestValidation.Validate(Parse("{}")));
+    }
+
+    [Fact]
+    public void Validate_UnparseableAmount_IsRejected_NotSilentlyZero()
+    {
+        var request = Parse("""
+        { "subject": { "type": "user", "id": "user-teller1", "properties": { "roles": ["Teller"], "tenant": "CONTOSO" } },
+          "action": { "name": "bank.transaction.create" },
+          "resource": { "type": "transaction",
+            "properties": { "tenant": "CONTOSO", "amount": "not-a-number", "maker_id": "user-teller1" } },
+          "context": { "scopes": ["bank.transactions.write"] } }
+        """);
+
+        var error = AuthZenRequestValidation.Validate(request);
+
+        Assert.NotNull(error);
+        Assert.Contains("amount", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_TransactionCreate_MissingAmount_IsRejected()
+    {
+        var request = Parse("""
+        { "subject": { "type": "user", "id": "user-teller1", "properties": {} },
+          "action": { "name": "bank.transaction.create" },
+          "resource": { "type": "transaction", "properties": { "maker_id": "user-teller1" } },
+          "context": {} }
+        """);
+
+        Assert.Contains("amount", AuthZenRequestValidation.Validate(request)!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_TransactionCreate_MissingMaker_IsRejected()
+    {
+        var request = Parse("""
+        { "subject": { "type": "user", "id": "user-teller1", "properties": {} },
+          "action": { "name": "bank.transaction.create" },
+          "resource": { "type": "transaction", "properties": { "amount": 15000 } },
+          "context": {} }
+        """);
+
+        Assert.Contains("maker_id", AuthZenRequestValidation.Validate(request)!, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("bank.transaction.approve")]
+    [InlineData("bank.transaction.reject")]
+    public void Validate_Approval_MissingMaker_IsRejected(string action)
+    {
+        var request = Parse($$"""
+        { "subject": { "type": "user", "id": "user-manager1", "properties": {} },
+          "action": { "name": "{{action}}" },
+          "resource": { "type": "transaction", "properties": { "status": "Pending" } },
+          "context": {} }
+        """);
+
+        Assert.Contains("maker_id", AuthZenRequestValidation.Validate(request)!, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("bank.transaction.approve")]
+    [InlineData("bank.transaction.reject")]
+    public void Validate_Approval_MissingStatus_IsRejected(string action)
+    {
+        var request = Parse($$"""
+        { "subject": { "type": "user", "id": "user-manager1", "properties": {} },
+          "action": { "name": "{{action}}" },
+          "resource": { "type": "transaction", "properties": { "maker_id": "user-teller1" } },
+          "context": {} }
+        """);
+
+        Assert.Contains("status", AuthZenRequestValidation.Validate(request)!, StringComparison.Ordinal);
+    }
 }

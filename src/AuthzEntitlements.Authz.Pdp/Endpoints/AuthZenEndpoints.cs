@@ -15,7 +15,9 @@ public static class AuthZenEndpoints
         app.MapPost("/api/authz/authzen/evaluation",
             (AuthZenEvaluationRequest? request, PdpDecisionService decisions) =>
         {
-            var shapeError = ValidateShape(request);
+            // The AuthZEN boundary is untrusted external input: validate the shape AND the
+            // action-required attributes (fail closed) before it can become a real audited decision.
+            var shapeError = AuthZenRequestValidation.Validate(request);
             if (shapeError is not null)
             {
                 return Results.Problem(shapeError, statusCode: StatusCodes.Status400BadRequest);
@@ -23,8 +25,8 @@ public static class AuthZenEndpoints
 
             var accessRequest = AuthZenMapper.ToAccessRequest(request!);
 
-            // Second net: the mapped request must still be structurally complete (e.g. a blank
-            // resource.type would already be caught above, but this keeps parity with /evaluate).
+            // Second net: the mapped request must still be structurally complete (parity with
+            // /evaluate).
             var validationError = AccessRequestValidation.Validate(accessRequest);
             if (validationError is not null)
             {
@@ -36,35 +38,5 @@ public static class AuthZenEndpoints
         });
 
         return app;
-    }
-
-    // Validate the AuthZEN request shape before mapping so a "{}"/partial body is a 400 rather than
-    // a null-dereference 500. System.Text.Json can leave the nested records null despite the
-    // non-null contract types.
-    private static string? ValidateShape(AuthZenEvaluationRequest? request)
-    {
-        if (request is null)
-        {
-            return "An AuthZEN evaluation request (subject, action, resource) is required.";
-        }
-
-        if (request.Subject is null
-            || string.IsNullOrWhiteSpace(request.Subject.Type)
-            || string.IsNullOrWhiteSpace(request.Subject.Id))
-        {
-            return "subject.type and subject.id are required.";
-        }
-
-        if (request.Action is null || string.IsNullOrWhiteSpace(request.Action.Name))
-        {
-            return "action.name is required.";
-        }
-
-        if (request.Resource is null || string.IsNullOrWhiteSpace(request.Resource.Type))
-        {
-            return "resource.type is required.";
-        }
-
-        return null;
     }
 }
