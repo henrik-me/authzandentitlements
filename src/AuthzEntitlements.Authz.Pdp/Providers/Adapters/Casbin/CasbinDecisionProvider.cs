@@ -45,6 +45,8 @@ public sealed class CasbinDecisionProvider : IAuthorizationDecisionProvider, IEn
 
     public string Name => "casbin";
 
+    public string EngineName => "casbin";
+
     public AccessDecision Evaluate(AccessRequest request) =>
         FintechRuleEvaluator.Evaluate(request, this);
 
@@ -53,6 +55,41 @@ public sealed class CasbinDecisionProvider : IAuthorizationDecisionProvider, IEn
     // reaches here — the shared evaluator only calls this hook for role-gated actions.
     public bool IsRoleAuthorized(string action, IReadOnlyList<string> subjectRoles) =>
         subjectRoles.Any(role => _enforcer.Enforce(role, action));
+
+    // The engine-native role artifact for CS16 explanations: the Casbin policy line the subject
+    // matched ("p, <role>, <action>"), determined via the same _enforcer.Enforce loop the role
+    // gate uses. When no subject role matched, it surfaces the policy lines the action requires so
+    // the explanation still names the engine's actual determining rules.
+    public PolicyReference DescribeRoleRule(string action, IReadOnlyList<string> subjectRoles)
+    {
+        var matched = subjectRoles.FirstOrDefault(role => _enforcer.Enforce(role, action));
+        if (matched is not null)
+        {
+            return new PolicyReference(
+                PolicyReferenceKinds.CasbinRule,
+                $"p, {matched}, {action}",
+                $"Casbin policy line matched by the subject's '{matched}' role.");
+        }
+
+        var required = RequiredRolesFor(action);
+        if (required.Count == 0)
+        {
+            return new PolicyReference(
+                PolicyReferenceKinds.CasbinRule,
+                $"(no policy line grants '{action}')",
+                $"No Casbin policy grants '{action}'.");
+        }
+
+        return new PolicyReference(
+            PolicyReferenceKinds.CasbinRule,
+            string.Join("; ", required.Select(role => $"p, {role}, {action}")),
+            $"No subject role matched; action requires one of: {string.Join(", ", required)}.");
+    }
+
+    // The roles the RBAC policy grants for an action (the (role, action) policy pairs), used to
+    // describe the required policy lines when no subject role matched.
+    private static IReadOnlyList<string> RequiredRolesFor(string action) =>
+        RolePolicies().Where(policy => policy.Action == action).Select(policy => policy.Role).ToList();
 
     // The (role, action) grants encoding the fintech RBAC baseline: BranchManager may create
     // accounts; Teller/BranchManager/ComplianceOfficer may originate transactions;

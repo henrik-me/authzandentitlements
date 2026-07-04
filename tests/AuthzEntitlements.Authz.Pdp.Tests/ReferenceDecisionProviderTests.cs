@@ -442,4 +442,80 @@ public sealed class ReferenceDecisionProviderTests
     {
         Assert.Equal("reference", Provider.Name);
     }
+
+    // --- CS16 explainability: every decision carries a "reference"-engine explanation ---
+
+    [Fact]
+    public void Permit_CarriesReferenceExplanation_AllRulesSatisfied()
+    {
+        var request = PdpRequests.For(
+            PdpRequests.User("u1", PdpRequests.Contoso, RoleNames.Teller),
+            ActionNames.AccountRead, Account(PdpRequests.Contoso), ScopeNames.Read);
+
+        var decision = Provider.Evaluate(request);
+
+        Assert.Equal(Decision.Permit, decision.Decision);
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("reference", explanation.Engine);
+        Assert.Equal(DeterminingRules.AllRulesSatisfied, explanation.DeterminingRule);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.Rule, reference.Kind);
+        Assert.Equal(DeterminingRules.AllRulesSatisfied, reference.Reference);
+    }
+
+    [Fact]
+    public void ScopeDeny_CarriesReferenceExplanation_ScopeRule()
+    {
+        var request = PdpRequests.For(
+            PdpRequests.User("u1", PdpRequests.Contoso, RoleNames.Teller),
+            ActionNames.AccountRead, Account(PdpRequests.Contoso));
+
+        var decision = Provider.Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.MissingScope, decision.Reasons[0].Code);
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("reference", explanation.Engine);
+        Assert.Equal(DeterminingRules.Scope, explanation.DeterminingRule);
+        Assert.Equal(decision.Reasons[0].Message, explanation.Narrative);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.Rule, reference.Kind);
+        Assert.Equal(DeterminingRules.Scope, reference.Reference);
+    }
+
+    [Fact]
+    public void RoleDeny_CarriesReferenceExplanation_RuleKind()
+    {
+        // The reference owns its role set, so a role denial surfaces a normalized "rule"
+        // reference (kind "rule") rather than an engine-native casbin-rule/aspnet-requirement.
+        var request = PdpRequests.For(
+            PdpRequests.User("u1", PdpRequests.Contoso, RoleNames.Teller),
+            ActionNames.AccountCreate, Account(PdpRequests.Contoso), ScopeNames.Read);
+
+        var decision = Provider.Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.RoleNotAuthorized, decision.Reasons[0].Code);
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("reference", explanation.Engine);
+        Assert.Equal(DeterminingRules.Role, explanation.DeterminingRule);
+        var reference = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.Rule, reference.Kind);
+        Assert.Equal(DeterminingRules.Role, reference.Reference);
+    }
+
+    [Fact]
+    public void UnknownAction_CarriesReferenceExplanation_UnknownActionRule()
+    {
+        var request = PdpRequests.For(
+            PdpRequests.User("u1", PdpRequests.Contoso, RoleNames.BranchManager),
+            "bank.account.delete", Account(PdpRequests.Contoso), ScopeNames.Read);
+
+        var decision = Provider.Evaluate(request);
+
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("reference", explanation.Engine);
+        Assert.Equal(DeterminingRules.UnknownAction, explanation.DeterminingRule);
+        Assert.Equal(DeterminingRules.UnknownAction, Assert.Single(explanation.PolicyReferences).Reference);
+    }
 }

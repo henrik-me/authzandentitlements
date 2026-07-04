@@ -19,6 +19,14 @@
 #             "reason":   one of Permit | MissingScope | TenantMismatch |
 #                         RoleNotAuthorized | SubjectNotMaker |
 #                         MakerEqualsChecker | NotPending | UnknownAction,
+#             "rule":     the determining check id, "<action-short>.<Reason>"
+#                         (e.g. "read.Permit", "transaction.create.MissingScope",
+#                         "unknown.UnknownAction") — an ADDITIVE explainability
+#                         field (CS16) mirroring the Cedar policy-id naming so a
+#                         playground/audit explorer can compare the determining
+#                         rule across engines. decision/reason/obligations are
+#                         unchanged; the C# adapter + 22-scenario parity key on
+#                         `reason`,
 #             "obligations": [] | ["require_approval"] | ["post_immediately"] }
 #
 # `decision` is a TOTAL rule: a `default` covers every unrecognized action so
@@ -42,7 +50,7 @@ checker_eligible_roles := {"BranchManager", "ComplianceOfficer"}
 # ---------------------------------------------------------------------------
 
 # Fail closed: any action outside the known vocabulary is denied, never permitted.
-default decision := {"decision": "Deny", "reason": "UnknownAction", "obligations": []}
+default decision := {"decision": "Deny", "reason": "UnknownAction", "rule": "unknown.UnknownAction", "obligations": []}
 
 decision := read_decision if input.action.name == "bank.account.read"
 
@@ -61,48 +69,48 @@ decision := approval_decision if input.action.name == "bank.transaction.reject"
 
 # bank.account.read: read scope, then same-tenant. No role gate; resource.type
 # is not checked (mirrors EvaluateRead).
-read_decision := deny("MissingScope") if {
+read_decision := deny("read.MissingScope", "MissingScope") if {
 	not has_scope("bank.read")
-} else := deny("TenantMismatch") if {
+} else := deny("read.TenantMismatch", "TenantMismatch") if {
 	not tenant_matches
-} else := permit_no_obligation
+} else := permit_no_obligation("read.Permit")
 
 # bank.account.create: BranchManager role, then same-tenant. NO scope check
 # (mirrors EvaluateAccountCreate).
-account_create_decision := deny("RoleNotAuthorized") if {
+account_create_decision := deny("account.create.RoleNotAuthorized", "RoleNotAuthorized") if {
 	not has_role("BranchManager")
-} else := deny("TenantMismatch") if {
+} else := deny("account.create.TenantMismatch", "TenantMismatch") if {
 	not tenant_matches
-} else := permit_no_obligation
+} else := permit_no_obligation("account.create.Permit")
 
 # bank.transaction.create: write scope, maker-eligible role, subject-is-maker,
 # then same-tenant; on permit carry the threshold obligation (mirrors
 # EvaluateTransactionCreate).
-transaction_create_decision := deny("MissingScope") if {
+transaction_create_decision := deny("transaction.create.MissingScope", "MissingScope") if {
 	not has_scope("bank.transactions.write")
-} else := deny("RoleNotAuthorized") if {
+} else := deny("transaction.create.RoleNotAuthorized", "RoleNotAuthorized") if {
 	not has_any_role(maker_eligible_roles)
-} else := deny("SubjectNotMaker") if {
+} else := deny("transaction.create.SubjectNotMaker", "SubjectNotMaker") if {
 	not subject_is_maker
-} else := deny("TenantMismatch") if {
+} else := deny("transaction.create.TenantMismatch", "TenantMismatch") if {
 	not tenant_matches
-} else := permit_with_obligation(transaction_obligation)
+} else := permit_with_obligation("transaction.create.Permit", transaction_obligation)
 
 # bank.transaction.approve / reject: approvals scope, checker-eligible role,
 # same-tenant, pending target, then segregation of duties. NotPending is checked
 # BEFORE the SoD check so a self-approval of an already-decided transaction
 # denies NotPending, not MakerEqualsChecker (mirrors EvaluateApprovalDecision).
-approval_decision := deny("MissingScope") if {
+approval_decision := deny("approval.MissingScope", "MissingScope") if {
 	not has_scope("bank.approvals.write")
-} else := deny("RoleNotAuthorized") if {
+} else := deny("approval.RoleNotAuthorized", "RoleNotAuthorized") if {
 	not has_any_role(checker_eligible_roles)
-} else := deny("TenantMismatch") if {
+} else := deny("approval.TenantMismatch", "TenantMismatch") if {
 	not tenant_matches
-} else := deny("NotPending") if {
+} else := deny("approval.NotPending", "NotPending") if {
 	not is_pending
-} else := deny("MakerEqualsChecker") if {
+} else := deny("approval.MakerEqualsChecker", "MakerEqualsChecker") if {
 	subject_is_maker
-} else := permit_no_obligation
+} else := permit_no_obligation("approval.Permit")
 
 # ---------------------------------------------------------------------------
 # Helpers (small and readable, mirroring the reference provider predicates).
@@ -164,12 +172,16 @@ transaction_amount := amount if {
 # Decision constructors.
 # ---------------------------------------------------------------------------
 
-deny(reason) := {"decision": "Deny", "reason": reason, "obligations": []}
+# The `rule` field (CS16) names the determining check as "<action-short>.<Reason>"
+# so an explanation can surface WHICH rule decided; it is additive and does not
+# affect decision/reason/obligations.
+deny(rule, reason) := {"decision": "Deny", "reason": reason, "rule": rule, "obligations": []}
 
-permit_no_obligation := {"decision": "Permit", "reason": "Permit", "obligations": []}
+permit_no_obligation(rule) := {"decision": "Permit", "reason": "Permit", "rule": rule, "obligations": []}
 
-permit_with_obligation(obligation) := {
+permit_with_obligation(rule, obligation) := {
 	"decision": "Permit",
 	"reason": "Permit",
+	"rule": rule,
 	"obligations": [obligation],
 }

@@ -243,6 +243,60 @@ only to a **permitted** `bank.transaction.create`, keyed off the `10,000` approv
 | `require_approval` | `Amount >= 10,000` (at/above threshold): the transaction obliges a second-person approval. |
 | `post_immediately` | `Amount < 10,000` (below threshold): the transaction may post without a second approver. |
 
+## Decision explanation (explainability)
+
+> **CS16 addition.** The rest of this document is CS05 scope; this section documents the CS16
+> explainability surface. Full detail — the determining-rule vocabulary, per-engine extraction, and
+> the explanation-quality comparison — lives in [explainability.md](explainability.md).
+
+CS16 attaches a first-class, engine-agnostic
+[`DecisionExplanation`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/DecisionExplanation.cs) to
+**every** `AccessDecision` (permit or deny, every engine), so a decision explains not just *what*
+and a reason *code* but *which normalized rule* determined it and *which engine-native artifact*
+produced it:
+
+```csharp
+public sealed record DecisionExplanation(
+    string Engine,
+    string DeterminingRule,
+    IReadOnlyList<PolicyReference> PolicyReferences,
+    string Narrative);
+
+public sealed record PolicyReference(string Kind, string Reference, string? Detail = null);
+```
+
+It hangs off `AccessDecision` as an additive, nullable property with a copy-method to enrich:
+
+```csharp
+public DecisionExplanation? Explanation { get; init; }
+public AccessDecision WithExplanation(DecisionExplanation explanation) => this with { Explanation = explanation };
+```
+
+- **An adapter SHOULD attach a rich, engine-native explanation** via `WithExplanation(...)` — the
+  determining Cedar policy id, OPA rule id, Casbin policy line, ASP.NET requirement, or OpenFGA
+  tuple.
+- **The service guarantees a baseline otherwise.**
+  [`PdpDecisionService`](../../src/AuthzEntitlements.Authz.Pdp/Services/PdpDecisionService.cs)
+  attaches [`DecisionExplanations.Baseline`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/DecisionExplanations.cs)
+  (normalized from the primary reason code, with a `reason-code` reference) when a provider returns
+  none, so **no decision the service returns is ever unexplained**.
+
+The normalized `DeterminingRule` values come from
+[`DeterminingRules`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/DecisionExplanation.cs)
+(`all-rules-satisfied`, `scope`, `role`, `tenant`, `subject-is-maker`, `pending-status`,
+`segregation-of-duties`, `relationship`, `unknown-action`, `engine-unavailable`); the artifact
+`Kind` values come from
+[`PolicyReferenceKinds`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/DecisionExplanation.cs)
+(`reason-code`, `rule`, `rego-rule`, `cedar-policy`, `casbin-rule`, `aspnet-requirement`,
+`relationship-tuple`).
+
+The explanation surfaces on the `POST /api/authz/evaluate` response, in each
+`POST /api/authz/scenarios/verify` result, and — flattened — on the [audit event](#audit)
+(`DeterminingRule`, `PolicyReferences`, `Narrative`). **UI rendering** (playground / audit explorer)
+is **CS15** per the CS16 plan-review amendment; CS16 delivers only the explanation data. See
+[explainability.md](explainability.md) for the reason-code → determining-rule table, the per-engine
+reference formats, and the explanation-quality comparison.
+
 ## Reference provider semantics
 
 [`ReferenceDecisionProvider`](../../src/AuthzEntitlements.Authz.Pdp/Providers/ReferenceDecisionProvider.cs)
@@ -438,6 +492,9 @@ Each decision emits one
 | `Decision` | `string` | `"Permit"` / `"Deny"` |
 | `Reason` | `string` | Primary reason code |
 | `Tenant` | `string?` | `Subject.Tenant` |
+| `DeterminingRule` | `string` | Normalized determining rule (CS16 — see [Decision explanation](#decision-explanation-explainability)) |
+| `PolicyReferences` | `IReadOnlyList<string>` | Engine-native references flattened as `"kind:reference"` (CS16) |
+| `Narrative` | `string` | Human-readable "why" (CS16) |
 
 The default sink,
 [`LoggingPdpDecisionAuditSink`](../../src/AuthzEntitlements.Authz.Pdp/Audit/LoggingPdpDecisionAuditSink.cs),

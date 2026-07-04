@@ -142,4 +142,97 @@ public sealed class CasbinDecisionProviderTests
         Assert.Equal(Decision.Permit, decision.Decision);
         Assert.Equal(expectedObligation, Assert.Single(decision.Obligations).Id);
     }
+
+    // --- CS16 explainability: every decision carries a "casbin"-engine explanation ---
+
+    [Fact]
+    public void Permit_CarriesCasbinExplanation_WithMatchedPolicyLine()
+    {
+        var provider = new CasbinDecisionProvider();
+        var request = PdpRequests.For(
+            PdpRequests.User("user-manager1", PdpRequests.Contoso, RoleNames.BranchManager),
+            ActionNames.AccountCreate,
+            new Resource("account", Tenant: PdpRequests.Contoso),
+            ScopeNames.Read);
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Permit, decision.Decision);
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("casbin", explanation.Engine);
+        Assert.Equal(DeterminingRules.AllRulesSatisfied, explanation.DeterminingRule);
+        // The engine-native matched Casbin policy line is surfaced alongside the normalized rule.
+        var casbinRule = Assert.Single(
+            explanation.PolicyReferences, r => r.Kind == PolicyReferenceKinds.CasbinRule);
+        Assert.Equal($"p, {RoleNames.BranchManager}, {ActionNames.AccountCreate}", casbinRule.Reference);
+        Assert.Contains(
+            explanation.PolicyReferences,
+            r => r.Kind == PolicyReferenceKinds.Rule && r.Reference == DeterminingRules.AllRulesSatisfied);
+    }
+
+    [Fact]
+    public void RoleDeny_CarriesCasbinExplanation_WithRequiredPolicyLines()
+    {
+        var provider = new CasbinDecisionProvider();
+        var request = PdpRequests.For(
+            PdpRequests.User("user-teller1", PdpRequests.Contoso, RoleNames.Teller),
+            ActionNames.AccountCreate,
+            new Resource("account", Tenant: PdpRequests.Contoso),
+            ScopeNames.Read);
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.RoleNotAuthorized, decision.Reasons[0].Code);
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("casbin", explanation.Engine);
+        Assert.Equal(DeterminingRules.Role, explanation.DeterminingRule);
+        // No subject role matched, so the reference names the required policy line(s).
+        var casbinRule = Assert.Single(explanation.PolicyReferences);
+        Assert.Equal(PolicyReferenceKinds.CasbinRule, casbinRule.Kind);
+        Assert.Equal($"p, {RoleNames.BranchManager}, {ActionNames.AccountCreate}", casbinRule.Reference);
+    }
+
+    [Fact]
+    public void TenantDeny_CarriesCasbinExplanation_WithRoleAndTenantRules()
+    {
+        // Role passes (BranchManager) but tenants differ: the explanation carries both the matched
+        // engine-native Casbin rule and the normalized tenant rule that determined the deny.
+        var provider = new CasbinDecisionProvider();
+        var request = PdpRequests.For(
+            PdpRequests.User("user-manager1", PdpRequests.Contoso, RoleNames.BranchManager),
+            ActionNames.AccountCreate,
+            new Resource("account", Tenant: PdpRequests.Fabrikam),
+            ScopeNames.Read);
+
+        var decision = provider.Evaluate(request);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.TenantMismatch, decision.Reasons[0].Code);
+        var explanation = Assert.IsType<DecisionExplanation>(decision.Explanation);
+        Assert.Equal("casbin", explanation.Engine);
+        Assert.Equal(DeterminingRules.Tenant, explanation.DeterminingRule);
+        Assert.Contains(explanation.PolicyReferences, r => r.Kind == PolicyReferenceKinds.CasbinRule);
+        Assert.Contains(
+            explanation.PolicyReferences,
+            r => r.Kind == PolicyReferenceKinds.Rule && r.Reference == DeterminingRules.Tenant);
+    }
+
+    [Fact]
+    public void DescribeRoleRule_NamesMatchedRole()
+    {
+        var provider = new CasbinDecisionProvider();
+
+        var reference = ((IEngineRoleAuthorizer)provider).DescribeRoleRule(
+            ActionNames.TransactionCreate, [RoleNames.Teller]);
+
+        Assert.Equal(PolicyReferenceKinds.CasbinRule, reference.Kind);
+        Assert.Equal($"p, {RoleNames.Teller}, {ActionNames.TransactionCreate}", reference.Reference);
+    }
+
+    [Fact]
+    public void EngineName_IsCasbin()
+    {
+        Assert.Equal("casbin", ((IEngineRoleAuthorizer)new CasbinDecisionProvider()).EngineName);
+    }
 }

@@ -21,6 +21,12 @@ internal sealed record OpaDecisionResult
     // The stable reason code (e.g. "Permit", "MissingScope", "MakerEqualsChecker").
     public string? Reason { get; init; }
 
+    // The determining check id (CS16), "<action-short>.<Reason>" (e.g. "read.Permit",
+    // "transaction.create.MissingScope", "unknown.UnknownAction"). Additive and nullable: an older
+    // policy that predates the field returns null, in which case the adapter degrades to a
+    // package-path-only explanation rather than failing the decision.
+    public string? Rule { get; init; }
+
     // Obligation ids for a permitted transaction.create ("require_approval"/"post_immediately");
     // absent or empty otherwise.
     public IReadOnlyList<string>? Obligations { get; init; }

@@ -10,6 +10,7 @@ public sealed class LoggingPdpDecisionAuditSink(ILogger<LoggingPdpDecisionAuditS
         logger.LogInformation(
             "PDP decision {Decision} ({Reason}) provider={Provider} action={Action} " +
             "resource={ResourceType}/{ResourceId} subject={SubjectId} tenant={Tenant} " +
+            "rule={DeterminingRule} policyReferences={PolicyReferences} narrative={Narrative} " +
             "trace={TraceId} at {TimestampUtc}",
             decisionEvent.Decision,
             decisionEvent.Reason,
@@ -19,6 +20,9 @@ public sealed class LoggingPdpDecisionAuditSink(ILogger<LoggingPdpDecisionAuditS
             decisionEvent.ResourceId,
             decisionEvent.SubjectId,
             decisionEvent.Tenant,
+            decisionEvent.DeterminingRule,
+            string.Join(", ", decisionEvent.PolicyReferences),
+            decisionEvent.Narrative,
             decisionEvent.TraceId,
             decisionEvent.TimestampUtc);
 }

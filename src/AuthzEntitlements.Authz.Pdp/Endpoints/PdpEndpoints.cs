@@ -58,6 +58,7 @@ public static class PdpEndpoints
                     actual = r.Actual.Decision.ToString(),
                     actualReasonCode = r.Actual.Reasons.Count > 0 ? r.Actual.Reasons[0].Code : string.Empty,
                     obligations = r.Actual.Obligations.Select(o => o.Id),
+                    explanation = r.Actual.Explanation,
                     r.Passed,
                 }),
             };

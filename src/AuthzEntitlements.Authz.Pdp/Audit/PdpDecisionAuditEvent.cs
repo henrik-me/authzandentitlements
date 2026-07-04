@@ -14,4 +14,9 @@ public sealed record PdpDecisionAuditEvent(
     string? ResourceId,
     string Decision,
     string Reason,
-    string? Tenant);
+    string? Tenant,
+    // CS16 explainability: the normalized determining rule, the engine-native policy reference(s)
+    // flattened as "kind:reference" strings (audit-ingestion-friendly), and the human narrative.
+    string DeterminingRule,
+    IReadOnlyList<string> PolicyReferences,
+    string Narrative);

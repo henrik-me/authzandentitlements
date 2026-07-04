@@ -9,9 +9,18 @@ public sealed record AccessDecision(
     IReadOnlyList<Reason> Reasons,
     IReadOnlyList<Obligation> Obligations)
 {
+    // Engine-agnostic "why" for this decision (CS16). Null until attached; the PdpDecisionService
+    // guarantees a baseline is present on every decision it returns, and each engine adapter may
+    // attach a richer, engine-native explanation via WithExplanation.
+    public DecisionExplanation? Explanation { get; init; }
+
     public static AccessDecision Permit(Reason reason, params Obligation[] obligations) =>
         new(Contracts.Decision.Permit, [reason], obligations);
 
     public static AccessDecision Deny(Reason reason) =>
         new(Contracts.Decision.Deny, [reason], []);
+
+    // Returns a copy carrying the given explanation (engine adapters use this to enrich).
+    public AccessDecision WithExplanation(DecisionExplanation explanation) =>
+        this with { Explanation = explanation };
 }
