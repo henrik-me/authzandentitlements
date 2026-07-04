@@ -11,6 +11,12 @@ public static class ActionNames
     public const string TransactionApprove = "bank.transaction.approve";
     public const string TransactionReject = "bank.transaction.reject";
 
+    // CS11 governance segregation-of-duties (SoD) action. Unlike the bank verbs above it is not a
+    // Bank.Api enforcement verb: it asks whether a principal's PROPOSED role set (carried on
+    // subject.roles) contains a toxic combination. Handled by the reference provider and the
+    // OPA/Rego policy, so it is a first-class known action, not the fail-closed default.
+    public const string GovernanceAccessRequest = "governance.access.request";
+
     // The bounded tag value for any action outside the known vocabulary. Callers can send an
     // arbitrary action.name (evaluate is anonymous and unknown actions fail closed), so metric
     // tags collapse unknowns to this constant to keep metric label cardinality bounded.
@@ -23,6 +29,7 @@ public static class ActionNames
         TransactionCreate,
         TransactionApprove,
         TransactionReject,
+        GovernanceAccessRequest,
     };
 
     // Normalizes an action name to the bounded vocabulary for low-cardinality metric tags: a

@@ -48,7 +48,7 @@ var postgres = builder.AddPostgres("postgres")
 var bankDb = postgres.AddDatabase("bank");
 var openfgaDb = postgres.AddDatabase("openfga");
 var entitlementsDb = postgres.AddDatabase("entitlements");
-postgres.AddDatabase("governance");
+var governanceDb = postgres.AddDatabase("governance");
 postgres.AddDatabase("audit");
 
 // CS10 — Unleash backs the optional config-gated feature-flag provider. It is kept OFF
@@ -192,13 +192,26 @@ var openfga = builder.AddContainer("openfga", openfgaImage, openfgaImageTag)
 // CS07 injects OpenFGA's endpoint (no hard WaitFor — matching Unleash) so switching
 // Pdp__Provider=openfga works once the explicit-start container is running. CS12 fans the PDP's
 // own PDP-decision OTLP telemetry out to the persistent observability collector like the other services.
-builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-pdp")
+var authzPdp = builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-pdp")
     .WithEnvironment("Pdp__OpenFga__ApiUrl", openfga.GetEndpoint("http"))
     .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
     // CS08 — OPA coordinates for the config-gated `opa` provider. Injected unconditionally (like the
     // Unleash coordinates) so Pdp__Provider=opa works without further wiring; no WaitFor(opa) keeps
     // the deterministic reference provider off OPA's critical path.
     .WithEnvironment("Opa__BaseUrl", opa.GetEndpoint("http"))
+    .WaitFor(observability);
+
+// CS11 — Access-governance service. Owns the `governance` database (access packages, JIT grant
+// requests, time-bound grants, access-review campaigns). Its JIT approvals run a segregation-of-
+// duties check through the PDP (service-discovered `authz-pdp`, POST /api/authz/evaluate, action
+// governance.access.request) — the SoD verdict is identical whether the PDP runs the deterministic
+// reference engine (default) or the opt-in OPA container (Pdp__Provider=opa). The SoD call is
+// fail-closed, so no hard WaitFor(authz-pdp) is needed to keep the default `aspire run` deterministic.
+builder.AddProject<Projects.AuthzEntitlements_Governance_Service>("governance-service")
+    .WithReference(governanceDb)
+    .WaitFor(governanceDb)
+    .WithReference(authzPdp)
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
     .WaitFor(observability);
 
 builder.Build().Run();

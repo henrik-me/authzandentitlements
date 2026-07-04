@@ -33,10 +33,12 @@ Model access-governance entitlements: access packages, JIT elevation, and access
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Model access packages | pending | — | |
-| JIT approval workflow | pending | — | |
-| Time-bound grants + expiry | pending | — | |
-| Review campaigns | pending | — | |
+| Model access packages | done | yoga-ae | agent-id=cs11-governance-service \| role=service-impl \| report-status=complete \| learnings=0 |
+| JIT approval workflow (maker-checker; SoD via PDP) | done | yoga-ae | agent-id=cs11-governance-service \| role=service-impl \| report-status=complete \| learnings=0 |
+| Time-bound grants + expiry | done | yoga-ae | agent-id=cs11-governance-service \| role=service-impl \| report-status=complete \| learnings=0 |
+| Review campaigns | done | yoga-ae | agent-id=cs11-governance-service \| role=service-impl \| report-status=complete \| learnings=0 |
+| SoD via PDP OpaProvider (governance.access.request; reference+OPA parity) | done | yoga-ae | agent-id=cs11-pdp-opa-sod \| role=pdp-opa-impl \| report-status=complete \| learnings=2 |
+| AppHost wiring + governance docs | done | yoga-ae | agent-id=cs11-apphost-docs \| role=integration-impl \| report-status=complete \| learnings=0 |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 
