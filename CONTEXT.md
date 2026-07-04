@@ -177,11 +177,26 @@ policy **test suite** + a documented opt-in GitHub Actions snippet rather than a
 process-gates-only posture (maintainer decision pending; see PR #55 Notes + LRN-035). Doc at
 `docs/authz/policy-lifecycle.md`. New learnings LRN-034..035.
 
-**Next claimable:** **CS11 (governance)** — unblocked (needs CS02 + CS08, both complete) — and CS13 (audit pipeline; needs CS05).
-**All four engine adapters are DONE:** CS06 (ASP.NET/Casbin), CS08 (OPA/Rego), CS07 (OpenFGA/ReBAC), and CS09 (Cedar) — so
-CS16/CS17/CS20 (need engine behavior) and CS24 (perf benchmark; needs engines + CS12) are now fully unblocked (**CS16 + CS17 complete**). CS06–CS09 also
-advance CS14 (Blazor product UI; needs CS03/CS04/CS06/CS10/CS11). `harness lint` is green; the remaining CSs carry an independent
-GPT-5.5 `## Plan review` attestation.
+**CS16 (explainability: why allowed / why denied) complete** (PR #56, squash-merged 2026-07-04 as `6f17c05`). Every PDP decision —
+permit or deny, from every engine — now carries a first-class, engine-agnostic **`DecisionExplanation`** (`Engine`, normalized
+`DeterminingRule`, engine-native `PolicyReferences`, `Narrative`) on `AccessDecision`. `PdpDecisionService` **guarantees** it (a
+baseline derived from the reason code when a provider attaches none) and threads it into the audit event (`PdpDecisionAuditEvent`
++ the default `LoggingPdpDecisionAuditSink`) and the `/api/authz/{evaluate,scenarios/verify}` responses. Per-engine extraction:
+the reference engine + the shared `FintechRuleEvaluator` (Casbin/ASP.NET) attach normalized `rule` ids + engine-native role refs
+(`IEngineRoleAuthorizer` gained `EngineName` + `DescribeRoleRule`); OPA's Rego emits an additive `rule` id surfaced as a `rego-rule`
+ref; Cedar surfaces the determining forbid/permit **policy ids** (first-failing-first); OpenFGA surfaces the checked **relationship
+tuple**. **Additive only** — reason codes, obligations, decision outcomes, and the 22-scenario parity are unchanged. Docs at
+`docs/authz/explainability.md` (per-engine explanation-quality comparison) + a `pdp-contract.md` section; **UI rendering is CS15,
+live audit ingestion is CS13** (plan-review R1 amendment). `dotnet build` 0/0, full-solution `dotnet test` 546/546 (PDP 406;
+~50 explanation tests), `opa test` 51/51, runtime `/evaluate` smoke returns the explanation on permit + deny. 6 background
+sub-agents (foundation → 4 parallel engines → docs); GPT-5.5 rubber-duck R1 (1 amendment: audit-sink emission) → R2/R3 (Go) +
+Copilot (4 nits resolved) + plan-vs-impl GO. New learnings LRN-036..039.
+
+**Next claimable:** with **CS11** (governance), **CS13** (audit pipeline) and **CS17** (policy lifecycle) in flight under other
+orchestrators and **CS16 (explainability) DONE**, the ready-and-unowned queue includes **CS18** (security hardening; needs CS04+CS05),
+**CS20** (migration & portability; needs CS05–CS08), and **CS24** (perf benchmark; needs engines + CS12). **All five engine adapters
+plus the unified explanation model are DONE** — further advancing CS15 (playground/audit explorer now has explanation data to render)
+and CS23. `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
 
 ## Constraints
 
