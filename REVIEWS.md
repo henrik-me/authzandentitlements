@@ -775,17 +775,82 @@ C42-6, after which missing columns become a hard failure.
 
 ## Project-specific review gates
 
-_No project-specific gates are defined yet. Add entries here for gates that
-apply to this project but are not universal harness policy. Examples:_
+These gates consolidate durable review / CI / merge process learnings for the .NET
+authz-and-entitlements project. They supplement — never replace — the universal harness
+review policy above. Each bullet cites its source `LRN-NNN`.
 
-- _"All clickstops that touch Azure deployment configuration require a manual
-  approval step from the project owner before the close-out PR is raised."_
-- _"Security-sensitive changes (cryptographic primitives, secret handling,
-  auth flows) require a dedicated security review round in addition to the
-  standard GPT-5.5 content review."_
-- _"Any CS that modifies public-facing API schemas must include a
-  backwards-compatibility attestation in the PR body."_
+### Review-of-record & automated reviewers
 
-_Replace this placeholder paragraph with the actual gates for your project._
+- **Verify every review comment against the running system** (build / test / `curl`) before
+  either fixing OR dismissing it — a confident "will throw at runtime" claim was falsified by
+  one `GET`. The independent GPT-5.5 rubber-duck is the review-of-record; treat Copilot
+  comments as leads to verify, not directives (LRN-007).
+- **Copilot re-emits its FULL comment set on every re-review** (it re-scans the whole diff)
+  and `COMMENTED` is non-blocking. Converge by fixing the genuinely-substantive findings,
+  then hard-stop: a final re-engage, RESOLVE all resulting threads (real + re-raised), and
+  merge WITHOUT pushing further commits — each new commit resets the loop and re-triggers
+  async review (LRN-020).
+- **For new .NET tool / CLI / parsing code, budget multiple Copilot rounds** — Copilot
+  systematically catches fail-closed / resource-cleanliness gaps the rubber-duck misses
+  (bounded subprocesses, deduped inputs, schema + numeric-arg validation, cancelled async
+  probes, frozen shared config). Pre-empt those classes before first review; decline a finding
+  only with an explicit on-thread rationale (LRN-047).
+
+### CI review-evidence gates
+
+- **The A5+A16 Copilot gate requires a Copilot review at the CURRENT PR HEAD** — after every
+  new commit, re-request via
+  `gh api --method POST repos/OWNER/REPO/pulls/PR/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"`.
+  The review-triggered `pr-evidence-lint` re-run lands in `action_required` (bot-triggered
+  runs need approval on this repo) and will NOT self-clear — re-run `gh run rerun RUN_ID --failed`
+  or approve the pending run (LRN-045).
+- **The A3+A4 review-log gate needs a `verdict=Go` row whose `analyzed_head` equals the current
+  PR HEAD** — append a fresh Go-at-HEAD row after every commit (including review-fix commits).
+  Keep review-log evidence cells free of the literal word "placeholder" and any `<…>`
+  angle-bracket tokens; `check-review-evidence` flags those substrings anywhere in a cell
+  (LRN-039).
+- **The B1 commit-trailer gate enforces the `Co-authored-by: Copilot` trailer on EVERY commit
+  in the PR range, including the merge commit** — `git commit --amend` a `git merge`'s
+  auto-generated message to add it. After a `git rebase --continue`, run
+  `git commit --amend --no-edit` to clear the stale `# Conflicts:` lines the local
+  `commit-trailers` linter false-fails on (it reads the trailing run of `Key: Value` lines in
+  `.git/COMMIT_EDITMSG`) (LRN-018).
+
+### Multi-agent merge hygiene
+
+- **Rebase onto latest `origin/main` before push/merge if `main` advanced** — the
+  `workboard-auto-approve` gate compares the PR's 2-dot `git diff` file count against the
+  GitHub API's 3-dot `changed_files` and fails closed when a behind-branch diff picks up a
+  sibling CS's merged changes (LRN-025).
+- **The recurring conflict surface is a small shared set** — `AuthzEntitlements.sln`,
+  `Directory.Packages.props`, `src/AuthzEntitlements.AppHost/AppHost.cs`, `WORKBOARD.md`;
+  resolutions are almost always additive (keep both sides). For `.sln`,
+  `git checkout --theirs -- AuthzEntitlements.sln` then `dotnet sln add <new projects>` beats
+  hand-merging Project GUIDs. After any resolve, expect a new HEAD → re-attest the latest Go
+  row (stale-diff A4) and re-engage Copilot (A16) (LRN-019).
+- **Never assert an exhaustive set over a registry that parallel CSs extend** — assert
+  MEMBERSHIP of the CS's own additions (`Assert.Contains`) plus the production uniqueness
+  invariant (case-insensitive `Distinct` count); an exact-equal whole-set assertion reds `main`
+  when the next parallel adapter lands (LRN-028).
+
+### Close-out plan-vs-implementation review
+
+- **A cross-cutting "all services / all X" deliverable must be enumerated from the MERGED tree,
+  not the branch-base set** — concurrent sibling merges can add members after your branch forks
+  (a new ServiceDefaults service was left silently unwired from the OTLP collector, caught only
+  by grepping the current `AppHost.cs`). Wire each new service to observability in the same PR
+  (LRN-023).
+
+### Docs + code citation integrity
+
+- **When a CS ships code AND docs that cite it by `file:line`, the citations drift on every code
+  shift** — re-`grep` and re-verify every `file:line` citation to a changed file at integration
+  AND after each review-fix round; prefer file+narrative for lines a concurrent agent is still
+  moving. The independent rubber-duck reviewer spot-checks that cited references resolve
+  (LRN-042).
+- **Treat recon from a fast/cheap model as a lead, not a fact** — every downstream agent (and
+  the orchestrator) verifies each current-state claim against source before citing it, even
+  claims the briefing itself provided; surface corrections in the report rather than silently
+  propagating them (LRN-043).
 
 <!-- harness:local-end id=reviews.project-gates -->
