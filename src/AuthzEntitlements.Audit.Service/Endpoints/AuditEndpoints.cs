@@ -3,6 +3,9 @@ using AuthzEntitlements.Audit.Service.Data;
 using AuthzEntitlements.Audit.Service.Domain;
 using AuthzEntitlements.Audit.Service.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("AuthzEntitlements.Audit.Service.Tests")]
 
 namespace AuthzEntitlements.Audit.Service.Endpoints;
 
@@ -88,6 +91,7 @@ public static class AuditEndpoints
 
     private static async Task<IResult> QueryEntriesAsync(
         AuditDbContext db,
+        long? sequence,
         string? subject,
         string? action,
         string? decision,
@@ -101,7 +105,58 @@ public static class AuditEndpoints
         var take = Math.Clamp(limit ?? DefaultLimit, 1, MaxLimit);
         var skip = Math.Max(offset ?? 0, 0);
 
-        var query = db.AuditEntries.AsNoTracking().AsQueryable();
+        var query = ApplyEntryFilters(
+            db.AuditEntries.AsNoTracking(),
+            sequence,
+            subject,
+            action,
+            decision,
+            tenant,
+            trace,
+            producer);
+
+        var entries = await query
+            .OrderBy(e => e.Sequence)
+            .Skip(skip)
+            .Take(take)
+            .Select(e => new AuditEntryView(
+                e.Sequence,
+                e.TimestampUtc,
+                e.TraceId,
+                e.Provider,
+                e.SubjectId,
+                e.Action,
+                e.ResourceType,
+                e.ResourceId,
+                e.Decision,
+                e.Reason,
+                e.Tenant,
+                e.Producer,
+                e.PrevHash,
+                e.RowHash))
+            .ToListAsync(ct);
+
+        return TypedResults.Ok((IReadOnlyList<AuditEntryView>)entries);
+    }
+
+    // Composable (AND-semantics) read-model filters, kept as a pure IQueryable transform so the
+    // exact selection logic is unit-testable over an in-memory sequence without a database.
+    // A `sequence` of null or <= 0 is ignored (never an error), so the ingest Location URL
+    // (/api/audit/entries?sequence={n}) resolves to just that row while all other filters compose.
+    internal static IQueryable<AuditEntry> ApplyEntryFilters(
+        IQueryable<AuditEntry> query,
+        long? sequence,
+        string? subject,
+        string? action,
+        string? decision,
+        string? tenant,
+        string? trace,
+        string? producer)
+    {
+        if (sequence is > 0)
+        {
+            query = query.Where(e => e.Sequence == sequence.Value);
+        }
 
         if (!string.IsNullOrEmpty(subject))
         {
@@ -133,27 +188,6 @@ public static class AuditEndpoints
             query = query.Where(e => e.Producer == producer);
         }
 
-        var entries = await query
-            .OrderBy(e => e.Sequence)
-            .Skip(skip)
-            .Take(take)
-            .Select(e => new AuditEntryView(
-                e.Sequence,
-                e.TimestampUtc,
-                e.TraceId,
-                e.Provider,
-                e.SubjectId,
-                e.Action,
-                e.ResourceType,
-                e.ResourceId,
-                e.Decision,
-                e.Reason,
-                e.Tenant,
-                e.Producer,
-                e.PrevHash,
-                e.RowHash))
-            .ToListAsync(ct);
-
-        return TypedResults.Ok((IReadOnlyList<AuditEntryView>)entries);
+        return query;
     }
 }

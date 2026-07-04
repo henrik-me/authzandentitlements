@@ -216,3 +216,87 @@ public sealed record PdpDecisionDto(
     string Decision,
     IReadOnlyList<PdpReasonDto> Reasons,
     IReadOnlyList<PdpObligationDto>? Obligations);
+
+// ---- AuthZ Playground fan-out contract (mirror Authz.Pdp/Playground/PlaygroundModels.cs) ----
+// POST /api/authz/playground/fanout — run ONE AccessRequest across every registered engine
+// (or a named subset) and return per-engine comparable results, so the playground UI can render
+// a side-by-side decision/explanation/latency comparison. camelCase JSON, JsonStringEnumConverter.
+
+// One fan-out request: the AccessRequest to evaluate plus an optional engine subset. A null or
+// empty Engines list fans out across every registered provider.
+public sealed record PlaygroundFanoutRequestDto(
+    PdpAccessRequestDto Request,
+    IReadOnlyList<string>? Engines = null);
+
+// One engine-native artifact that contributed to a decision (mirror Contracts/PolicyReference).
+public sealed record PdpPolicyReferenceDto(string Kind, string Reference, string? Detail = null);
+
+// The engine-agnostic explanation attached to a decision (mirror Contracts/DecisionExplanation):
+// a normalized DeterminingRule plus each engine's native determining artifact(s).
+public sealed record PdpExplanationDto(
+    string Engine,
+    string DeterminingRule,
+    IReadOnlyList<PdpPolicyReferenceDto> PolicyReferences,
+    string Narrative);
+
+// One engine's answer to the fanned-out request. Available is the reachability verdict; when
+// false, UnavailableReason carries the failure message and the row is excluded from AllAgree.
+public sealed record EngineDecisionResultDto(
+    string Engine,
+    string Decision,
+    IReadOnlyList<PdpReasonDto> Reasons,
+    IReadOnlyList<PdpObligationDto>? Obligations,
+    PdpExplanationDto? Explanation,
+    double LatencyMs,
+    string? TraceId,
+    bool Available,
+    string? UnavailableReason);
+
+// The whole fan-out: every engine's result, the best-effort top-level trace id, and AllAgree —
+// computed server-side over only the AVAILABLE engines.
+public sealed record PlaygroundFanoutResponseDto(
+    IReadOnlyList<EngineDecisionResultDto> Results,
+    string? TraceId,
+    bool AllAgree);
+
+// ---- Audit.Service read model (mirror Audit.Service/Contracts/AuditResponses.cs) ----
+
+// One tamper-evident audit-log row (mirror AuditEntryView). PrevHash/RowHash link the chain.
+public sealed record AuditEntryDto(
+    long Sequence,
+    DateTimeOffset TimestampUtc,
+    string TraceId,
+    string Provider,
+    string SubjectId,
+    string Action,
+    string ResourceType,
+    string? ResourceId,
+    string Decision,
+    string Reason,
+    string? Tenant,
+    string Producer,
+    string PrevHash,
+    string RowHash);
+
+// The result of recomputing the whole hash chain (mirror ChainVerificationResponse): Valid plus,
+// when broken, the sequence and reason the recomputation first diverged.
+public sealed record ChainVerificationDto(
+    bool Valid,
+    long EntryCount,
+    long? BrokenAtSequence,
+    string? Reason,
+    long? TailSequence,
+    string? TailRowHash);
+
+// Convenience input carrying the /api/audit/entries filter fields. Non-null fields become
+// query-string parameters (AND semantics); nulls are omitted.
+public sealed record AuditQuery(
+    long? Sequence = null,
+    string? Subject = null,
+    string? Action = null,
+    string? Decision = null,
+    string? Tenant = null,
+    string? Trace = null,
+    string? Producer = null,
+    int? Limit = null,
+    int? Offset = null);

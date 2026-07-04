@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using AuthzEntitlements.Authz.Pdp.Endpoints;
 using AuthzEntitlements.Authz.Pdp.Lifecycle;
+using AuthzEntitlements.Authz.Pdp.Playground;
 using AuthzEntitlements.Authz.Pdp.Providers;
 using AuthzEntitlements.Authz.Pdp.Services;
 using AuthzEntitlements.Authz.Pdp.Telemetry;
@@ -29,6 +30,11 @@ builder.Services.AddPdp(builder.Configuration);
 // over the provider factory. No external dependency; the deterministic default run is unchanged.
 builder.Services.AddPolicyLifecycle();
 
+// CS15 — AuthZ Playground fan-out: run one request across every engine for side-by-side comparison.
+// A non-audited what-if surface (like WhatIfEvaluator), so it resolves providers directly through the
+// factory and never goes through PdpDecisionService. Singleton to match the factory's lifetime.
+builder.Services.AddSingleton<PlaygroundFanoutService>();
+
 var app = builder.Build();
 
 // Force-resolve the decision service at startup so a misconfigured "Pdp:Provider" fails
@@ -50,6 +56,7 @@ app.MapGet("/", () => TypedResults.Ok(new
         "/api/authz/shadow",
         "/api/authz/shadow/catalog",
         "/api/authz/policy/version",
+        "/api/authz/playground/fanout",
         "/api/authz/authzen/evaluation",
         "/api/authz/rebac/verify",
         "/api/authz/rebac/who-can-access",
@@ -60,6 +67,7 @@ app.MapGet("/", () => TypedResults.Ok(new
 app.MapPdpEndpoints();
 app.MapRebacEndpoints();
 app.MapPolicyLifecycleEndpoints();
+app.MapPlaygroundEndpoints();
 app.MapAuthZenEndpoints();
 
 app.Run();

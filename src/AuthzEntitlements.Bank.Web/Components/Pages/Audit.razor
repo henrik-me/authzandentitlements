@@ -1,0 +1,210 @@
+@page "/audit"
+@attribute [Authorize]
+@rendermode RenderMode.InteractiveServer
+@inject IAuditClient AuditApi
+@inject NavigationManager Navigation
+
+@* Audit Explorer (CS15): filter/search the tamper-evident decision log, show live hash-chain
+   verification, and "replay" any entry by opening it in the Playground pre-filled with the captured
+   fields. Interactive Server (live filtering over the circuit); the audit API is anonymous in this
+   lab so no token is forwarded. Fail-closed: a null query result renders an explicit "unavailable"
+   error, and verification failure is surfaced as a red BROKEN badge, never a silent success. *@
+
+<PageTitle>Audit Explorer</PageTitle>
+
+<h1>Audit Explorer</h1>
+
+<p class="hint">Every authorization decision is appended to a hash-chained, append-only log. Search
+    it below, confirm the chain is intact, and <strong>replay</strong> an entry by opening it in the
+    <a href="playground">AuthZ Playground</a>.</p>
+
+<div class="notice" role="group" aria-label="Chain verification">
+    @if (_verification is null && _verified)
+    {
+        <p role="alert">Chain verification unavailable — the audit service did not respond
+            (fail-closed).</p>
+    }
+    else if (_verification is { } verification)
+    {
+        @if (verification.Valid)
+        {
+            <p class="agree"><strong>Chain valid</strong> (@verification.EntryCount entries).</p>
+        }
+        else
+        {
+            <p class="disagree"><strong>Chain BROKEN at #@verification.BrokenAtSequence</strong>:
+                @verification.Reason</p>
+        }
+    }
+    <button type="button" class="button" @onclick="VerifyAsync" disabled="@_verifying">
+        @(_verifying ? "Verifying…" : "Re-verify")
+    </button>
+</div>
+
+<div class="notice" role="group" aria-label="Audit filters">
+    <h2>Filters</h2>
+    <div class="form-grid">
+        <label>Sequence<br /><input type="number" @bind="_sequence" /></label>
+        <label>Subject<br /><input @bind="_subject" /></label>
+        <label>Action<br /><input @bind="_action" /></label>
+        <label>Decision<br />
+            <select @bind="_decision">
+                <option value="">(any)</option>
+                <option value="Permit">Permit</option>
+                <option value="Deny">Deny</option>
+            </select>
+        </label>
+        <label>Tenant<br /><input @bind="_tenant" /></label>
+        <label>Trace<br /><input @bind="_trace" /></label>
+        <label>Producer<br /><input @bind="_producer" /></label>
+        <label>Limit<br /><input type="number" @bind="_limit" /></label>
+    </div>
+    <p>
+        <button type="button" class="button" @onclick="SearchAsync" disabled="@_searching">
+            @(_searching ? "Searching…" : "Search")
+        </button>
+    </p>
+</div>
+
+@if (_error is not null)
+{
+    <p class="notice" role="alert">@_error</p>
+}
+
+@if (_entries is not null)
+{
+    @if (_entries.Count == 0)
+    {
+        <p class="notice">No matching audit entries.</p>
+    }
+    else
+    {
+        <table class="grid">
+            <thead>
+                <tr>
+                    <th class="num">Seq</th>
+                    <th>Timestamp</th>
+                    <th>Provider</th>
+                    <th>Subject</th>
+                    <th>Action</th>
+                    <th>Resource</th>
+                    <th>Decision</th>
+                    <th>Reason</th>
+                    <th>Tenant</th>
+                    <th>Producer</th>
+                    <th>Row hash</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in _entries)
+                {
+                    <tr>
+                        <td class="num">@entry.Sequence</td>
+                        <td>@entry.TimestampUtc.ToString("u")</td>
+                        <td>@entry.Provider</td>
+                        <td>@entry.SubjectId</td>
+                        <td>@entry.Action</td>
+                        <td>@entry.ResourceType@(entry.ResourceId is null ? "" : $" / {entry.ResourceId}")</td>
+                        <td><span class="@DecisionClass(entry.Decision)">@entry.Decision</span></td>
+                        <td>@entry.Reason</td>
+                        <td>@(entry.Tenant ?? "—")</td>
+                        <td>@entry.Producer</td>
+                        <td><code class="mono">@ShortHash(entry.RowHash)</code></td>
+                        <td><a href="@ReplayUrl(entry)">Replay in Playground</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private long? _sequence;
+    private string? _subject;
+    private string? _action;
+    private string _decision = string.Empty;
+    private string? _tenant;
+    private string? _trace;
+    private string? _producer;
+    private int? _limit = 100;
+
+    private bool _searching;
+    private bool _verifying;
+    private bool _verified;
+    private string? _error;
+    private IReadOnlyList<AuditEntryDto>? _entries;
+    private ChainVerificationDto? _verification;
+
+    protected override async Task OnInitializedAsync() => await VerifyAsync();
+
+    private async Task VerifyAsync()
+    {
+        _verifying = true;
+        try
+        {
+            _verification = await AuditApi.VerifyChainAsync();
+            _verified = true;
+        }
+        finally
+        {
+            _verifying = false;
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        _searching = true;
+        _error = null;
+        _entries = null;
+        try
+        {
+            var query = new AuditQuery(
+                _sequence,
+                _subject,
+                _action,
+                string.IsNullOrWhiteSpace(_decision) ? null : _decision,
+                _tenant,
+                _trace,
+                _producer,
+                _limit);
+
+            _entries = await AuditApi.GetEntriesAsync(query);
+            if (_entries is null)
+            {
+                _error = "Audit service unavailable — the query failed (fail-closed).";
+            }
+        }
+        finally
+        {
+            _searching = false;
+        }
+    }
+
+    // Opens the entry in the Playground pre-filled with the CAPTURED fields plus the recorded verdict
+    // for comparison. The audit row does not store ABAC inputs, so this is a pre-fill (not a silent
+    // auto-replay): the user completes the missing fields and runs the fan-out themselves.
+    private string ReplayUrl(AuditEntryDto entry)
+    {
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(
+            "playground",
+            new Dictionary<string, string?>
+            {
+                ["subject"] = entry.SubjectId,
+                ["action"] = entry.Action,
+                ["resourceType"] = entry.ResourceType,
+                ["resourceId"] = entry.ResourceId,
+                ["tenant"] = entry.Tenant,
+                ["recordedDecision"] = entry.Decision,
+                ["recordedReason"] = entry.Reason,
+                ["sequence"] = entry.Sequence.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            });
+        return query;
+    }
+
+    private static string ShortHash(string hash) =>
+        hash.Length <= 12 ? hash : hash[..12];
+
+    private static string DecisionClass(string decision) =>
+        string.Equals(decision, "Permit", StringComparison.OrdinalIgnoreCase) ? "permit" : "deny";
+}
