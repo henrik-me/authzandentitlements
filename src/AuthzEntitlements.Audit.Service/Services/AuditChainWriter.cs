@@ -24,6 +24,11 @@ public sealed class AuditChainWriter(IServiceScopeFactory scopeFactory)
     {
         ArgumentNullException.ThrowIfNull(payload);
 
+        // Canonicalize the decision timestamp (UTC, microsecond precision) so the value we HASH is
+        // exactly the value we PERSIST: the Postgres timestamptz round-trip cannot then re-round it
+        // and make a later /verify recompute a different hash (false tamper).
+        payload = payload with { TimestampUtc = AuditHashChain.NormalizeTimestamp(payload.TimestampUtc) };
+
         await _gate.WaitAsync(ct);
         try
         {

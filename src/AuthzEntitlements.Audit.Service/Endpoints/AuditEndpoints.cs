@@ -54,17 +54,36 @@ public static class AuditEndpoints
             new IngestDecisionResponse(entry.Sequence, entry.PrevHash, entry.RowHash));
     }
 
-    private static async Task<IResult> VerifyChainAsync(AuditDbContext db, CancellationToken ct)
+    private static async Task<IResult> VerifyChainAsync(
+        AuditDbContext db,
+        long? expectedSequence,
+        string? expectedRowHash,
+        CancellationToken ct)
     {
-        var entries = await db.AuditEntries
+        // Optional trusted checkpoint: a caller that retained a prior (sequence, rowHash) — from an
+        // ingest or a previous verify response — can supply it to detect tail truncation / a full
+        // suffix rewrite that the self-contained chain cannot catch. Both parts must be present.
+        AuditCheckpoint? checkpoint =
+            expectedSequence is > 0 && !string.IsNullOrWhiteSpace(expectedRowHash)
+                ? new AuditCheckpoint(expectedSequence.Value, expectedRowHash)
+                : null;
+
+        // Stream rows in sequence order and fold verification incrementally, so the whole (ever-
+        // growing) audit table is never held in memory at once.
+        var ordered = db.AuditEntries
             .AsNoTracking()
             .OrderBy(e => e.Sequence)
-            .ToListAsync(ct);
+            .AsAsyncEnumerable();
 
-        var result = AuditHashChain.Verify(entries);
+        var result = await AuditHashChain.VerifyAsync(ordered, checkpoint, ct);
 
         return TypedResults.Ok(new ChainVerificationResponse(
-            result.Valid, result.EntryCount, result.BrokenAtSequence, result.Reason));
+            result.Valid,
+            result.EntryCount,
+            result.BrokenAtSequence,
+            result.Reason,
+            result.TailSequence,
+            result.TailRowHash));
     }
 
     private static async Task<IResult> QueryEntriesAsync(

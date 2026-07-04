@@ -19,7 +19,20 @@ public static class PdpAuditSinkServiceCollectionExtensions
 
         var options = section.Get<AuditForwardingOptions>() ?? new AuditForwardingOptions();
 
-        if (!string.Equals(options.Sink, "http", StringComparison.OrdinalIgnoreCase))
+        var isHttp = string.Equals(options.Sink, "http", StringComparison.OrdinalIgnoreCase);
+        var isLogging = string.IsNullOrWhiteSpace(options.Sink)
+            || string.Equals(options.Sink, "logging", StringComparison.OrdinalIgnoreCase);
+
+        // Fail closed on a typo'd sink (e.g. "htp"): silently defaulting to logging would disable
+        // audit forwarding with no signal.
+        if (!isHttp && !isLogging)
+        {
+            throw new InvalidOperationException(
+                $"'{AuditForwardingOptions.SectionName}:Sink' has unsupported value '{options.Sink}'. "
+                + "Use 'logging' (the default) or 'http'.");
+        }
+
+        if (!isHttp)
         {
             // Default / "logging" / unset: preserve the exact CS05 behavior.
             services.AddSingleton<IPdpDecisionAuditSink, LoggingPdpDecisionAuditSink>();

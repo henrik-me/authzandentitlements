@@ -6,7 +6,12 @@ namespace AuthzEntitlements.Audit.Service.Contracts;
 public sealed record IngestDecisionResponse(long Sequence, string PrevHash, string RowHash);
 
 public sealed record ChainVerificationResponse(
-    bool Valid, long EntryCount, long? BrokenAtSequence, string? Reason);
+    bool Valid,
+    long EntryCount,
+    long? BrokenAtSequence,
+    string? Reason,
+    long? TailSequence = null,
+    string? TailRowHash = null);
 
 public sealed record AuditEntryView(
     long Sequence,

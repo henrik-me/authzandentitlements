@@ -105,7 +105,7 @@ public sealed class AuditHashChainTests
         // Pinned regression vector: if the canonical encoding ever changes, this literal
         // breaks, flagging a chain-format change that would silently invalidate stored chains.
         const string expected =
-            "5b0ea21d6272d81f24402a4f7a00dd59fdeb01d31ed1c6c8301090cdaf7a8550";
+            "5bde8f39055a392171904bfc319994c0875904546534e29872f214015d699103";
 
         var actual = AuditHashChain.ComputeRowHash(1, AuditHashChain.GenesisPrevHash, SamplePayload());
 
@@ -129,7 +129,7 @@ public sealed class AuditHashChainTests
         var baseline = SamplePayload();
         var mutated = field switch
         {
-            "timestamp" => baseline with { TimestampUtc = baseline.TimestampUtc.AddTicks(1) },
+            "timestamp" => baseline with { TimestampUtc = baseline.TimestampUtc.AddMilliseconds(1) },
             "traceId" => baseline with { TraceId = baseline.TraceId + "x" },
             "provider" => baseline with { Provider = "other" },
             "subjectId" => baseline with { SubjectId = "user:bob" },
@@ -332,5 +332,120 @@ public sealed class AuditHashChainTests
 
         Assert.True(result.Valid);
         Assert.Equal(1, result.EntryCount);
+    }
+
+    [Fact]
+    public void ComputeRowHash_IsOffsetIndependent_ForSameInstant()
+    {
+        var utc = new DateTimeOffset(2026, 7, 4, 2, 0, 0, TimeSpan.Zero);
+        var shifted = utc.ToOffset(TimeSpan.FromHours(2));
+
+        var utcHash = AuditHashChain.ComputeRowHash(
+            1, AuditHashChain.GenesisPrevHash, SamplePayload() with { TimestampUtc = utc });
+        var shiftedHash = AuditHashChain.ComputeRowHash(
+            1, AuditHashChain.GenesisPrevHash, SamplePayload() with { TimestampUtc = shifted });
+
+        Assert.Equal(utcHash, shiftedHash);
+    }
+
+    [Fact]
+    public void ComputeRowHash_IgnoresSubMicrosecondPrecision()
+    {
+        var baseline = SamplePayload();
+
+        var baseHash = AuditHashChain.ComputeRowHash(1, AuditHashChain.GenesisPrevHash, baseline);
+        var subMicroHash = AuditHashChain.ComputeRowHash(
+            1, AuditHashChain.GenesisPrevHash,
+            baseline with { TimestampUtc = baseline.TimestampUtc.AddTicks(1) });
+        var oneMicroHash = AuditHashChain.ComputeRowHash(
+            1, AuditHashChain.GenesisPrevHash,
+            baseline with { TimestampUtc = baseline.TimestampUtc.AddTicks(10) });
+
+        Assert.Equal(baseHash, subMicroHash);
+        Assert.NotEqual(baseHash, oneMicroHash);
+    }
+
+    [Fact]
+    public void Verify_TailTruncation_UndetectedWithoutCheckpoint_ButDetectedWithCheckpoint()
+    {
+        var chain = BuildChain(Enumerable.Range(0, 5).Select(MakeSeries).ToList());
+        var tail = (chain[4].Sequence, chain[4].RowHash);
+
+        // Delete the newest two rows: the surviving prefix is still a contiguous, self-consistent
+        // chain, so a bare Verify cannot see the truncation.
+        chain.RemoveRange(3, 2);
+
+        var withoutCheckpoint = AuditHashChain.Verify(chain);
+        Assert.True(withoutCheckpoint.Valid);
+
+        var withCheckpoint = AuditHashChain.Verify(
+            chain, new AuditCheckpoint(tail.Sequence, tail.RowHash));
+
+        Assert.False(withCheckpoint.Valid);
+        Assert.Equal(5, withCheckpoint.BrokenAtSequence);
+        Assert.Contains("truncation", withCheckpoint.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Verify_SuffixRewrite_DetectedWithCheckpoint()
+    {
+        var chain = BuildChain(Enumerable.Range(0, 4).Select(MakeSeries).ToList());
+        var checkpoint = new AuditCheckpoint(chain[3].Sequence, chain[3].RowHash);
+
+        // Rewrite the last entry's content AND recompute its row hash so the standalone chain still
+        // verifies — only the retained checkpoint hash reveals the rewrite.
+        chain[3].Decision = "Deny";
+        chain[3].RowHash =
+            AuditHashChain.ComputeRowHash(chain[3].Sequence, chain[3].PrevHash, AuditHashChain.PayloadOf(chain[3]));
+
+        var withoutCheckpoint = AuditHashChain.Verify(chain);
+        Assert.True(withoutCheckpoint.Valid);
+
+        var withCheckpoint = AuditHashChain.Verify(chain, checkpoint);
+        Assert.False(withCheckpoint.Valid);
+        Assert.Equal(4, withCheckpoint.BrokenAtSequence);
+    }
+
+    [Fact]
+    public void Verify_ValidChain_WithMatchingCheckpoint_IsValid_AndEchoesTail()
+    {
+        var chain = BuildChain(Enumerable.Range(0, 4).Select(MakeSeries).ToList());
+        var checkpoint = new AuditCheckpoint(chain[3].Sequence, chain[3].RowHash);
+
+        var result = AuditHashChain.Verify(chain, checkpoint);
+
+        Assert.True(result.Valid);
+        Assert.Equal(chain[3].Sequence, result.TailSequence);
+        Assert.Equal(chain[3].RowHash, result.TailRowHash);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_MatchesVerify_OnValidAndTamperedChains()
+    {
+        var validChain = BuildChain(Enumerable.Range(0, 4).Select(MakeSeries).ToList());
+        var syncValid = AuditHashChain.Verify(validChain);
+        var asyncValid = await AuditHashChain.VerifyAsync(ToAsync(validChain), null, default);
+
+        Assert.Equal(syncValid.Valid, asyncValid.Valid);
+        Assert.Equal(syncValid.BrokenAtSequence, asyncValid.BrokenAtSequence);
+
+        var tamperedChain = BuildChain(Enumerable.Range(0, 4).Select(MakeSeries).ToList());
+        tamperedChain[2].Decision = "Deny";
+        var syncTampered = AuditHashChain.Verify(tamperedChain);
+        var asyncTampered = await AuditHashChain.VerifyAsync(ToAsync(tamperedChain), null, default);
+
+        Assert.False(syncTampered.Valid);
+        Assert.Equal(syncTampered.Valid, asyncTampered.Valid);
+        Assert.Equal(syncTampered.BrokenAtSequence, asyncTampered.BrokenAtSequence);
+    }
+
+    private static async IAsyncEnumerable<AuditEntry> ToAsync(IEnumerable<AuditEntry> entries)
+    {
+        foreach (var entry in entries)
+        {
+            yield return entry;
+        }
+
+        await Task.CompletedTask;
     }
 }

@@ -49,4 +49,14 @@ public sealed class PdpAuditSinkRegistrationTests
         Assert.Single(
             provider.GetServices<IHostedService>().OfType<AuditForwardingWorker>());
     }
+
+    [Fact]
+    public void AddPdpDecisionAuditSink_UnknownSinkValue_Throws()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            services.AddPdp(Config(("Audit:Sink", "htp"))));
+    }
 }

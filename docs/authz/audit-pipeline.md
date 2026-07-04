@@ -56,6 +56,10 @@ unit-tested by folding an in-memory chain with no Postgres.
   as JSON `null` — distinct from `""`.
 - **Linkage.** Entry *N*'s `PrevHash` equals entry *N-1*'s `RowHash`, and sequences are contiguous
   starting at 1.
+- **Timestamp normalization.** Decision timestamps are normalized to UTC and truncated to
+  microsecond precision before hashing **and** storage, so the row hash is offset-independent and
+  stays stable across the Postgres `timestamptz` round-trip (which itself keeps microseconds) — a
+  later `verify` recompute cannot diverge from the ingest-time hash.
 
 `RowHash` binds the sequence and the previous hash, so altering **any** field, reordering rows,
 deleting a row (a sequence gap), or re-linking the chain all cause a recomputed hash to diverge.
@@ -70,11 +74,31 @@ human-readable reason):
 |---|---|
 | Edited a field (e.g. flipped `Deny`→`Permit`) | recomputed `RowHash` ≠ stored `RowHash` |
 | Overwrote a stored `RowHash` | prev-hash link of the next row no longer matches |
-| Deleted a row | sequence gap (non-contiguous) |
+| Deleted a **middle** row | sequence gap (non-contiguous) |
 | Reordered rows | sequence mismatch / prev-hash link break |
 | First row's `PrevHash` altered | ≠ `GenesisPrevHash` |
+| Deleted the newest (tail) rows | **Not** self-detectable; caught only with a trusted checkpoint (see below) |
+| Rewrote every row from some point on (full-suffix rewrite) | **Not** self-detectable; caught only with a trusted checkpoint (see below) |
 
 An empty chain is trivially valid.
+
+### Trusted checkpoint
+
+A bare hash chain cannot self-detect two attacks that leave a still-consistent chain behind:
+**tail truncation** (deleting the newest rows leaves a contiguous prefix) and a **full-suffix
+rewrite** (an actor able to rewrite *every* row from some point on can re-link a self-consistent
+chain). A caller closes both gaps by retaining the `(sequence, rowHash)` returned by an ingest
+([`POST /api/audit/decisions`](#post-apiauditdecisions)) or a prior verify, then passing it back on
+the next verify:
+
+```
+GET /api/audit/verify?expectedSequence=<n>&expectedRowHash=<hex>
+```
+
+When supplied, verification additionally confirms the row at that sequence still carries that hash —
+so truncation past the checkpoint or a rewrite of the checkpointed row is caught. Both the verify
+and ingest responses echo the current tail (`tailSequence` / `tailRowHash`) so a caller can advance
+its checkpoint after each round-trip.
 
 ## The Audit.Service API
 
@@ -107,8 +131,16 @@ chain.
 
 ### `GET /api/audit/verify`
 
-Recompute the entire chain and report tamper status: `{ "valid": true, "entryCount": 42,
-"brokenAtSequence": null, "reason": null }`.
+Recompute the chain and report tamper status: `{ "valid": true, "entryCount": 42,
+"brokenAtSequence": null, "reason": null, "tailSequence": 42, "tailRowHash": "…" }`. Rows are
+**streamed** in sequence order and folded incrementally, so the ever-growing audit table is never
+loaded into memory all at once. The response echoes the current tail (`tailSequence` /
+`tailRowHash`) for use as the caller's next trusted checkpoint.
+
+Optional query params `expectedSequence` and `expectedRowHash` supply a **trusted checkpoint** (see
+[Trusted checkpoint](#trusted-checkpoint)): when both are present, verification additionally confirms
+the row at that sequence still carries that hash, catching tail truncation and full-suffix rewrites
+the self-contained chain cannot detect.
 
 ### `GET /api/audit/entries`
 
@@ -170,5 +202,8 @@ under the AppHost-wired full stack.
 - **Detection, not prevention.** The chain makes tampering evident on `verify`; it does not stop a
   privileged actor from rewriting the whole chain. External anchoring (periodically publishing the
   latest `RowHash` to an independent store) would close that gap and is out of scope for CS13.
-- **Producers.** PDP decisions are wired today. Entitlement / JIT / approval producers wire into the
-  same `POST /api/audit/decisions` contract (with their own `producer` value) as CS10 / CS11 land.
+- **Producers.** PDP decisions are wired today. The `POST /api/audit/decisions` endpoint stamps
+  `Producer` server-side (currently `"pdp"`) and the request body carries **no** producer field, so a
+  caller cannot self-declare its producer identity. Future entitlement / JIT / approval producers
+  wire in through their **own** ingest path/identity (server-stamped) as CS10 / CS11 land — not by
+  passing a producer value on the current endpoint.
