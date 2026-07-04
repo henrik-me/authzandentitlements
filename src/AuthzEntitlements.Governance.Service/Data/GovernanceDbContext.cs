@@ -124,7 +124,14 @@ public sealed class GovernanceDbContext(DbContextOptions<GovernanceDbContext> op
             e.Property(i => i.PrincipalId).IsRequired().HasMaxLength(100);
             e.Property(i => i.Decision).HasConversion<string>().HasMaxLength(30);
             e.Property(i => i.ReviewedBy).HasMaxLength(100);
-            e.HasIndex(i => i.AccessGrantId);
+            // A grant may appear at most once per campaign. This unique composite index is the
+            // durable guard behind the in-memory Items.Count fast-path in RunCampaignAsync: two
+            // concurrent runs that both observe zero items cannot both insert items for the same
+            // grant — the losing SaveChanges throws a DbUpdateException the endpoint maps to 409,
+            // instead of silently creating duplicate items that inflate the required-decision
+            // count and double-emit review audit/metrics. CampaignId leads the index, so it also
+            // serves the per-campaign item queries and suppresses the redundant FK-only index.
+            e.HasIndex(i => new { i.CampaignId, i.AccessGrantId }).IsUnique();
         });
     }
 }

@@ -221,14 +221,10 @@ namespace AuthzEntitlements.Governance.Service.Migrations
                 column: "TenantCode");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AccessReviewItems_AccessGrantId",
+                name: "IX_AccessReviewItems_CampaignId_AccessGrantId",
                 table: "AccessReviewItems",
-                column: "AccessGrantId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AccessReviewItems_CampaignId",
-                table: "AccessReviewItems",
-                column: "CampaignId");
+                columns: new[] { "CampaignId", "AccessGrantId" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_PrincipalRole_PrincipalId_RoleName",

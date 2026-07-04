@@ -30,10 +30,25 @@ public static class ReviewCampaignPlanner
             .ToList();
     }
 
+    // A campaign is run exactly once: RunCampaignAsync materialises one review item per active
+    // grant, so a second run would regenerate duplicates. Returns true when the campaign already
+    // has items and must not be re-run. The DB's unique {CampaignId, AccessGrantId} index is the
+    // durable backstop for the concurrent-run race; this is the cheap in-memory fast-path guard.
+    public static bool AlreadyRun(AccessReviewCampaign campaign)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+        return campaign.Items.Count > 0;
+    }
+
     // Apply a reviewer's decision to an item. A Revoke immediately revokes the linked grant
-    // (when supplied and not already revoked) so the principal loses the access at read
-    // time; Certify keeps the grant. Returns true iff this call revoked the grant, so the
-    // caller can emit the grant-revoked audit event/metric exactly once.
+    // (when not already revoked) so the principal loses the access at read time; Certify keeps
+    // the grant. Returns true iff this call revoked the grant, so the caller can emit the
+    // grant-revoked audit event/metric exactly once.
+    //
+    // A Revoke requires a real grant: the caller resolves the linked grant and rejects a missing
+    // one (409) before calling here. Guarding the invariant — rather than silently marking the
+    // item Revoked with no grant to revoke — stops the audit trail from ever claiming a
+    // revocation that did not happen. A Certify does not touch a grant, so linkedGrant is null.
     public static bool ApplyDecision(
         AccessReviewItem item,
         ReviewDecision decision,
@@ -42,6 +57,13 @@ public static class ReviewCampaignPlanner
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(item);
+
+        if (decision == ReviewDecision.Revoke && linkedGrant is null)
+        {
+            throw new ArgumentException(
+                "a Revoke decision requires the linked grant; resolve it before applying.",
+                nameof(linkedGrant));
+        }
 
         item.Decision = decision;
         item.ReviewedBy = reviewedBy;

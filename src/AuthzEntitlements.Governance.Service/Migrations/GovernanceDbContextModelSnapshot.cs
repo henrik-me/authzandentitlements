@@ -279,9 +279,8 @@ namespace AuthzEntitlements.Governance.Service.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AccessGrantId");
-
-                    b.HasIndex("CampaignId");
+                    b.HasIndex("CampaignId", "AccessGrantId")
+                        .IsUnique();
 
                     b.ToTable("AccessReviewItems");
                 });

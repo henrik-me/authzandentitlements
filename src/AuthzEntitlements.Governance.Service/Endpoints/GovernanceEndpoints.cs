@@ -476,7 +476,7 @@ public static class GovernanceEndpoints
             return Problem("campaign is not open", StatusCodes.Status409Conflict);
         }
 
-        if (campaign.Items.Count > 0)
+        if (ReviewCampaignPlanner.AlreadyRun(campaign))
         {
             return Problem("campaign has already been run", StatusCodes.Status409Conflict);
         }
@@ -493,7 +493,19 @@ public static class GovernanceEndpoints
             campaign.Items.Add(item);
         }
 
-        await db.SaveChangesAsync(ct);
+        // The Items.Count guard above is only a fast-path: two concurrent runs can both observe
+        // zero items. The unique {CampaignId, AccessGrantId} index is the durable backstop — the
+        // loser's insert violates it and SaveChanges throws a DbUpdateException, which we surface
+        // as 409 (not a 500). The audit/metric below run only for the run that actually won.
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            db.ChangeTracker.Clear();
+            return Problem("campaign items are already being generated", StatusCodes.Status409Conflict);
+        }
 
         metrics.RecordReviewRun();
         // Campaign-scoped event: a run has no single subject principal (it spans every active
@@ -541,13 +553,22 @@ public static class GovernanceEndpoints
 
         var now = DateTimeOffset.UtcNow;
 
-        // Load the linked grant only when a Revoke could act on it. The pure planner mutates
-        // the item (and the grant on Revoke) and reports whether it revoked, so the audit
-        // event/metric is emitted exactly once.
+        // Load the linked grant only when a Revoke could act on it. A Revoke whose grant no
+        // longer exists (a data-integrity case) must not mark the item decided: doing so would
+        // leave an audit trail claiming a revocation that never happened. Reject it with a 409
+        // before mutating anything, leaving the item Pending. Certify never touches a grant.
         var linkedGrant = decision == ReviewDecision.Revoke
             ? await db.AccessGrants.FirstOrDefaultAsync(g => g.Id == item.AccessGrantId, ct)
             : null;
 
+        if (decision == ReviewDecision.Revoke && linkedGrant is null)
+        {
+            return Problem("the grant linked to this review item no longer exists; cannot revoke",
+                StatusCodes.Status409Conflict);
+        }
+
+        // The pure planner mutates the item (and the grant on Revoke) and reports whether it
+        // revoked, so the audit event/metric is emitted exactly once.
         var grantRevoked = ReviewCampaignPlanner.ApplyDecision(item, decision, body.ReviewedBy, linkedGrant, now);
         if (grantRevoked && linkedGrant is not null)
         {

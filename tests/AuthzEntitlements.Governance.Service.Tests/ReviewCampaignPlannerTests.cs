@@ -112,6 +112,56 @@ public sealed class ReviewCampaignPlannerTests
         Assert.Equal(ReviewDecision.Revoke, item.Decision);
     }
 
+    [Fact]
+    public void ApplyDecision_Revoke_WithNullGrant_Throws_AndLeavesItemPending()
+    {
+        var item = PendingItem(ActiveGrant("user-teller1"));
+
+        // A Revoke whose linked grant cannot be resolved must never mark the item decided:
+        // doing so would leave an audit trail claiming a revocation that never happened. The
+        // endpoint rejects this with a 409 before calling here; the pure method guards the same
+        // invariant so it cannot be misused into an inconsistent state.
+        Assert.Throws<ArgumentException>(() =>
+            ReviewCampaignPlanner.ApplyDecision(item, ReviewDecision.Revoke, "user-auditor1", null, Now));
+
+        Assert.Equal(ReviewDecision.Pending, item.Decision);
+        Assert.Null(item.ReviewedBy);
+        Assert.Null(item.ReviewedAt);
+    }
+
+    [Fact]
+    public void ApplyDecision_Certify_WithNullGrant_Certifies_AndReturnsFalse()
+    {
+        var item = PendingItem(ActiveGrant("user-teller1"));
+
+        // Certify never touches a grant, so the endpoint does not load one (linkedGrant is null).
+        var revoked = ReviewCampaignPlanner.ApplyDecision(item, ReviewDecision.Certify, "user-auditor1", null, Now);
+
+        Assert.False(revoked);
+        Assert.Equal(ReviewDecision.Certify, item.Decision);
+        Assert.Equal("user-auditor1", item.ReviewedBy);
+        Assert.Equal(Now, item.ReviewedAt);
+    }
+
+    [Fact]
+    public void AlreadyRun_ReturnsFalse_ForCampaignWithNoItems()
+    {
+        var campaign = Campaign(GovernanceTestData.Contoso);
+
+        Assert.False(ReviewCampaignPlanner.AlreadyRun(campaign));
+    }
+
+    [Fact]
+    public void AlreadyRun_ReturnsTrue_WhenCampaignAlreadyHasItems()
+    {
+        var campaign = Campaign(GovernanceTestData.Contoso);
+        campaign.Items.Add(PendingItem(ActiveGrant("user-teller1")));
+
+        // A second RunCampaignAsync is rejected (409): the guard reports the campaign has
+        // already materialised its items, so it is not re-run.
+        Assert.True(ReviewCampaignPlanner.AlreadyRun(campaign));
+    }
+
     private static AccessReviewCampaign Campaign(string tenant) =>
         new()
         {
