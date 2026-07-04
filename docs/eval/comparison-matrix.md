@@ -84,7 +84,7 @@ them as relative, not absolute (see the caveat above).
 | Auditability / explanation | `rule` (normalized) | `aspnet-requirement` (+ `rule`) | `casbin-rule` (+ `rule`) | `cedar-policy` (determining ids, precedence) | `rego-rule` (+ package path) | `relationship-tuple` (checked tuple) |
 | Ops burden | None | None | None | None (in-proc engine) | Runs an OPA server / policy bundle | Runs an OpenFGA server + store |
 | .NET support | First-class (this repo) | Shared framework, no package | `Casbin.NET` package | `MonoCloud.Cedar` package | HTTP client (any) | OpenFGA .NET SDK |
-| Licensing / maturity | This repo (license: TBD — see README) | ASP.NET Core (MIT), mature | `Casbin.NET` (Apache-2.0), mature | Cedar (Apache-2.0, AWS), newer — `MonoCloud.Cedar` port | OPA (Apache-2.0), CNCF Graduated | OpenFGA (Apache-2.0), CNCF Incubating |
+| Licensing / maturity | This repo (license: TBD — see README) | ASP.NET Core (MIT), mature | `Casbin.NET` (Apache-2.0), mature | Cedar (Apache-2.0, AWS), newer — `MonoCloud.Cedar` native .NET bindings | OPA (Apache-2.0), CNCF Graduated | OpenFGA (Apache-2.0), CNCF Incubating |
 | Fail-closed when unavailable | N/A (in-proc) | N/A (in-proc) | N/A (in-proc) | Deny on engine error | Deny on transport/timeout/undefined | Deny on unreachable/error |
 
 **Grounding notes for the cells above:**
