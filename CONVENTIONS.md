@@ -173,10 +173,11 @@ accounted for.
 - **NuGet audit under warnings-as-errors:** suppress a *specific* advisory with a per-ID
   `<NuGetAuditSuppress Include="https://github.com/advisories/GHSA-…" />` in
   `Directory.Build.props` — never a blanket `NoWarn=NU1902;NU1903`, which would also mask
-  future advisories. Prefer *remediation* (pin the patched version via CPM transitive
-  pinning: `CentralPackageTransitivePinningEnabled=true` + a `<PackageVersion>` entry) over
-  suppression — remediation clears `dotnet list package --vulnerable`, suppression does not
-  (LRN-002).
+  future advisories (**LRN-002**). Better still, *remediate* rather than suppress where a
+  patched version exists — pin it via CPM transitive pinning
+  (`CentralPackageTransitivePinningEnabled=true` + a `<PackageVersion>` entry), which
+  actually clears `dotnet list package --vulnerable` whereas suppression does not
+  (**LRN-003 / LRN-005**; see `docs/security/nuget-audit-reeval-2026-07-04.md`).
 - **Line endings are gated by `harness lint` (text-encoding) + `.gitattributes eol=lf`, NOT
   `dotnet format`.** The file-authoring tool writes CRLF for new `.cs` on Windows and the
   text-encoding gate does not always flag it — convert authored files explicitly
