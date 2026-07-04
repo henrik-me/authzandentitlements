@@ -58,18 +58,49 @@ public sealed class AuthorizationDecisionProviderFactory
 
     public IAuthorizationDecisionProvider GetActiveProvider()
     {
-        var match = _providers.FirstOrDefault(
-            p => string.Equals(p.Name, _configuredProvider, StringComparison.OrdinalIgnoreCase));
-        if (match is not null)
+        if (TryGetProvider(_configuredProvider, out var match))
         {
             return match;
         }
 
-        var available = _providers.Count == 0
-            ? "(none registered)"
-            : string.Join(", ", _providers.Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
         throw new InvalidOperationException(
             $"No IAuthorizationDecisionProvider named '{_configuredProvider}' is registered. " +
-            $"Available providers: [{available}]. Set \"Pdp:Provider\" to one of these.");
+            $"Available providers: [{AvailableProviders()}]. Set \"Pdp:Provider\" to one of these.");
     }
+
+    // The names of every registered provider, so lifecycle tooling (shadow-run, what-if) can
+    // enumerate and target engines by name rather than only the single configured active one.
+    public IReadOnlyList<string> ProviderNames =>
+        _providers.Select(p => p.Name).ToList();
+
+    // Resolves a provider by name (case-insensitive) — the by-name analogue of GetActiveProvider
+    // the shadow-run + what-if harness use to target a specific engine. Fails closed with a clear,
+    // engine-naming error when no such provider is registered, never a silent wrong-engine result.
+    public IAuthorizationDecisionProvider GetProvider(string name)
+    {
+        if (TryGetProvider(name, out var provider))
+        {
+            return provider;
+        }
+
+        throw new InvalidOperationException(
+            $"No IAuthorizationDecisionProvider named '{name}' is registered. " +
+            $"Available providers: [{AvailableProviders()}].");
+    }
+
+    // Non-throwing lookup so a request-boundary caller (endpoint) can return a 400 for an unknown
+    // engine name instead of surfacing a 500. A blank name never matches (fail closed).
+    public bool TryGetProvider(string name, out IAuthorizationDecisionProvider provider)
+    {
+        provider = string.IsNullOrWhiteSpace(name)
+            ? null!
+            : _providers.FirstOrDefault(
+                p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))!;
+        return provider is not null;
+    }
+
+    private string AvailableProviders() =>
+        _providers.Count == 0
+            ? "(none registered)"
+            : string.Join(", ", _providers.Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
 }

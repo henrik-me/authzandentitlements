@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using AuthzEntitlements.Authz.Pdp.Endpoints;
+using AuthzEntitlements.Authz.Pdp.Lifecycle;
 using AuthzEntitlements.Authz.Pdp.Providers;
 using AuthzEntitlements.Authz.Pdp.Services;
 using AuthzEntitlements.Authz.Pdp.Telemetry;
@@ -24,6 +25,10 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 // provider. This is the seam CS06-CS09 add their engine adapters to.
 builder.Services.AddPdp(builder.Configuration);
 
+// CS17 — policy-lifecycle tooling (shadow / dual-run comparison + what-if simulation) layered
+// over the provider factory. No external dependency; the deterministic default run is unchanged.
+builder.Services.AddPolicyLifecycle();
+
 var app = builder.Build();
 
 // Force-resolve the decision service at startup so a misconfigured "Pdp:Provider" fails
@@ -41,6 +46,11 @@ app.MapGet("/", () => TypedResults.Ok(new
         "/api/authz/evaluate",
         "/api/authz/scenarios",
         "/api/authz/scenarios/verify",
+        "/api/authz/whatif",
+        "/api/authz/shadow",
+        "/api/authz/shadow/catalog",
+        "/api/authz/policy/version",
+        "/api/authz/authzen/evaluation",
         "/api/authz/rebac/verify",
         "/api/authz/rebac/who-can-access",
         "/api/authz/rebac/what-can-user-access",
@@ -49,5 +59,7 @@ app.MapGet("/", () => TypedResults.Ok(new
 
 app.MapPdpEndpoints();
 app.MapRebacEndpoints();
+app.MapPolicyLifecycleEndpoints();
+app.MapAuthZenEndpoints();
 
 app.Run();
