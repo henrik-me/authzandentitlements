@@ -155,9 +155,31 @@ caught by review (LRN-033). Container-free "lite" profile; default provider stay
 blank-tenant reference-oracle parity + fail-closed + selection). GPT-5.5 rubber-duck R1 (Block: tenant fail-open) → R2
 (Go-with-amendments) → R3/R5 (Go) + Copilot (2 comments resolved) + plan-vs-impl GO. New learnings LRN-032..033.
 
+**CS17 (policy lifecycle + validation/testing) complete** (PR #55, squash-merged 2026-07-04 as `9f2df6f`). The
+**policy-as-code lifecycle** layer on the CS05 PDP: a **shadow / dual-run** harness (`ShadowRunner`) compares one request —
+or the whole 22-scenario catalog — across a primary + shadow engines, reporting decision/reason/obligation divergences
+(`POST /api/authz/shadow{,/catalog}`; the default in-process RBAC family is `reference`/`aspnet`/`casbin`/`cedar`, excluding
+OpenFGA[ReBAC, different model] and OPA[needs a live server]). **What-if simulation** (`WhatIfEvaluator`,
+`POST /api/authz/whatif`) previews a chosen/active engine's decision **without enforcement** (bypasses `PdpDecisionService`,
+so no audit event). A **golden-decision snapshot** (`GoldenDecisionSnapshot`) is an **independent** committed baseline
+(decision + reason + obligations per scenario) with a SHA-256 **policy-version** hash + `Compute`/`Diff` **drift detection**
+(`GET /api/authz/policy/version`). An **AuthZEN Access Evaluation** conformance surface (`AuthZenMapper` +
+`POST /api/authz/authzen/evaluation`) carries the fintech attributes in AuthZEN property bags and **fails closed** via
+`AuthZenRequestValidation` — a present-but-unparseable `amount`, or an omitted `maker_id`/`status` on transaction actions, is a
+400, never a silent $0/SoD bypass (LRN-034). The factory gains name-based `GetProvider`/`TryGetProvider`/`ProviderNames`
+(fail-closed). Validated by a **golden / negative / property-based** suite (cross-engine parity over a deterministic generated
+request space, determinism, fail-closed totality, threshold obligations, full-catalog AuthZEN round-trip). Default provider
+stays `reference`; no external dependency; the deterministic default run is unchanged. `dotnet build` 0/0; PDP `dotnet test`
+358 → **417 (+59)**; full solution 544/544. GPT-5.5 rubber-duck R1 (Needs-Fix: AuthZEN boundary fail-open) → R2–R5 (Go) +
+Copilot (3 rounds: whitespace-normalization, nullable `out`, nullable param — all resolved) + plan-vs-impl GO.
+**CI-posture decision (escalation):** the exit criterion "policy changes are gated by CI tests" was delivered as the runnable
+policy **test suite** + a documented opt-in GitHub Actions snippet rather than a new .NET CI workflow, respecting the repo's
+process-gates-only posture (maintainer decision pending; see PR #55 Notes + LRN-035). Doc at
+`docs/authz/policy-lifecycle.md`. New learnings LRN-034..035.
+
 **Next claimable:** **CS11 (governance)** — unblocked (needs CS02 + CS08, both complete) — and CS13 (audit pipeline; needs CS05).
 **All four engine adapters are DONE:** CS06 (ASP.NET/Casbin), CS08 (OPA/Rego), CS07 (OpenFGA/ReBAC), and CS09 (Cedar) — so
-CS16/CS17/CS20 (need engine behavior) and CS24 (perf benchmark; needs engines + CS12) are now fully unblocked. CS06–CS09 also
+CS16/CS17/CS20 (need engine behavior) and CS24 (perf benchmark; needs engines + CS12) are now fully unblocked (**CS16 + CS17 complete**). CS06–CS09 also
 advance CS14 (Blazor product UI; needs CS03/CS04/CS06/CS10/CS11). `harness lint` is green; the remaining CSs carry an independent
 GPT-5.5 `## Plan review` attestation.
 

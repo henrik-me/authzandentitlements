@@ -49,7 +49,7 @@ public static class PdpServiceCollectionExtensions
         services.AddSingleton<IAuthorizationDecisionProvider, Adapters.Opa.OpaDecisionProvider>();
 
         services.AddSingleton<AuthorizationDecisionProviderFactory>();
-        services.AddSingleton<IPdpDecisionAuditSink, LoggingPdpDecisionAuditSink>();
+        services.AddPdpDecisionAuditSink(configuration);
         services.AddSingleton<PdpDecisionService>();
 
         return services;

@@ -49,7 +49,7 @@ var bankDb = postgres.AddDatabase("bank");
 var openfgaDb = postgres.AddDatabase("openfga");
 var entitlementsDb = postgres.AddDatabase("entitlements");
 var governanceDb = postgres.AddDatabase("governance");
-postgres.AddDatabase("audit");
+var auditDb = postgres.AddDatabase("audit");
 
 // CS10 — Unleash backs the optional config-gated feature-flag provider. It is kept OFF
 // the app's critical path: it uses .WithExplicitStart() so `aspire run` never auto-starts
@@ -185,6 +185,18 @@ var openfga = builder.AddContainer("openfga", openfgaImage, openfgaImageTag)
     .WaitForCompletion(openfgaMigrate)
     .WithExplicitStart();
 
+// CS13 — Tamper-evident audit log pipeline. The Audit.Service owns the `audit` database and
+// appends every authz/entitlement decision as a hash-chained, append-only row (prev-hash +
+// payload -> row-hash), exposing a chain-verification endpoint + a query API. Postgres already
+// runs for entitlements, so — unlike the opt-in engines — the audit service is a first-class part
+// of the default `aspire run` stack: it starts by default and the PDP forwards decisions to it
+// (below). CS12 fans its OTLP telemetry to the persistent observability collector.
+var auditService = builder.AddProject<Projects.AuthzEntitlements_Audit_Service>("audit-service")
+    .WithReference(auditDb)
+    .WaitFor(auditDb)
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WaitFor(observability);
+
 // CS05 — unified AuthZEN-aligned fine-grained PDP. A standalone in-process reference host
 // (no database, no WithReference): it answers the shared decision contract with the
 // deterministic reference engine. Wiring Bank.Api to call it is deliberately out of CS05
@@ -199,6 +211,14 @@ var authzPdp = builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-p
     // Unleash coordinates) so Pdp__Provider=opa works without further wiring; no WaitFor(opa) keeps
     // the deterministic reference provider off OPA's critical path.
     .WithEnvironment("Opa__BaseUrl", opa.GetEndpoint("http"))
+    // CS13 — forward every PDP decision to the Audit.Service hash-chained store. The sink is
+    // config-gated (default "logging"); selecting "http" + injecting the service URL turns on the
+    // non-blocking background forwarder. WithReference wires service discovery, but there is NO hard
+    // WaitFor(auditService): the forwarder buffers and is resilient, so the decision path never
+    // blocks on the audit store being up.
+    .WithReference(auditService)
+    .WithEnvironment("Audit__Sink", "http")
+    .WithEnvironment("Audit__ServiceUrl", auditService.GetEndpoint("http"))
     .WaitFor(observability);
 
 // CS11 — Access-governance service. Owns the `governance` database (access packages, JIT grant

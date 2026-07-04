@@ -33,10 +33,10 @@ Implement a tamper-evident, append-only audit log covering every authz/entitleme
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Design hash-chain schema | pending | — | |
-| Writer + ingestion | pending | — | |
-| Verification endpoint | pending | — | |
-| Wire producers | pending | — | |
+| Design hash-chain schema + store | in-progress | yoga-ae-c2 | agent-id=yoga-ae-c2/audit-svc \| role=implementer \| report-status=pending \| learnings=0 |
+| Writer + ingestion endpoint | in-progress | yoga-ae-c2 | agent-id=yoga-ae-c2/audit-svc \| role=implementer \| report-status=pending \| learnings=0 |
+| Verification + query endpoints | in-progress | yoga-ae-c2 | agent-id=yoga-ae-c2/audit-svc \| role=implementer \| report-status=pending \| learnings=0 |
+| Wire producers (PDP sink + AppHost) | in-progress | yoga-ae-c2 | agent-id=yoga-ae-c2/pdp-sink \| role=implementer \| report-status=pending \| learnings=0; AppHost wiring owned by orchestrator |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 

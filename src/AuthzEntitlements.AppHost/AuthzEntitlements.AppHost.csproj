@@ -20,6 +20,7 @@
     <ProjectReference Include="..\AuthzEntitlements.Entitlements.Service\AuthzEntitlements.Entitlements.Service.csproj" />
     <ProjectReference Include="..\AuthzEntitlements.Authz.Pdp\AuthzEntitlements.Authz.Pdp.csproj" />
     <ProjectReference Include="..\AuthzEntitlements.Governance.Service\AuthzEntitlements.Governance.Service.csproj" />
+    <ProjectReference Include="..\AuthzEntitlements.Audit.Service\AuthzEntitlements.Audit.Service.csproj" />
   </ItemGroup>
 
 </Project>
