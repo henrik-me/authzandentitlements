@@ -33,10 +33,10 @@ Measure and track authorization performance across engines over time.
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Build benchmark harness | pending | — | |
-| Capture latency/throughput | pending | — | |
-| Persist + dashboard | pending | — | |
-| Regression alerts | pending | — | |
+| Build benchmark harness | done | yoga-ae-c3 | `AuthzEntitlements.Benchmarks` console runs `FintechScenarioCatalog` per engine; in-process reference/aspnet/casbin/cedar, live opa/openfga probe-and-self-skip. agent-id=cs24-benchmark \| role=implementer \| report-status=complete \| learnings=2 |
+| Capture latency/throughput | done | yoga-ae-c3 | Allocation-free `Stopwatch` timing; cold + warm p50/p95/p99 + throughput (nearest-rank) via `LatencyStatistics` |
+| Persist + dashboard | done | yoga-ae-c3 | Runs persisted as camelCase JSON (`ResultStore`); `pdp.evaluate.duration` histogram + Grafana `pdp-performance.json` (p50/p95/p99 + throughput) |
+| Regression alerts | done | yoga-ae-c3 | `RegressionDetector` warm-p95 vs committed baseline (25% rel + 0.10ms abs floor); `--check` exits non-zero on regression |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 

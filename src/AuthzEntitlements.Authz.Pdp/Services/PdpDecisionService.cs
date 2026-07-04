@@ -30,7 +30,11 @@ public sealed class PdpDecisionService
     {
         using var activity = PdpTelemetry.StartDecisionActivity(_provider.Name, request.Action.Name);
 
+        // Allocation-free timing (timestamp deltas, no Stopwatch instance) around the single provider
+        // call so the pdp.evaluate.duration histogram measures engine evaluation cost only.
+        var startTimestamp = Stopwatch.GetTimestamp();
         var decision = _provider.Evaluate(request);
+        var elapsedMs = Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
 
         // Every decision the service returns must be explainable (CS16): use the provider's richer,
         // engine-native explanation when present, otherwise attach the shared baseline derived from
@@ -55,6 +59,15 @@ public sealed class PdpDecisionService
         // raw action stays on the span (above) and the audit event (below) for debugging.
         PdpTelemetry.RecordDecision(
             _provider.Name, ActionNames.ForMetric(request.Action.Name), decisionName, reasonCode);
+
+        // Record the evaluation latency with the same normalized action tag the counter uses, so the
+        // performance dashboard slices latency by the identical low-cardinality dimensions.
+        PdpTelemetry.RecordEvaluationDuration(
+            elapsedMs,
+            _provider.Name,
+            ActionNames.ForMetric(request.Action.Name),
+            decisionName,
+            reasonCode);
 
         _audit.Record(new PdpDecisionAuditEvent(
             TimestampUtc: DateTimeOffset.UtcNow,

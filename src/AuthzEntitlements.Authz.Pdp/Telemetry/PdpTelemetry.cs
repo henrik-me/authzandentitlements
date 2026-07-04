@@ -18,6 +18,13 @@ public static class PdpTelemetry
     public static readonly Counter<long> DecisionsTotal =
         Meter.CreateCounter<long>("pdp.decisions.total");
 
+    // Latency of a single provider Evaluate call, in milliseconds. A histogram (not a counter) so
+    // percentile trends (p50/p95/p99) are queryable per provider/action for the CS24 performance
+    // dashboard. Shares the low-cardinality provider/action/decision/reason tag vocabulary the
+    // counter uses.
+    public static readonly Histogram<double> EvaluationDuration =
+        Meter.CreateHistogram<double>("pdp.evaluate.duration", unit: "ms");
+
     // Starts a decision span carrying the provider + action tags. Returns null when no
     // listener is sampling; callers null-condition the tag calls and dispose.
     public static Activity? StartDecisionActivity(string provider, string action)
@@ -31,6 +38,18 @@ public static class PdpTelemetry
     public static void RecordDecision(string provider, string action, string decision, string reason) =>
         DecisionsTotal.Add(
             1,
+            new KeyValuePair<string, object?>("provider", provider),
+            new KeyValuePair<string, object?>("action", action),
+            new KeyValuePair<string, object?>("decision", decision),
+            new KeyValuePair<string, object?>("reason", reason));
+
+    // Records one Evaluate-call duration (ms) on the pdp.evaluate.duration histogram, mirroring the
+    // low-cardinality tag vocabulary of RecordDecision so latency can be sliced by the same
+    // provider/action/decision/reason dimensions.
+    public static void RecordEvaluationDuration(
+        double elapsedMs, string provider, string action, string decision, string reason) =>
+        EvaluationDuration.Record(
+            elapsedMs,
             new KeyValuePair<string, object?>("provider", provider),
             new KeyValuePair<string, object?>("action", action),
             new KeyValuePair<string, object?>("decision", decision),
