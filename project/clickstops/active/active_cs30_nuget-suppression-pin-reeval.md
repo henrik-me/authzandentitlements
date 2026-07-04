@@ -1,9 +1,9 @@
 # CS30 — Supply-chain: re-evaluate NuGet audit suppressions & transitive pins
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c4
+**Branch:** cs30/content
+**Started:** 2026-07-04
 **Closed:** —
 **Filed by:** yoga-ae-c3 — 2026-07-04, LRN harvest (CS28h): dispositioning open learnings into fix CSs.
 **Depends on:** CS01, CS02, CS18
@@ -58,11 +58,27 @@ None — this is dependency hygiene. If no suppression or pin can yet be dropped
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Bump OpenTelemetry pins to patched stable | pending | — | Directory.Packages.props: Exporter/Extensions.Hosting/Instrumentation.AspNetCore/Http → 1.16.0, Instrumentation.Runtime → 1.15.1 (>= patched 1.15.3 for Api/Exporter advisories) |
+| Add MessagePack transitive pin (remediate, not suppress) | pending | — | CPM transitive pin MessagePack 2.5.302 (>= patched 2.5.301); resolves 11 advisories on transitive 2.5.192 via Aspire.AppHost.Sdk |
+| Drop resolved NuGetAuditSuppress entries | pending | — | Directory.Build.props: remove all 15 suppressions (4 OTel + 11 MessagePack) now resolved by patched versions |
+| Retain MSBuild transitive pin with dated note | pending | — | Keep Microsoft.Build.Tasks.Core/Utilities.Core 17.14.28; EF Core Design rc.1 still drags 17.14.8 (GHSA-w3q9-fxm7-j8fq); add dated re-confirmation + advisory link |
+| Security re-evaluation note | pending | — | docs/security/ note recording 2026-07-04 re-eval date + outcome (15 dropped, MSBuild pin retained) |
+| Verify | pending | — | dotnet build 0/0 under TreatWarningsAsErrors; dotnet test green; dotnet list package --vulnerable --include-transitive clean |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and security docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | Flip LRN-003/LRN-005 to applied; file/disposition learnings; open follow-up CSs for unresolved issues (EF Core RC1→GA MSBuild pin drop) |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c4 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
