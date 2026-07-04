@@ -1,3 +1,5 @@
+using AuthzEntitlements.ServiceDefaults;
+
 namespace AuthzEntitlements.Authz.Pdp.Audit;
 
 // Default audit sink: emit one structured ILogger event per PDP decision with every field
@@ -36,7 +38,7 @@ public sealed class LoggingPdpDecisionAuditSink(ILogger<LoggingPdpDecisionAuditS
     // those ids) can inject a newline to forge a fake log entry (CWE-117 log injection). The
     // bounded/typed fields are cleaned too, for uniform defense in depth at negligible cost.
     // Only the human-readable log string is sanitized; the audit-of-record (PdpDecisionAuditEvent
-    // -> Audit.Service hash chain) keeps the raw values.
-    private static string? Clean(string? value) =>
-        value?.Replace('\r', ' ').Replace('\n', ' ');
+    // -> Audit.Service hash chain) keeps the raw values. Delegates to the shared ServiceDefaults
+    // barrier so every log call site strips newlines identically (CS34).
+    private static string? Clean(string? value) => LogSanitizer.Clean(value);
 }

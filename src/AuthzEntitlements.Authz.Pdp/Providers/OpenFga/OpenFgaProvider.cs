@@ -1,4 +1,5 @@
 using AuthzEntitlements.Authz.Pdp.Contracts;
+using AuthzEntitlements.ServiceDefaults;
 using Microsoft.Extensions.Logging;
 
 namespace AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
@@ -92,7 +93,9 @@ public sealed class OpenFgaProvider : IAuthorizationDecisionProvider
             _logger.LogWarning(
                 ex,
                 "OpenFGA Check failed for user={User} relation={Relation} object={Object}; failing closed (deny).",
-                check.User, check.Relation, check.Object);
+                LogSanitizer.Clean(check.User),
+                LogSanitizer.Clean(check.Relation),
+                LogSanitizer.Clean(check.Object));
             return AccessDecision.Deny(new Reason(RebacReasonCodes.EngineUnavailable, EngineUnavailableMessage))
                 .WithExplanation(new DecisionExplanation(
                     Engine: "openfga",

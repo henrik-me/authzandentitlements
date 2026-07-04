@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using AuthzEntitlements.Edge.Gateway.Auth;
 using AuthzEntitlements.Edge.Gateway.Telemetry;
+using AuthzEntitlements.ServiceDefaults;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
 
@@ -87,17 +88,17 @@ public sealed class GatewayAuditMiddleware(
             "Gateway coarse decision {Decision} ({Reason}) for {Method} {Path} " +
             "route={RouteId} status={StatusCode} subject={Subject} tenant={Tenant} " +
             "scope={RequiredScope} audience={Audience} trace={TraceId} at {TimestampUtc}",
-            auditEvent.Decision,
-            auditEvent.Reason,
-            auditEvent.Method,
-            auditEvent.Path,
-            auditEvent.RouteId,
+            LogSanitizer.Clean(auditEvent.Decision),
+            LogSanitizer.Clean(auditEvent.Reason),
+            LogSanitizer.Clean(auditEvent.Method),
+            LogSanitizer.Clean(auditEvent.Path),
+            LogSanitizer.Clean(auditEvent.RouteId),
             context.Response.StatusCode,
-            auditEvent.Subject,
-            auditEvent.Tenant,
-            auditEvent.RequiredScope,
-            auditEvent.Audience,
-            auditEvent.TraceId,
+            LogSanitizer.Clean(auditEvent.Subject),
+            LogSanitizer.Clean(auditEvent.Tenant),
+            LogSanitizer.Clean(auditEvent.RequiredScope),
+            LogSanitizer.Clean(auditEvent.Audience),
+            LogSanitizer.Clean(auditEvent.TraceId),
             auditEvent.TimestampUtc);
 
         metrics.RecordDecision(decision, reason, routeId);
