@@ -68,10 +68,11 @@ public sealed class AdapterProviderSelectionTests
         Assert.Contains("aspnet", names);
         Assert.Contains("casbin", names);
 
-        // Names must stay unique so config-driven selection is unambiguous. The factory also
-        // enforces this at construction, but a membership check alone would not catch an accidental
-        // duplicate registration.
-        Assert.Equal(names.Length, names.Distinct(StringComparer.Ordinal).Count());
+        // Names must stay unique so config-driven selection is unambiguous. Compared
+        // case-insensitively to match AuthorizationDecisionProviderFactory.ValidateProviderNames
+        // (which rejects duplicates via StringComparer.OrdinalIgnoreCase), so this also catches a
+        // case-only duplicate the factory would reject.
+        Assert.Equal(names.Length, names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
 
     [Theory]
