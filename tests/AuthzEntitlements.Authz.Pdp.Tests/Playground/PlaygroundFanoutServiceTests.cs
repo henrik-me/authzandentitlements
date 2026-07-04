@@ -135,6 +135,17 @@ public sealed class PlaygroundFanoutServiceTests
     }
 
     [Fact]
+    public void Fanout_AllBlankNames_FallsBackToEveryRegisteredProvider()
+    {
+        // All-blank input is "none named": fall back to every provider rather than fanning out over
+        // zero engines (whose AllAgree would be trivially true). Regression for the Copilot review nit.
+        var response = RbacService().Fanout(LifecycleTestSupport.PermitLargeTxn(), ["   ", ""]);
+
+        Assert.Equal(LifecycleTestSupport.RbacEngineNames.Length, response.Results.Count);
+        Assert.NotEmpty(response.Results);
+    }
+
+    [Fact]
     public void Fanout_GenuineDisagreement_AllAgreeIsFalse()
     {
         // reference denies the cross-tenant read; a forced-permit engine disagrees. Both available.

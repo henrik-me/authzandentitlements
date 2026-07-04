@@ -45,19 +45,18 @@ public sealed class PlaygroundFanoutService
     }
 
     // The engine list to fan out over: the provided names (trimmed, blanks dropped, de-duped
-    // case-insensitively) or every registered provider when none are named.
+    // case-insensitively) or every registered provider when none are usably named. An all-blank or
+    // empty list falls back to every provider (matching the "when none are named" contract) rather
+    // than fanning out over zero engines (whose AllAgree would be trivially true).
     private IReadOnlyList<string> ResolveEngineNames(IReadOnlyList<string>? engines)
     {
-        if (engines is not { Count: > 0 })
-        {
-            return _factory.ProviderNames;
-        }
-
-        return engines
+        var named = engines?
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Select(name => name.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        return named is { Count: > 0 } ? named : _factory.ProviderNames;
     }
 
     // Evaluate a single engine, measuring the one Evaluate call and classifying availability. The

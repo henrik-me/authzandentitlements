@@ -33,11 +33,18 @@ public static class PlaygroundEndpoints
             }
 
             // Validate every named engine up front so a bad name is a 400, not a 500 from the factory's
-            // fail-closed GetProvider during the fan-out.
+            // fail-closed GetProvider during the fan-out. Blank/whitespace tokens are ignored (the
+            // service drops them and falls back to all engines), so only a genuinely unknown non-blank
+            // engine name is a 400 — matching the service's ResolveEngineNames semantics.
             if (body.Engines is { Count: > 0 })
             {
                 foreach (var name in body.Engines)
                 {
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        continue;
+                    }
+
                     if (!factory.TryGetProvider(name, out _))
                     {
                         return Results.Problem(UnknownEngine(name, factory),
