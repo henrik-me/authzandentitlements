@@ -1,10 +1,10 @@
 # CS23 — Comparison matrix + market survey
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c2
 **Branch:** cs23/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** 6 — Evaluation lab
 **Lane:** Eval
 **Depends on:** CS15, CS24
