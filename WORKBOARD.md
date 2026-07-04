@@ -34,7 +34,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
 | CS07 | CS07 — Adapter: OpenFGA (ReBAC / Zanzibar) | 🟢 Active | yoga-ae-c2 | cs07/content | 2026-07-03 | — |
-| CS08 | CS08 — Adapter: OPA / Rego (policy / ABAC) | 🟢 Active | yoga-ae | cs08/content | 2026-07-03 | — |
 | CS09 | CS09 — Adapter: Cedar (policy / ABAC) | 🟢 Active | yoga-ae-c4 | cs09/content | 2026-07-04 | — |
 
 > **Note:** WORKBOARD shows live coordination state only — active orchestrators and their active work. The queue lives in `project/clickstops/planned/` (priority order via filename + per-file `**Depends on:**`); historical record lives in `project/clickstops/done/`. Do not duplicate either here.

@@ -529,6 +529,68 @@ claim_area: engines
 **Implications carried forward:**
 - CS07–CS09 adapter authors: reuse the `IEngineRoleAuthorizer` seam for RBAC-only engines. For richer engines — OpenFGA (ReBAC, CS07), OPA/Rego (CS08), Cedar (CS09) — weigh how much of the fintech decision the engine should own *natively* vs. compose via the shared evaluator; don't force the shared-evaluator split where the engine can express the full decision.
 
+### LRN-027
+
+```yaml
+id: LRN-027
+date: 2026-07-04
+category: architectural
+source_cs: CS08
+status: open
+tags: [pdp, adapters, opa, http, resilience, fail-closed]
+claim_area: engines
+```
+
+**Problem:** An out-of-process PDP adapter must satisfy the synchronous `IAuthorizationDecisionProvider.Evaluate` while calling an HTTP engine. ServiceDefaults adds `AddStandardResilienceHandler()` to ALL `IHttpClientFactory` clients (`ConfigureHttpClientDefaults`), raising the concern that a synchronous `HttpClient.Send` would throw through the async-only resilience pipeline.
+
+**Finding:** On .NET 10, synchronous `HttpClient.Send` works through the standard resilience handler for a named client — verified end-to-end (adapter → live OPA → 22/22), so a sync-over-`Send` out-of-process adapter is viable without `.GetAwaiter().GetResult()`. Pair it with three fail-closed disciplines the mocked unit tests can't exercise but a real anonymous `/evaluate` endpoint needs: (1) a backstop `catch (Exception)` so config/construction throws (bad `Opa:BaseUrl`/timeout surfaced inside `CreateClient`) Deny rather than 500; (2) a STABLE, non-sensitive `Reason.Message` (log the detail) since the message is returned to anonymous callers; (3) validate the engine's returned reason code against the bounded `ReasonCodes` vocabulary (fail closed on unknown) so an out-of-process engine can't leak internal detail or inflate `pdp.reason` metric cardinality.
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/Opa/OpaDecisionProvider.cs`; `src/AuthzEntitlements.ServiceDefaults/Extensions.cs` (`AddStandardResilienceHandler`); live `POST /api/authz/scenarios/verify` 22/22 with `Pdp:Provider=opa`; Copilot PR #38 flagged (1) message info-leak and (2) untrusted reason-code.
+
+**Implications carried forward:**
+- CS07/CS09 out-of-process adapters (OpenFGA, Cedar): sync `HttpClient.Send` via a named client is fine; always fail closed on ANY exception, sanitize caller-facing messages, and validate the engine's decision/reason against `ReasonCodes` before mapping to `AccessDecision`.
+
+### LRN-028
+
+```yaml
+id: LRN-028
+date: 2026-07-04
+category: process
+source_cs: CS08
+status: open
+tags: [multi-agent, adapters, tests, merge-order, pdp, ci]
+claim_area: engines
+```
+
+**Problem:** CS06 and CS08 each merged green in isolation, but after both landed on `main` a CS06 test (`AdapterProviderSelectionTests.AddPdp_RegistersReferenceAndBothAdapters`) failed: it asserted the EXACT registered provider set `[aspnet, casbin, reference]` and CS08's new `opa` provider made it `[aspnet, casbin, opa, reference]`. Each PR's CI was green against its own base, so nothing caught it pre-merge.
+
+**Finding:** Exhaustive-set assertions over a registry that multiple parallel CSs extend create cross-CS coupling CI cannot catch. Assert MEMBERSHIP of the CS's own additions (`Assert.Contains`) plus a uniqueness check that matches the production invariant — the factory de-dupes case-insensitively, so assert `names.Distinct(StringComparer.OrdinalIgnoreCase).Count() == names.Length` — never an exact-equal of the whole set. Fixed in #40.
+
+**Evidence:** `tests/AuthzEntitlements.Authz.Pdp.Tests/AdapterProviderSelectionTests.cs`; `main` went 263/1 PDP after #38 merged atop CS06; PR #40 relaxed to membership + case-insensitive uniqueness (Copilot flagged the case-sensitivity mismatch).
+
+**Implications carried forward:**
+- CS09 (Cedar) and any future registry-extending CS: assert your OWN additions are present, never the exhaustive set, so the next parallel adapter doesn't red `main`.
+
+### LRN-029
+
+```yaml
+id: LRN-029
+date: 2026-07-04
+category: process
+source_cs: CS08
+status: open
+tags: [opa, rego, csharp, tooling, tests, windows]
+```
+
+**Problem:** Two authoring gotchas surfaced during CS08 implementation.
+
+**Finding:** (1) `opa fmt` reformats freshly-authored `.rego` (tabs/spacing) even when `opa check` is clean — run `opa fmt -w infra/opa/policy` BEFORE any `opa fmt --list` gate to avoid a false diff. (2) C# raw *interpolated* string literals with trailing braces (`$$"""{"k":"{{x}}"}}"""`) fail to compile (CS9007) because the closing `}}` is parsed as an interpolation close — use plain string concatenation (or `{{{{` escaping) for JSON-with-braces xUnit fixtures.
+
+**Evidence:** cs08-impl-policy + cs08-impl-adapter sub-agent reports; `OpaDecisionProviderTests.cs` uses concatenation for the parameterized deny-reason JSON fixture.
+
+**Implications carried forward:**
+- CS09 (Cedar policy + tests): run the formatter's write mode before the check gate; avoid raw interpolated strings for brace-heavy test fixtures.
+
 ## Applied
 
 _(no entries yet)_
