@@ -26,4 +26,10 @@ public static class ReasonCodes
     public const string SodConflict = "SodConflict";
 
     public const string UnknownAction = "UnknownAction";
+
+    // CS19 constrained-delegation verdict: an on-behalf-of (OBO) request where the human Subject
+    // is permitted but the acting Agent lacks the delegated scope required for the action class.
+    // The agent can never exceed the user, and it must additionally hold the delegated capability —
+    // this code is the reason it is denied when it does not.
+    public const string DelegationScopeMissing = "DelegationScopeMissing";
 }

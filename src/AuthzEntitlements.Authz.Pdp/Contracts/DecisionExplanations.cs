@@ -21,6 +21,7 @@ public static class DecisionExplanations
         ReasonCodes.MakerEqualsChecker => DeterminingRules.SegregationOfDuties,
         ReasonCodes.SodConflict => DeterminingRules.SegregationOfDuties, // CS11 governance SoD
         ReasonCodes.UnknownAction => DeterminingRules.UnknownAction,
+        ReasonCodes.DelegationScopeMissing => DeterminingRules.DelegationScope, // CS19 OBO delegation
         "NoRelationship" => DeterminingRules.Relationship,     // RebacReasonCodes.NoRelationship
         _ => DeterminingRules.EngineUnavailable,               // ProviderUnavailable/EngineUnavailable/boundary
     };

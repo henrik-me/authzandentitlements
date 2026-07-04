@@ -1,0 +1,90 @@
+@page "/agent-access"
+@rendermode RenderMode.InteractiveServer
+@using AuthzEntitlements.Bank.Web.ViewModels
+@inject IPdpClient Pdp
+
+@* Interactive Server showcase for CS19 on-behalf-of (OBO) / non-human access. For each demo
+   scenario a button evaluates the SAME action twice against the live PDP — as the human directly
+   (Subject.Actor = null) and via the agent (Subject.Actor set) — and shows the two decisions side
+   by side. The PDP is anonymous in this lab, so no token / HttpContext is needed here. The
+   request-authoring and decision mapping live in AgentAccessModel so they are unit-testable
+   offline; this component only wires the button to the PDP and renders. Fail-closed: a null
+   decision renders as Deny. *@
+
+<PageTitle>Agent access (on-behalf-of)</PageTitle>
+
+<h1>Agent access — on-behalf-of delegation</h1>
+
+<p>
+    A non-human agent can act <strong>on behalf of</strong> a human user, but it is constrained to
+    the <strong>intersection</strong> of the user's rights and its delegated
+    <code>agent.bank.*</code> scopes — this is delegation, <em>not</em> impersonation. Each scenario
+    below evaluates the <strong>same action</strong> two ways: as the human directly
+    (<code>Actor = null</code>) and via the agent (<code>Actor</code> set). The human path is
+    unaffected by delegation, and every decision is audited with the acting agent recorded.
+</p>
+
+@foreach (var scenario in AgentAccessModel.Scenarios)
+{
+    var state = _states[scenario.Title];
+    <div class="notice" role="group" aria-label="@scenario.Title">
+        <h2>@scenario.Title</h2>
+        <p>@scenario.Explanation</p>
+        <button type="button" class="button" @onclick="() => EvaluateAsync(scenario)"
+                disabled="@state.Evaluating">
+            @(state.Evaluating ? "Evaluating…" : "Evaluate both paths")
+        </button>
+
+        @if (state.Human is not null && state.Agent is not null)
+        {
+            <table class="grid">
+                <thead>
+                    <tr><th>Path</th><th>Verdict</th><th>Reason</th><th>Message</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Human (direct)</td>
+                        <td>@state.Human.Verdict</td>
+                        <td>@state.Human.ReasonCode</td>
+                        <td>@state.Human.Message</td>
+                    </tr>
+                    <tr>
+                        <td>Agent (on-behalf-of)</td>
+                        <td>@state.Agent.Verdict</td>
+                        <td>@state.Agent.ReasonCode</td>
+                        <td>@state.Agent.Message</td>
+                    </tr>
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    private sealed class ScenarioState
+    {
+        public bool Evaluating { get; set; }
+        public AgentAccessModel.DecisionView? Human { get; set; }
+        public AgentAccessModel.DecisionView? Agent { get; set; }
+    }
+
+    private readonly Dictionary<string, ScenarioState> _states =
+        AgentAccessModel.Scenarios.ToDictionary(s => s.Title, _ => new ScenarioState());
+
+    private async Task EvaluateAsync(AgentAccessModel.Scenario scenario)
+    {
+        var state = _states[scenario.Title];
+        state.Evaluating = true;
+        try
+        {
+            var human = await Pdp.EvaluateAsync(AgentAccessModel.BuildHumanRequest(scenario));
+            var agent = await Pdp.EvaluateAsync(AgentAccessModel.BuildAgentRequest(scenario));
+            state.Human = AgentAccessModel.ToView(human);
+            state.Agent = AgentAccessModel.ToView(agent);
+        }
+        finally
+        {
+            state.Evaluating = false;
+        }
+    }
+}
