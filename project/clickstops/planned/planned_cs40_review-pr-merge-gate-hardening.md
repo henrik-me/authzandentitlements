@@ -1,11 +1,11 @@
-# CS36 — Review & PR merge-gate hardening (bypass-free normal merges)
+# CS40 — Review & PR merge-gate hardening (bypass-free normal merges)
 
 **Status:** planned
 **Owner:** —
 **Branch:** —
 **Started:** —
 **Closed:** —
-**Filed by:** yoga-ae-c5 — 2026-07-04; follow-up to the branch-protection hardening + CS34: the ruleset only requires build-test + structural-gate, review-evidence gates are advisory, and Dependabot/workboard PRs can't merge without admin bypass. Directions for each decision were chosen by the user (see Decisions). Renumbered CS35→CS36 to resolve a collision with yoga-ae-c3's concurrently-filed harvest CS35.
+**Filed by:** yoga-ae-c5 — 2026-07-04; follow-up to the branch-protection hardening + CS34: the ruleset only requires build-test + structural-gate, review-evidence gates are advisory, and Dependabot/workboard PRs can't merge without admin bypass. Directions for each decision were chosen by the user (see Decisions). Renumbered to CS40 (above the in-flight arc, with margin) to resolve CS-number collisions with concurrently-filed sibling CSs.
 **Depends on:** none
 
 ## Goal
