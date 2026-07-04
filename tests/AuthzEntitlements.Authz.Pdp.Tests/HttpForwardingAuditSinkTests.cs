@@ -33,7 +33,10 @@ public sealed class HttpForwardingAuditSinkTests
             ResourceId: "acct-1",
             Decision: "Permit",
             Reason: "permit",
-            Tenant: "contoso");
+            Tenant: "contoso",
+            DeterminingRule: "permit",
+            PolicyReferences: new[] { "reference:permit" },
+            Narrative: "Permitted by the reference policy.");
 
     // Records every request it sees (method/uri/body) and signals once an expected count arrives,
     // so a test can await delivery without arbitrary sleeps.
