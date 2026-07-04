@@ -131,9 +131,11 @@ dotnet test tests/AuthzEntitlements.Authz.Pdp.Tests/AuthzEntitlements.Authz.Pdp.
 >   policy-tests:
 >     runs-on: ubuntu-latest
 >     steps:
->       - uses: actions/checkout@v6            # pin to a SHA to satisfy the workflow-pins gate
->       - uses: actions/setup-dotnet@v5        # reads the SDK from global.json
->         with: { global-json-file: global.json }
+>       # NB: in real adoption pin each action to a commit SHA — the workflow-pins gate requires it;
+>       # major-version tags are shown here only for readability.
+>       - uses: actions/checkout@v6
+>       - uses: actions/setup-dotnet@v5
+>         with: { global-json-file: global.json }   # reads the SDK version from global.json
 >       - run: dotnet test tests/AuthzEntitlements.Authz.Pdp.Tests/AuthzEntitlements.Authz.Pdp.Tests.csproj
 > ```
 

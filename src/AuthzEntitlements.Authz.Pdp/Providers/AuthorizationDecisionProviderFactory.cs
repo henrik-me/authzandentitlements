@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using AuthzEntitlements.Authz.Pdp.Contracts;
 using Microsoft.Extensions.Options;
 
@@ -91,14 +92,15 @@ public sealed class AuthorizationDecisionProviderFactory
     // Non-throwing lookup so a request-boundary caller (endpoint) can return a 400 for an unknown
     // engine name instead of surfacing a 500. The name is trimmed so accidental surrounding
     // whitespace (from env/secret/query sources) still resolves — consistent with the constructor
-    // trimming PdpOptions.Provider. A blank name never matches (fail closed).
-    public bool TryGetProvider(string name, out IAuthorizationDecisionProvider provider)
+    // trimming PdpOptions.Provider. A blank name never matches (fail closed). The out is nullable +
+    // [NotNullWhen(true)] so callers get a compiler warning if they read it without checking the bool.
+    public bool TryGetProvider(string name, [NotNullWhen(true)] out IAuthorizationDecisionProvider? provider)
     {
         var trimmed = name?.Trim();
         provider = string.IsNullOrEmpty(trimmed)
-            ? null!
+            ? null
             : _providers.FirstOrDefault(
-                p => string.Equals(p.Name, trimmed, StringComparison.OrdinalIgnoreCase))!;
+                p => string.Equals(p.Name, trimmed, StringComparison.OrdinalIgnoreCase));
         return provider is not null;
     }
 

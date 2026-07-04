@@ -91,7 +91,7 @@ public sealed class ProviderSelectionTests
         var factory = Factory("reference", new ReferenceDecisionProvider());
 
         Assert.True(factory.TryGetProvider("  reference  ", out var provider));
-        Assert.Equal("reference", provider.Name);
+        Assert.Equal("reference", provider!.Name);
     }
 
     [Fact]
