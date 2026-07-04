@@ -26,7 +26,10 @@ public sealed record AuditCheckpoint(long Sequence, string RowHash)
         error = null;
 
         var hasSequence = sequence.HasValue;
-        var hasHash = !string.IsNullOrWhiteSpace(rowHash);
+        // Treat a present-but-empty/whitespace hash (e.g. `?expectedRowHash=`) as SUPPLIED, not
+        // absent, so it is validated (and rejected) rather than silently downgrading to a bare
+        // verify. Only a truly absent (null) param counts as "not supplied".
+        var hasHash = rowHash is not null;
 
         if (!hasSequence && !hasHash)
         {

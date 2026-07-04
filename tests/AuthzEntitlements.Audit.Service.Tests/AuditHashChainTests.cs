@@ -511,6 +511,25 @@ public sealed class AuditHashChainTests
         Assert.Equal(new string('a', 64), checkpoint.RowHash);
     }
 
+    [Fact]
+    public void Checkpoint_TryParse_EmptyHashOnly_FailsClosed()
+    {
+        // `?expectedRowHash=` with no sequence must be rejected, not treated as a bare verify.
+        Assert.False(AuditCheckpoint.TryParse(null, string.Empty, out var checkpoint, out var error));
+        Assert.Null(checkpoint);
+        Assert.NotNull(error);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Checkpoint_TryParse_BlankHashWithSequence_FailsClosed(string blankHash)
+    {
+        Assert.False(AuditCheckpoint.TryParse(3, blankHash, out var checkpoint, out var error));
+        Assert.Null(checkpoint);
+        Assert.NotNull(error);
+    }
+
     private static async IAsyncEnumerable<AuditEntry> ToAsync(IEnumerable<AuditEntry> entries)
     {
         foreach (var entry in entries)
