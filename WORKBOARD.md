@@ -37,7 +37,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS23 | CS23 — Comparison matrix + market survey | 🟢 Active | yoga-ae-c2 | cs23/content | 2026-07-04 | — |
 | CS21 | CS21 — Break-glass, delegation & on-behalf-of | 🟢 Active | yoga-ae | cs21/content | 2026-07-04 | — |
 | CS25 | CS25 — Managed-vs-self-host TCO + cloud move | 🟢 Active | yoga-ae-c4 | cs25/content | 2026-07-04 | — |
 
