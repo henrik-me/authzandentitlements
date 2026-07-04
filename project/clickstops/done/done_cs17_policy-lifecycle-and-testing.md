@@ -1,10 +1,10 @@
 # CS17 — Policy lifecycle + validation/testing
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs17/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
 **Depends on:** CS05, CS06, CS07, CS08, CS09
@@ -55,4 +55,24 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-_Pending — completed at close-out per OPERATIONS.md § Plan-vs-implementation review (close-out gate). The GO/NEEDS-FIX outcome is recorded here before the active → done rename._
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T03:46:47Z
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable / sub-part | Outcome | Rationale |
+|---|---|---|
+| D1 — Policy versioning | match | `GoldenDecisionSnapshot.Version` SHA-256 content hash + `GET /api/authz/policy/version`. |
+| D1 — CI validation / gating | diverged | Delivered as the runnable policy test suite (+59 tests) + an opt-in workflow snippet, NOT an active .NET CI workflow — respecting the repo's process-gates-only GitHub Actions posture (see PR #55 Notes / escalation). |
+| D1 — Rollout / rollback | match | Policy-as-code process anchored by golden snapshot/version + shadow-catalog parity + rollback-by-revert with drift detection. |
+| D1 — What-if simulation | match | `WhatIfEvaluator` + `POST /api/authz/whatif`, non-audited (bypasses `PdpDecisionService`). |
+| D1 — Drift detection | match | `GoldenDecisionSnapshot.Diff` (decision/reason/obligation + missing/extra scenario) via `/policy/version`. |
+| D2 — Golden-decision tests | match | `GoldenDecisionTests` (baseline alignment, per-engine no-drift, drift, missing/extra, obligations, version shape). |
+| D2 — Negative + property-based tests | match | `PolicyInvariantTests` deterministic generated cross-product invariants + fail-closed negatives. |
+| D2 — AuthZEN conformance | match | `AuthZenMapper`/endpoint + fail-closed `AuthZenRequestValidation` + full-catalog round-trip (`AuthZenConformanceTests`). |
+| D3 — Shadow / dual-run harness | match | `ShadowRunner` single-request + whole-catalog decision/reason/obligation diffs. |
+
+**Test coverage:** gaps (non-blocking) — endpoints are validated at the service/mapper level (pure-domain, per repo convention) rather than via HTTP-level integration tests; the non-audited invariant of what-if/shadow is by-design (bypasses `PdpDecisionService`) but not asserted through an endpoint-level fake audit sink; CI gating is documentation-only (the deliberate posture). Filed as LRN-035 for a possible follow-up.
+
+**Outcome GO:** no blocking implementation gaps; the CI item is a documented, intentional divergence given the repo's process-gates-only posture and the delivered local policy test gate. Review lineage: GPT-5.5 rubber-duck R1 (Needs-Fix: AuthZEN boundary fail-open) → R2–R5 (Go); Copilot 3 rounds (whitespace-normalization, nullable `out`, nullable param — all resolved).

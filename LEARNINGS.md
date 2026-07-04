@@ -672,6 +672,47 @@ tags: [pdp, parity, testing, fail-closed, tenant, security]
 **Implications carried forward:**
 - CS16/CS17/CS20/CS23/CS24 and any adapter/eval CS: the 22-scenario catalog is necessary but NOT sufficient — augment with degenerate-input fail-closed parity tests against the reference oracle. Consider adding blank/whitespace-attribute rows to the shared catalog so every engine is held to them.
 
+### LRN-034
+
+```yaml
+id: LRN-034
+date: 2026-07-04
+category: architectural
+source_cs: CS17
+status: open
+tags: [pdp, authzen, fail-closed, validation, wire-boundary, security]
+```
+
+**Problem:** CS17's new AuthZEN Access Evaluation endpoint (`POST /api/authz/authzen/evaluation`) is a real, audited decision surface over UNTRUSTED external wire input, but it initially reused `AuthZenMapper`'s lenient safe defaults. GPT-5.5 review (R1 Needs-Fix) found a FAIL-OPEN: a present-but-unparseable `amount` coerced to null → `ReferenceDecisionProvider` treats null amount as $0 → a large transfer could return Permit + `post_immediately` (threshold bypass); and an omitted `maker_id` on approve/reject makes `SubjectIsMaker` false → segregation-of-duties passes (self-approval bypass). All 22 catalog scenarios use well-formed attributes, so tests stayed green over the gap — the LRN-033 pattern recurring at a new boundary.
+
+**Finding:** A lenient internal mapper is safe for a TYPED in-process caller (`/evaluate` takes a built `AccessRequest`) but becomes fail-OPEN when reused at a new UNTRUSTED wire boundary. Add boundary-specific, action-aware fail-closed validation BEFORE evaluation: reject a present-but-unparseable numeric field for any action; require the attributes each action's rules key on (`bank.transaction.create` → parseable `amount` + non-blank `maker_id`; approve/reject → non-blank `maker_id` + `status`). Do NOT tighten the shared reference provider (cross-CS scope); harden at the new boundary and add a test that EVERY existing catalog scenario still validates (guard against over-tightening).
+
+**Evidence:** `AuthZenRequestValidation.Validate` (fail-closed shape + attribute checks); `AuthZenEndpoints` calls it (400) before `PdpDecisionService.Evaluate`; `AuthZenConformanceTests` (+9: unparseable/missing amount, missing maker/status on create + approve/reject, `Validate_EveryCatalogScenario_PassesValidation`). GPT-5.5 R1 Needs-Fix → R2 Go.
+
+**Implications carried forward:**
+- Any future CS adding a new external decision/enforcement endpoint (CS14/CS15/CS19/CS21): treat the wire boundary as untrusted and add action-aware fail-closed input validation; a passing shared catalog does not prove the boundary is safe.
+
+### LRN-035
+
+```yaml
+id: LRN-035
+date: 2026-07-04
+category: process
+source_cs: CS17
+status: open
+tags: [ci, testing, posture, process]
+```
+
+**Problem:** CS17's exit criterion "policy changes are gated by CI tests" collides with this repo's DELIBERATE posture that GitHub Actions run process-gates-only (`harness lint` + drift + review-evidence) while .NET build/test is the LOCAL correctness gate (CONTEXT.md; `.github/workflows/` carry no dotnet step). Adding an active `.NET` CI workflow would change that posture AND interacts with the `workflow-pins` gate (actions must be SHA-pinned).
+
+**Finding:** When a CS deliverable's literal wording conflicts with an established repo posture/decision, do NOT silently change the posture. Deliver the INTENT (here: a runnable policy test suite of +59 golden/property/conformance tests that any policy change must pass) + a documented, ready-to-adopt opt-in path (a `policy-tests.yml` snippet in `docs/authz/policy-lifecycle.md`), and ESCALATE the posture decision to the maintainer (PR #55 Notes). The plan-vs-impl review marked CI-gating `diverged` (intentional), not `dropped`, and returned GO.
+
+**Evidence:** `docs/authz/policy-lifecycle.md` CI note + adoption snippet; PR #55 Notes (escalation); the plan-vs-impl review in `done_cs17_*` (D1-CI = diverged, Outcome GO).
+
+**Implications carried forward:**
+- Maintainer decision pending: adopt a scoped `.NET` policy-tests workflow, or keep the local-gate posture? Until decided, CS17's gate is the local `dotnet test` suite.
+- Future eval/testing CSs (CS23/CS24) that mention "CI" should resolve this posture first.
+
 ## Applied
 
 _(no entries yet)_
