@@ -591,6 +591,46 @@ tags: [opa, rego, csharp, tooling, tests, windows]
 **Implications carried forward:**
 - CS09 (Cedar policy + tests): run the formatter's write mode before the check gate; avoid raw interpolated strings for brace-heavy test fixtures.
 
+### LRN-030
+
+```yaml
+id: LRN-030
+date: 2026-07-04
+category: architectural
+source_cs: CS07
+status: open
+tags: [authz, pdp, adapter, fail-closed, security, openfga]
+```
+
+**Problem:** CS07's `OpenFgaProvider` built and passed all tests, but review (GPT-5.5 R16 + Copilot rd.12/13) found it FAIL-OPEN: `Evaluate` threw on a not-configured/unreachable engine, and since `PdpDecisionService` wraps providers in no try/catch, `/api/authz/evaluate` returned a raw 500 instead of a Deny. `/api/authz/rebac/verify` likewise only caught around `EnsureBootstrappedAsync`, not the (singleton, bootstrapped-once) scenario `Check` loop — so a *later* call could still 500.
+
+**Finding:** An out-of-process authz adapter must FAIL CLOSED on ANY engine failure: catch (never throw), return a Deny with a provider-local reason code and a **stable, non-sensitive** message (log the cause; never surface network/config detail to anonymous callers), and wrap the WHOLE request flow, not just the first call. Mirror the established sibling `OpaDecisionProvider` (provider-local `ProviderUnavailable`/`EngineUnavailable`, sanitized message, backstop `catch (Exception)`). Build+tests do NOT catch fail-open — only review does; add a fail-closed unit test (blank ApiUrl → Deny, not throw) to lock it in.
+
+**Evidence:** `OpenFgaProvider.Evaluate` try/catch → `Deny(EngineUnavailable)`; `RebacEndpoints` `UnavailableProblem` stable messages + whole-flow `/verify` wrap; `OpenFgaRegistrationTests.Evaluate_FailsClosed_WhenEngineUnavailable`. Mirrors LRN-027 (OPA fail-closed).
+
+**Implications carried forward:**
+- CS09 (Cedar) and any future out-of-process adapter: fail closed on every engine-error path (Deny + stable message + logged cause), add a fail-closed test, and wrap the entire endpoint flow — the singleton-bootstrap gotcha makes "the first call fails" reasoning wrong.
+
+### LRN-031
+
+```yaml
+id: LRN-031
+date: 2026-07-04
+category: process
+source_cs: CS07
+status: open
+tags: [openfga, rebac, sdk, csharp, aspire, followups]
+```
+
+**Problem:** OpenFGA (out-of-process, async SDK, versioned models) integration surfaced several authoring gotchas plus deferred hardening.
+
+**Finding:** (1) The sync `IAuthorizationDecisionProvider.Evaluate` bridges the async `OpenFga.Sdk` with `GetAwaiter().GetResult()` (sanctioned by the contract) — the pattern any async adapter needs. (2) OpenFGA authorization models are **immutable/versioned**: bootstrap writes the exact embedded model and pins the returned model id (favour correctness over reusing a possibly-stale prior version); a dedicated store per `StoreName` keeps tuple reconciliation O(seed). (3) `Dictionary.KeyCollection` IS `IReadOnlyCollection` on net10 so a `Keys` cast does not throw, but materialize (`.ToArray()`) to avoid a fragile runtime-type-dependent cast. (4) `openfga/openfga` runs as a two-step `migrate` (one-shot) + `run` server on postgres (`OPENFGA_DATASTORE_ENGINE/URI`).
+
+**Evidence:** `OpenFgaRebacService` (lazy client, idempotent bootstrap, model-id pinning, read-diff tuple write); `OpenFgaProvider` sync bridge; `AppHost.cs` migrate+run containers; Copilot rounds (SupportedActions cast, per-boot model-version growth).
+
+**Implications carried forward:**
+- Follow-ups (deferred, non-blocking dev-loop hardening): make the OpenFGA authorization-model id configurable/pinned to avoid per-boot model-version growth on a persistent shared store; use a targeted tuple-existence reconciliation instead of read-all (fine for the dedicated tiny-seed store today); adopt `Assert.Skip` for the integration tests when the repo moves to xUnit v3 (currently a soft `return` skip, since 2.9.3 has no dynamic skip and adding `Xunit.SkippableFact` was out of scope).
+
 ## Applied
 
 _(no entries yet)_

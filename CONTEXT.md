@@ -125,10 +125,25 @@ run` never need Docker or OPA. Docs at `docs/authz/opa-adapter.md` + `infra/opa/
 /api/authz/scenarios/verify` 22/22 with `Pdp:Provider=opa`. GPT-5.5 rubber-duck R1–R5 (Go) + Copilot (3 rounds: fail-closed
 info-leak, sync-contract comment, untrusted reason-code — all resolved) + plan-vs-impl GO. New learnings LRN-027..029.
 
+**CS07 (engine adapter: OpenFGA / ReBAC — Zanzibar) complete** (PR #35, squash-merged 2026-07-04 as `99d4abe`). A fourth engine
+plugs into the CS05 PDP seam — the first **relationship-based (ReBAC)** one: `OpenFgaProvider` (`Name="openfga"`) maps an
+`AccessRequest` to a single OpenFGA **forward `Check`** (subject→relation→object) via the sync seam (bridged sync-over-async), and
+`OpenFgaRebacService` adds the **reverse-index** queries `ListUsers` ("who can view account X") / `ListObjects` ("what can user Y
+access"), surfaced at `/api/authz/rebac/{verify,who-can-access,what-can-user-access}`. The schema-1.1 `RebacModel` encodes all four
+relationship types — account ownership, relationship-manager→customer (tuple-to-userset indirection), branch/region hierarchy, and
+delegation — with a consistent `RebacSeedTuples` graph and a CS07-specific `RebacScenarioCatalog` (ReBAC ≠ the RBAC
+`FintechScenarioCatalog`, by design). The adapter is **fail-closed**: a not-configured (blank `Pdp:OpenFga:ApiUrl`), unreachable, or
+erroring engine Denies (`EngineUnavailable`, stable non-sensitive message, cause logged) rather than throwing; the reverse-index
+endpoints return 400 on bad input and 503 on engine unavailability. OpenFGA is an **opt-in** Aspire resource (pinned
+`openfga/openfga:v1.18.1`, `migrate` + `run`, shared `openfga` postgres db, `WithExplicitStart`); the default provider stays
+`reference` so build/test/`aspire run` never need Docker. `dotnet build` 0/0, full-solution `dotnet test` 456/456 (PDP 316, +51
+OpenFGA/ReBAC tests incl. a fail-closed `Evaluate` unit test + self-skipping live-server integration); reviewed across 18 GPT-5.5
+rubber-duck rounds + Copilot (13 rounds, all addressed) + plan-vs-impl GO. New learnings LRN-030..031.
+
 **Next claimable:** **CS11 (governance)** — now unblocked (needs CS02 + CS08, both complete) — plus
-CS13 (audit pipeline; needs CS05). All four engine adapters are now claimed or done: CS06 (ASP.NET/Casbin) + CS08 (OPA/Rego)
-done; CS07 (OpenFGA) and CS09 (Cedar) in flight. CS06/CS08 completion advances CS14 (Blazor product UI; needs
-CS03/CS04/CS06/CS10/CS11), CS16/CS17/CS20 (need engine behavior; awaiting CS07/CS09), and CS24 (perf benchmark; needs engines +
+CS13 (audit pipeline; needs CS05). All four engine adapters are now claimed or done: CS06 (ASP.NET/Casbin) + CS08 (OPA/Rego) +
+CS07 (OpenFGA/ReBAC) done; CS09 (Cedar) in flight. CS06/CS07/CS08 completion advances CS14 (Blazor product UI; needs
+CS03/CS04/CS06/CS10/CS11), CS16/CS17/CS20 (need engine behavior; three of four engines now landed, awaiting CS09), and CS24 (perf benchmark; needs engines +
 CS12). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
 
 ## Constraints
