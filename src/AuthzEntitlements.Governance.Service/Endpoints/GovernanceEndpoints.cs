@@ -213,8 +213,18 @@ public static class GovernanceEndpoints
                 return Problem(outcome.Message, StatusCodes.Status403Forbidden);
 
             case ApprovalDisposition.SodUnavailable:
-                // The PDP could not be consulted. Fail closed: leave the request Pending and
-                // return a transient 503 (not a business decision) so nothing is granted.
+                // The PDP could not be consulted. Fail closed: nothing is granted and the request
+                // stays Pending (retryable), returning a transient 503 (not a business decision).
+                // Record SodOutcome=Unavailable + reason (DecidedBy/At stay null — no decision was
+                // made) so /requests distinguishes "not yet evaluated" from "evaluation attempted,
+                // PDP unavailable"; a later retry overwrites it with Permit/Deny.
+                request.SodOutcome = SodOutcome.Unavailable;
+                request.SodReason = outcome.ReasonCode;
+                if (await TrySaveDecisionAsync(db, ct) is { } unavailableConflict)
+                {
+                    return unavailableConflict;
+                }
+
                 EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
                     GovernanceDecisionType.Approval, request.AccessPackageCode,
                     GovernanceOutcome.Unavailable, outcome.ReasonCode, request.Id.ToString());
