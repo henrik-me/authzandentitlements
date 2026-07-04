@@ -21,6 +21,10 @@ public static class RbacToRebacTranslator
     private const string ResourceType = "resource";
     private const string ResourceObjectId = "core";
 
+    // OpenFGA caps relation names at 50 characters; a permission that sanitizes past this is
+    // rejected fail-closed rather than emitted into an invalid model.
+    private const int MaxRelationLength = 50;
+
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
     public static TranslatedRebacGraph Translate(RbacPolicy policy)
@@ -67,18 +71,34 @@ public static class RbacToRebacTranslator
 
     private static string Sanitize(string permission)
     {
+        if (string.IsNullOrWhiteSpace(permission))
+        {
+            throw new ArgumentException(
+                "A permission name must be non-empty to translate to an OpenFGA relation.",
+                nameof(permission));
+        }
+
+        // OpenFGA relation names are limited to [a-z0-9_]. Collapse EVERY other character
+        // (including '.', ':', '#', '@', '/', '-', whitespace, and non-ASCII) to '_' so the
+        // emitted model is always valid rather than silently malformed; a distinct-permission
+        // collision after this normalization is caught fail-closed by BuildRelationMap.
         var builder = new StringBuilder(permission.Length);
         foreach (var ch in permission)
         {
-            builder.Append(ch switch
-            {
-                '.' or ':' or '#' or '@' => '_',
-                _ when char.IsWhiteSpace(ch) => '_',
-                _ => char.ToLowerInvariant(ch),
-            });
+            var lower = char.ToLowerInvariant(ch);
+            builder.Append(lower is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '_' ? lower : '_');
         }
 
-        return builder.ToString();
+        var relation = builder.ToString();
+        if (relation.Length > MaxRelationLength)
+        {
+            throw new ArgumentException(
+                $"Permission '{permission}' sanitizes to a {relation.Length}-character relation, " +
+                $"exceeding OpenFGA's {MaxRelationLength}-character relation-name limit.",
+                nameof(permission));
+        }
+
+        return relation;
     }
 
     private static string BuildModelJson(

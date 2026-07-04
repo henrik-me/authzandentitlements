@@ -110,10 +110,13 @@ The emitted OpenFGA schema-1.1 model has **three types**:
   `role#assignee`, so granting a role a permission is a single tuple against the shared resource
   object (`resource:core`, exposed as `TranslatedRebacGraph.ResourceObjectId`).
 
-Permission names are sanitized into valid OpenFGA relation names: lowercased, with `.`, `:`, `#`,
-`@`, and whitespace collapsed to `_` (so `bank.transaction.create` → `bank_transaction_create`). The
-map is bidirectional (`PermissionToRelation` / `RelationToPermission`); a name collision between two
-distinct permissions is a fail-closed `ArgumentException` because it would silently merge grants.
+Permission names are sanitized into valid OpenFGA relation names: lowercased, with **every**
+character outside `[a-z0-9_]` (including `.`, `:`, `#`, `@`, `/`, `-`, and whitespace) collapsed to
+`_` (so `bank.transaction.create` → `bank_transaction_create`). An empty result, or one exceeding
+OpenFGA's 50-character relation-name limit, is rejected fail-closed with an `ArgumentException`
+rather than emitted as an invalid model. The map is bidirectional (`PermissionToRelation` /
+`RelationToPermission`); a name collision between two distinct permissions is likewise a fail-closed
+`ArgumentException` because it would silently merge grants.
 
 The graph carries two **tuple forms** (reusing
 [`RebacTuple`](../../src/AuthzEntitlements.Authz.Pdp/Providers/OpenFga/RebacSeedTuples.cs) `(User,

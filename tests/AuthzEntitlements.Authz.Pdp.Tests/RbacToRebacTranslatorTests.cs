@@ -114,6 +114,64 @@ public sealed class RbacToRebacTranslatorTests
     }
 
     [Fact]
+    public void Translate_CollapsesEveryNonRelationChar_ToUnderscore()
+    {
+        var graph = RbacToRebacTranslator.Translate(SingleUserPolicy("read/write-Thing"));
+
+        var relation = graph.PermissionToRelation["read/write-Thing"];
+        Assert.Equal("read_write_thing", relation);
+        Assert.Matches("^[a-z0-9_]{1,50}$", relation);
+        Assert.True(graph.Check("user:u", "read/write-Thing", ResourceObject));
+    }
+
+    [Fact]
+    public void Translate_Throws_OnEmptyOrWhitespacePermissionName()
+    {
+        Assert.Throws<ArgumentException>(() => RbacToRebacTranslator.Translate(DeclaredPermissionsPolicy(" ")));
+    }
+
+    [Fact]
+    public void Translate_Throws_OnPermissionExceedingRelationLengthLimit()
+    {
+        var tooLong = new string('a', 51);
+
+        var ex = Assert.Throws<ArgumentException>(
+            () => RbacToRebacTranslator.Translate(DeclaredPermissionsPolicy(tooLong)));
+        Assert.Contains("50", ex.Message);
+    }
+
+    [Fact]
+    public void Translate_Throws_OnDistinctPermissionsCollidingToSameRelation()
+    {
+        // "a.b" and "a:b" both sanitize to "a_b"; emitting both would silently merge their grants.
+        var ex = Assert.Throws<ArgumentException>(
+            () => RbacToRebacTranslator.Translate(DeclaredPermissionsPolicy("a.b", "a:b")));
+        Assert.Contains("a_b", ex.Message);
+    }
+
+    // An RBAC policy declaring the given permissions (no grants/assignments) — enough to drive the
+    // translator's relation-name sanitization/validation without any user or role wiring.
+    private static RbacPolicy DeclaredPermissionsPolicy(params string[] permissions) => RbacPolicy.Create(
+        roles: ["R"],
+        permissions: permissions,
+        rolePermissions: new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal),
+        userRoles: new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal));
+
+    // An RBAC policy where user "u" holds role "R" which grants the single given permission — so the
+    // emitted graph's Check can be exercised for that permission.
+    private static RbacPolicy SingleUserPolicy(string permission) => RbacPolicy.Create(
+        roles: ["R"],
+        permissions: [permission],
+        rolePermissions: new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+        {
+            ["R"] = new[] { permission },
+        },
+        userRoles: new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+        {
+            ["u"] = new[] { "R" },
+        });
+
+    [Fact]
     public void Tuples_HaveExpectedCount_AndUsersetForms()
     {
         var graph = Translate();
