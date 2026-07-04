@@ -1,9 +1,9 @@
 # CS28 — .NET build/test CI gate (close the cross-CS integration gap)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c3
+**Branch:** cs28/content
+**Started:** 2026-07-04
 **Closed:** —
 **Filed by:** yoga-ae-c3, 2026-07-04 — surfaced by LRN-035 and the CS13↔CS16 `PdpDecisionAuditEvent` merge break (each PR green vs its own base; `main` failed to compile after both merged; fixed reactively in PR #60). Maintainer requested closing the gap.
 **Depends on:** none
@@ -63,11 +63,24 @@ That convention held for single-CS work but has a hole for concurrent cross-CS m
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Author dotnet-ci.yml workflow | pending | yoga-ae-c3 | SHA-pinned checkout + setup-dotnet (global.json); build + test on pull_request + push → main |
+| Update LRN-035 + CONTEXT posture | pending | yoga-ae-c3 | Point LRN-035 at CS28; note advisory .NET CI resolves the no-.NET-in-CI blocker |
+| Verify workflow runs green | pending | yoga-ae-c3 | Observe the dotnet-ci check running + passing on the content PR |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c3 |
+| Reviewer agent | copilot |
 
 ## Plan-vs-implementation review
 
