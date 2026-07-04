@@ -44,7 +44,8 @@ public sealed class TokenValidationSecurityTests
         services.AddLogging();
         services.AddBankJwtAuthentication(
             Config(("Keycloak:AuthServerUrl", "https://kc")), new TestHostEnvironment());
-        return services.BuildServiceProvider()
+        using var provider = services.BuildServiceProvider();
+        return provider
             .GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
             .Get(JwtBearerDefaults.AuthenticationScheme)
             .TokenValidationParameters;
@@ -56,9 +57,10 @@ public sealed class TokenValidationSecurityTests
     public void ClockSkew_IsTightenedTo30Seconds()
     {
         Assert.Equal(TimeSpan.FromSeconds(30), AuthenticationSetup.MaxClockSkew);
-        Assert.Equal(AuthenticationSetup.MaxClockSkew, BuildParameters().ClockSkew);
+        var parameters = BuildParameters();
+        Assert.Equal(AuthenticationSetup.MaxClockSkew, parameters.ClockSkew);
         // Explicitly below the lenient 5-minute .NET default.
-        Assert.True(BuildParameters().ClockSkew < TimeSpan.FromMinutes(5));
+        Assert.True(parameters.ClockSkew < TimeSpan.FromMinutes(5));
     }
 
     [Fact]
@@ -80,7 +82,8 @@ public sealed class TokenValidationSecurityTests
         Assert.True(p.ValidateIssuer);
         Assert.True(p.ValidateAudience);
         Assert.True(p.ValidateLifetime);
-        Assert.Equal("bank-api", p.ValidAudience);
+        Assert.True(p.ValidateIssuerSigningKey);
+        Assert.Equal(TestAudience, p.ValidAudience);
     }
 
     // ---- Part B: functional token-rejection tests (offline, deterministic) ----
@@ -88,12 +91,11 @@ public sealed class TokenValidationSecurityTests
     // Clones the REAL configured parameters and overrides ONLY the signing material and
     // issuer/audience for offline testability, keeping the security-relevant params under
     // test (ClockSkew, ValidateLifetime, RequireExpirationTime, RequireSignedTokens,
-    // ValidateIssuer, ValidateAudience) sourced from production.
+    // ValidateIssuerSigningKey, ValidateIssuer, ValidateAudience) sourced from production.
     private static TokenValidationParameters OfflineParameters(SecurityKey signingKey)
     {
         var p = BuildParameters().Clone();
         p.IssuerSigningKey = signingKey;
-        p.ValidateIssuerSigningKey = true;
         p.ValidIssuer = TestIssuer;
         p.ValidAudience = TestAudience;
         return p;

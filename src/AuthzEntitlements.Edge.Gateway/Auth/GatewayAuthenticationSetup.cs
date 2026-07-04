@@ -122,13 +122,14 @@ public static class GatewayAuthenticationSetup
                     ValidateAudience = true,
                     ValidAudience = audience,
                     ValidateLifetime = true,
-                    // CS18 hardening: shrink the replay/expired-token window and reject
-                    // unsigned or non-expiring tokens (defense against token forgery and
-                    // non-expiring tokens). See docs/security/threat-model.md
-                    // (Spoofing/Tampering).
+                    // CS18 hardening: shrink the replay/expired-token window, reject
+                    // unsigned or non-expiring tokens, and validate the token signing key
+                    // explicitly (defense against token forgery/replay). See
+                    // docs/security/threat-model.md (Spoofing/Tampering).
                     ClockSkew = MaxClockSkew,
                     RequireExpirationTime = true,
                     RequireSignedTokens = true,
+                    ValidateIssuerSigningKey = true,
                     RoleClaimType = GatewayClaims.RolesClaimType,
                     NameClaimType = GatewayClaims.NameClaimType,
                 };
