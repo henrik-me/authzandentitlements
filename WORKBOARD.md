@@ -40,5 +40,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 | CS23 | CS23 — Comparison matrix + market survey | 🟢 Active | yoga-ae-c2 | cs23/content | 2026-07-04 | — |
 | CS21 | CS21 — Break-glass, delegation & on-behalf-of | 🟢 Active | yoga-ae | cs21/content | 2026-07-04 | — |
 | CS32 | CS32 — Observability & audit-event enrichment; aspire-run 500 triage | 🟢 Active | yoga-ae-c3 | cs32/content | 2026-07-04 | — |
+| CS34 | CS34 — Log-forging (CWE-117) sanitization at the 4 flagged audit-log sites | 🟢 Active | yoga-ae-c5 | cs34/content | 2026-07-04 | — |
 
 > **Note:** WORKBOARD shows live coordination state only — active orchestrators and their active work. The queue lives in `project/clickstops/planned/` (priority order via filename + per-file `**Depends on:**`); historical record lives in `project/clickstops/done/`. Do not duplicate either here.
