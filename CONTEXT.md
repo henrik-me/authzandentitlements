@@ -192,11 +192,26 @@ live audit ingestion is CS13** (plan-review R1 amendment). `dotnet build` 0/0, f
 sub-agents (foundation → 4 parallel engines → docs); GPT-5.5 rubber-duck R1 (1 amendment: audit-sink emission) → R2/R3 (Go) +
 Copilot (4 nits resolved) + plan-vs-impl GO. New learnings LRN-036..039.
 
-**Next claimable:** with **CS11** (governance), **CS13** (audit pipeline) and **CS17** (policy lifecycle) in flight under other
-orchestrators and **CS16 (explainability) DONE**, the ready-and-unowned queue includes **CS18** (security hardening; needs CS04+CS05),
+**CS11 (access-governance entitlements) complete** (PR #54, squash-merged 2026-07-04 as `2ddc857`). A new
+`AuthzEntitlements.Governance.Service` (ASP.NET Core minimal APIs, net10.0) owns the `governance` DB and models the **Entra-style
+access-governance** lifecycle: **access packages** (e.g. `quarter-end-close`), **JIT elevation** gated by a two-stage **maker-checker +
+segregation-of-duties** approval (the approver must be a known checker-eligible principal ≠ the requester), **time-bound grants** whose
+expiry is enforced at **read time** via `IsActive(now)` (no background sweeper), and **access-review / recertification campaigns**
+(materialise one item per active grant; certify/revoke). **SoD runs through the PDP** (plan-review R1 amendment — not direct OPA coupling):
+a new engine-agnostic **`governance.access.request`** action (5 incompatible role-pairs) is answered by `PdpSodClient` → `POST
+/api/authz/evaluate`, **fail-closed** (only `Deny/SodConflict` is a business denial; a PDP/OPA outage → retryable 503, request stays
+`Pending`), and mirrored **identically** in the reference provider (`GovernanceSodPolicy`) and the OPA/Rego policy so the verdict is
+engine-swappable. `SodConflict` is a first-class `ReasonCode` (surfaced through the OPA adapter + CS16 explanations as
+`segregation-of-duties`). Every decision emits an **audit-ready** event + an OTel meter; decide-once via `xmin` + unique indexes.
+`dotnet build` 0/0, full-solution `dotnet test` **762/762** (Governance.Service 64), `opa test` 64/64. GPT-5.5 rubber-duck **R1–R10** + **7
+Copilot rounds** (all resolved) + plan-vs-impl GO. Doc at `docs/governance/access-governance.md`. New learning LRN-040. **Bank.Api
+enforcement of governance grants, break-glass/CS21, and live audit ingestion (CS13) are deferred.**
+
+**Next claimable:** with **CS11 (governance), CS16 (explainability), and CS17 (policy lifecycle) DONE** and **CS13 (audit pipeline) in flight**
+under another orchestrator, the ready-and-unowned queue includes **CS18** (security hardening; needs CS04+CS05),
 **CS20** (migration & portability; needs CS05–CS08), and **CS24** (perf benchmark; needs engines + CS12). **All five engine adapters
-plus the unified explanation model are DONE** — further advancing CS15 (playground/audit explorer now has explanation data to render)
-and CS23. `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
+plus the unified explanation model are DONE**; CS11 completion advances **CS14** (Blazor product UI; needs CS03/CS04/CS06/CS10/CS11) and
+**CS22** (compliance mapping; needs CS11+CS12+CS13). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
 
 ## Constraints
 
