@@ -6,8 +6,9 @@ namespace AuthzEntitlements.Authz.Pdp.Endpoints;
 // AuthZEN evaluate endpoints and expose the relationship-native queries the sync decision
 // contract can't: a scenario self-check and the two reverse-index directions. All three talk
 // to a live OpenFGA server, so they require the "openfga" container running and the endpoint
-// injected (Pdp:OpenFga:ApiUrl) — otherwise the service fails closed with a clear message.
-// Anonymous, consistent with the CS05 in-process reference host.
+// injected (Pdp:OpenFga:ApiUrl) — otherwise the service throws and the endpoints translate it
+// into a 503 ProblemDetails (this host adds no exception-handling middleware). Bad query input
+// is a 400. Anonymous, consistent with the CS05 in-process reference host.
 public static class RebacEndpoints
 {
     public static IEndpointRouteBuilder MapRebacEndpoints(this IEndpointRouteBuilder app)
@@ -15,10 +16,19 @@ public static class RebacEndpoints
         var group = app.MapGroup("/api/authz/rebac");
 
         // Bootstraps the store/model/tuples, then runs the ReBAC scenario catalog (forward Checks +
-        // both reverse-index directions) against live OpenFGA; 200 when all pass, 500 otherwise.
+        // both reverse-index directions) against live OpenFGA; 200 when all pass, 500 otherwise, or
+        // 503 when OpenFGA is not configured/reachable.
         group.MapPost("/verify", async (OpenFgaRebacService fga) =>
         {
-            await fga.EnsureBootstrappedAsync();
+            try
+            {
+                await fga.EnsureBootstrappedAsync();
+            }
+            catch (InvalidOperationException ex)
+            {
+                // OpenFGA not configured (blank ApiUrl) — an actionable 503 rather than a raw 500.
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
 
             var results = new List<object>();
             var allPassed = true;
@@ -104,8 +114,15 @@ public static class RebacEndpoints
                 return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
             }
 
-            var users = await fga.WhoCanAccessAsync(type!, id!, relation!);
-            return Results.Ok(new { @object = $"{type}:{id}", relation, users });
+            try
+            {
+                var users = await fga.WhoCanAccessAsync(type!, id!, relation!);
+                return Results.Ok(new { @object = $"{type}:{id}", relation, users });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
         });
 
         // Reverse index — what a user can access: /what-can-user-access?user=rm-anne&relation=can_view&type=account
@@ -118,8 +135,15 @@ public static class RebacEndpoints
                 return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
             }
 
-            var objects = await fga.WhatCanUserAccessAsync(user!, relation!, type!);
-            return Results.Ok(new { user = $"{RebacTypes.User}:{user}", relation, type, objects });
+            try
+            {
+                var objects = await fga.WhatCanUserAccessAsync(user!, relation!, type!);
+                return Results.Ok(new { user = $"{RebacTypes.User}:{user}", relation, type, objects });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
         });
 
         return app;
@@ -142,6 +166,12 @@ public static class RebacEndpoints
         if (string.IsNullOrWhiteSpace(principal))
         {
             return $"Query parameter '{principalName}' is required.";
+        }
+
+        if (principal.Contains(':'))
+        {
+            return $"Query parameter '{principalName}' must be a bare id without a type prefix " +
+                $"(e.g. 'acme-checking', not 'account:acme-checking'); the adapter qualifies it.";
         }
 
         if (string.IsNullOrWhiteSpace(type) || !QueryableTypes.Contains(type))
