@@ -33,9 +33,9 @@ Provide emergency break-glass access and delegation with full mechanism AND proc
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Wave A — PDP break-glass elevation + delegation-grant enforcement + audit + scenarios | in_progress | yoga-ae/cs21-pdp | agent-id=yoga-ae/cs21-pdp \| role=implementer \| report-status=pending \| learnings=0 |
-| Wave B — Governance break-glass + delegation grant lifecycle + endpoints | in_progress | yoga-ae/cs21-gov | agent-id=yoga-ae/cs21-gov \| role=implementer \| report-status=pending \| learnings=0 |
-| Wave C — Bank.Web UX + PDP/Governance wiring + runbook | pending | yoga-ae/cs21-web | agent-id=yoga-ae/cs21-web \| role=implementer \| report-status=pending \| learnings=0 |
+| Wave A — PDP break-glass elevation + delegation-grant enforcement + audit + scenarios | complete | yoga-ae/cs21-pdp | agent-id=yoga-ae/cs21-pdp \| role=implementer \| report-status=complete \| learnings=3; EvaluationContext BreakGlass/Delegation/Now, elevation of MissingScope/RoleNotAuthorized only, DelegationNotActive, heightened audit, 10-scenario catalog, 46 tests, PDP suite 772/0 |
+| Wave B — Governance break-glass + delegation grant lifecycle + endpoints | complete | yoga-ae/cs21-gov | agent-id=yoga-ae/cs21-gov \| role=implementer \| report-status=complete \| learnings=3; in-memory time-boxed stores (IsActive/RequiresReview), 9 anonymous endpoints, 6 DTOs, 66 tests, Governance suite 162/0 |
+| Wave C — Bank.Web UX + PDP/Governance wiring + runbook | complete | yoga-ae/cs21-web | agent-id=yoga-ae/cs21-web \| role=implementer \| report-status=complete \| learnings=3; PdpContextDto mirror + 7 GovernanceClient methods, BreakGlass/Delegation pages + VMs, runbook (fact-checked), 22 tests, Bank.Web suite 154/0 |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and the break-glass/delegation docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; open follow-up CSs for unresolved break-glass/delegation/OBO gaps |
 
@@ -105,10 +105,11 @@ full PDP test project green (existing parity + OBO + new break-glass/delegation)
 
 | Field | Value |
 |---|---|
-| Implementer models | claude-opus-4.8 |
+| Implementer models | claude-opus-4.8, claude-sonnet-4.5 |
 | Reviewer model | gpt-5.5 |
-| Implementer agent | yoga-ae |
+| Implementer agent | yoga-ae/cs21-pdp, yoga-ae/cs21-gov, yoga-ae/cs21-web |
 | Reviewer agent | rubber-duck |
+| Notes | Waves A/B/C dispatched claude-opus-4.8; B/C sub-agents materially reported claude-sonnet-4.5. Reviewer gpt-5.5 is disjoint from every implementer model (A3 independence). |
 
 ## Plan-vs-implementation review
 
