@@ -190,13 +190,13 @@ unless its basename is declared in an optional `.harness-closeout-allow-drop` fi
 **What:** move a planned CS into flight — run the preflight + harvest gate, cut
 the `cs<NN>/claim` branch, `git mv` the CS file `planned → active`, and add the
 WORKBOARD Active Work row. **When:** at the start of a CS, from an up-to-date
-`main`, before any implementation work. **How:** run `npx -y github:henrik-me/agent-harness#v0.14.0 claim CS<NN>`
+`main`, before any implementation work. **How:** run `npx -y github:henrik-me/agent-harness#v0.15.0 claim CS<NN>`
 (dry-run by default; `--apply` executes the branch cut + rename + WORKBOARD
 edit). It NEVER commits and NEVER pushes — you own the commit message
 (`Claim CS<NN>` with the `Co-authored-by: Copilot` trailer) and the
 `workboard-only`-labelled claim PR (user reviews; squash-merge — see
 [§ Three-PR shape](#three-pr-shape)). The full preflights and executable steps
-live in `npx -y github:henrik-me/agent-harness#v0.14.0 claim --help`; use the directory form for
+live in `npx -y github:henrik-me/agent-harness#v0.15.0 claim --help`; use the directory form for
 artifact-bearing CSs (see
 [TRACKING.md § Clickstop lifecycle](TRACKING.md#clickstop-lifecycle)).
 
@@ -213,7 +213,7 @@ before the workboard-claim PR lands.
 Before claiming any CS, verify no strategic planning content lives outside
 the canonical `project/clickstops/{planned,active,done}/**` arc:
 
-1. Run `npx -y github:henrik-me/agent-harness#v0.14.0 lint` — must exit 0 (it includes the
+1. Run `npx -y github:henrik-me/agent-harness#v0.15.0 lint` — must exit 0 (it includes the
    planning-locality check).
 2. If the orchestrator's session-state plan file (`~/.copilot/session-state/<id>/plan.md`)
    contains anything beyond (a) which CS this session is currently executing
@@ -681,7 +681,7 @@ the `sub-invaders-bootstrap-summary.md` misrouting
    - **Acceptance criteria:** how the consumer agent will know the
      work is complete.
    - **Verification steps:** which harness checks / lint commands to
-     run on the consumer side (e.g. `npx -y github:henrik-me/agent-harness#v0.14.0 lint`).
+     run on the consumer side (e.g. `npx -y github:henrik-me/agent-harness#v0.15.0 lint`).
    - **Relevant LRNs / docs:** links to applicable `LEARNINGS.md`
      entries and the harness `OPERATIONS.md` / `INSTRUCTIONS.md`
      sections that govern the handoff.
@@ -1206,7 +1206,7 @@ Run all of the following and include each result in SELF-CHECKS RUN:
 1. `git status --short` — only owned files appear; nothing staged.
 2. `git log --oneline -1` — must match preflight SHA.
 3. Text-encoding + line-ending validation (BOM + line endings; LRN-065,
-   LRN-074): `npx -y github:henrik-me/agent-harness#v0.14.0 lint` must exit 0. The encoding check
+   LRN-074): `npx -y github:henrik-me/agent-harness#v0.15.0 lint` must exit 0. The encoding check
    runs as part of the lint aggregate over the whole cwd (not just
    modified files); it catches CRLF/bare-\r line endings introduced by
    Windows core.autocrlf or stale editor settings.
@@ -1214,7 +1214,7 @@ Run all of the following and include each result in SELF-CHECKS RUN:
    (e.g. "23 → 27 tests; all pass").
 5. For any .mjs files authored: `node -c <file>` exits 0.
 6. If template files were modified (anything under `template/`),
-   `npx -y github:henrik-me/agent-harness#v0.14.0 lint` must exit 0 — the lint aggregate includes the
+   `npx -y github:henrik-me/agent-harness#v0.15.0 lint` must exit 0 — the lint aggregate includes the
    templates linter (LRN-049/050/051: no dot-notation placeholders, no
    relative-up paths, no self-referencing TODO/FIXME tokens in PR-template
    files).
@@ -1360,7 +1360,7 @@ The invocation (`--review-output`, `--round`, `--base`/`--head`,
 `--prev-head` for `Rn`, the `--repo`/`--pr`/`--reviewer-model` independence
 guard, and `--update-pr`), the validated predicates (Analyzed-HEAD line,
 per-file enumeration match, finding-row + verdict grammar), and the exit codes
-all live in `npx -y github:henrik-me/agent-harness#v0.14.0 review-output --help`. The aggregator
+all live in `npx -y github:henrik-me/agent-harness#v0.15.0 review-output --help`. The aggregator
 `harness pr-evidence` does NOT include this gate (per C40-8 — it requires the
 reviewer-output file, which is unavailable in CI); this is a standalone
 orchestrator-side step.
@@ -1504,7 +1504,7 @@ evidence updates.
 **What:** validate the target PR, refuse workboard-only or fork PRs, enforce the
 reviewer-model independence invariant, emit the manual MVP rubber-duck prompt,
 optionally trigger/poll Copilot, and idempotently update `## Review log` plus
-`## Model audit`. **How:** run `npx -y github:henrik-me/agent-harness#v0.14.0 review --help` for the full
+`## Model audit`. **How:** run `npx -y github:henrik-me/agent-harness#v0.15.0 review --help` for the full
 flag set (`--dry-run` to preview the round, `--no-poll` to dispatch only,
 `--rubber-duck-only` for local review without Copilot, `--copilot-only` for a
 Copilot retry after a valid local Go row exists, plus `--model` / `--round`) and
@@ -1536,11 +1536,11 @@ for the full transcript.
 
 ### Recommended invocation (CS41+):
 
-Run `npx -y github:henrik-me/agent-harness#v0.14.0 copilot-engage <pr-number>` to request the Copilot
+Run `npx -y github:henrik-me/agent-harness#v0.15.0 copilot-engage <pr-number>` to request the Copilot
 review and poll for a completed review at the PR head. **How:** the full flag
 set (`--repo`, auto-detected from the git remote when omitted; `--head`,
 `--no-poll`, `--poll-timeout`, `--submitted-after`, `--cache-dir`) and exit
-codes live in `npx -y github:henrik-me/agent-harness#v0.14.0 copilot-engage --help`. Key doctrine the
+codes live in `npx -y github:henrik-me/agent-harness#v0.15.0 copilot-engage --help`. Key doctrine the
 help encodes: by default the poll HEAD is the PR's GitHub `headRefOid` (not the
 local checkout, with a warning when they differ); the `--submitted-after` floor
 enforces the A5 ordering doctrine so a stale Copilot review predating the latest
@@ -1663,7 +1663,7 @@ two scripts would double the API spend without adding signal (per ADR4-3).
 ```sh
 PR_BODY=$(mktemp)
 gh pr view <num> --json body --jq .body > "$PR_BODY"
-npx -y github:henrik-me/agent-harness#v0.14.0 pr-evidence \
+npx -y github:henrik-me/agent-harness#v0.15.0 pr-evidence \
   --base "$(gh pr view <num> --json baseRefOid --jq .baseRefOid)" \
   --head "$(gh pr view <num> --json headRefOid --jq .headRefOid)" \
   --pr-body "$PR_BODY"
@@ -2371,7 +2371,7 @@ All file edits land on the `cs<NN>/content` branch:
 4. **Validate.** From the repo root:
 
    ```bash
-   npx -y github:henrik-me/agent-harness#v0.14.0 lint --quiet     # expect: 0 failed
+   npx -y github:henrik-me/agent-harness#v0.15.0 lint --quiet     # expect: 0 failed
    node --test tests/*.test.mjs        # expect: 0 failed
    ```
 
@@ -2508,7 +2508,7 @@ npm version <x.y.z> --no-git-tag-version
 #   then: sweep README pins v<prev> → v<x.y.z>
 
 # 4. Validate
-npx -y github:henrik-me/agent-harness#v0.14.0 lint --quiet
+npx -y github:henrik-me/agent-harness#v0.15.0 lint --quiet
 node --test tests/*.test.mjs
 
 # 5-7. Review + engage Copilot + merge
@@ -2718,6 +2718,35 @@ argv-injection guard). Never hand-roll an inline `fs.mkdtempSync` + best-effort
 `lib/` module allocates a raw temp dir outside `lib/disposers.mjs`. Reviewers:
 flag any new temp-dir/clone allocation or unguarded `git` ref argument that
 bypasses these helpers.
+
+### Commit-trailer hook (`install-hooks`)
+
+`npx -y github:henrik-me/agent-harness#v0.15.0 install-hooks` installs an **opt-in** git `prepare-commit-msg`
+hook (CS100, [#421](https://github.com/henrik-me/agent-harness/issues/421)) into
+the repository's active hooks directory. The hook appends the canonical
+`Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>` trailer to
+a commit message when that exact line is absent — **including on merge commits** —
+so the commit-trailers (B1) gate passes by construction and you no longer need to
+`git commit --amend` a `git merge` that integrates `main` into a long-running CS
+branch (the recurring LRN-018 friction).
+
+- **Opt-in only.** `npx -y github:henrik-me/agent-harness#v0.15.0 init` never installs the hook; it is written
+  solely when you run `install-hooks` explicitly.
+- **Merge-safe placement.** The trailer is inserted **above** git's comment /
+  scissors template (not at end-of-file), so it survives git's message cleanup on
+  every source — normal, template, squash, amend, and merge. The skip condition and
+  the appended line are byte-for-byte identical to what B1 matches (case-sensitive,
+  whole line), so re-runs and amends never duplicate the trailer.
+- **Idempotent + safe.** The hook carries a sentinel, so re-running is a no-op
+  (`skipped`); a pre-existing **non-harness** `prepare-commit-msg` hook is **refused**
+  (exit 1) unless `--force` is passed, which overwrites either.
+- **Exit codes.** `0` created / replaced / already-installed; `1` refused (foreign
+  hook present — re-run with `--force`) or error (not a git repository); `2` usage
+  error (unknown flag).
+
+The harness self-host keeps linear history by rebasing rather than merging, so it
+rarely creates the merge commits this hook targets; the hook is primarily a
+convenience for consumers whose workflow merges `main` into feature branches.
 
 ---
 
