@@ -67,6 +67,18 @@ public class AccessRequestsModelTests
     }
 
     [Fact]
+    public void CanDecide_only_accepts_a_request_in_the_scoped_pending_set()
+    {
+        var mine = RequestForTenant("CONTOSO");
+        var pending = new[] { mine };
+
+        Assert.True(AccessRequestsModel.CanDecide(pending, mine.Id));
+        // Empty selection and a known-but-out-of-scope (e.g. cross-tenant) id are both denied.
+        Assert.False(AccessRequestsModel.CanDecide(pending, Guid.Empty));
+        Assert.False(AccessRequestsModel.CanDecide(pending, Guid.NewGuid()));
+    }
+
+    [Fact]
     public void Pending_keeps_only_requests_with_status_Pending()
     {
         var pending = Request("Pending");

@@ -31,6 +31,14 @@ public static class AccessRequestsModel
             ? []
             : reqs.Where(r => string.Equals(r.TenantCode, tenant, StringComparison.OrdinalIgnoreCase)).ToList();
 
+    // True only when the submitted request id is one of the tenant-scoped pending requests.
+    // The decision handlers call this on the posted (client-controlled) RequestId BEFORE
+    // hitting the governance service, so a tampered or cross-tenant request id that is not in
+    // the tenant-filtered pending set is rejected fail-closed — the anonymous
+    // Governance.Service does not itself tenant-scope approve/reject.
+    public static bool CanDecide(IEnumerable<AccessRequestResponse> pending, Guid requestId) =>
+        requestId != Guid.Empty && pending.Any(r => r.Id == requestId);
+
     // Human-readable label for a server-reported SoD outcome. Mirrors the
     // Governance.Service SodOutcome enum wire values (Permit/Deny/Unavailable/NotEvaluated);
     // "Allowed"/"Denied" are accepted as synonyms so the label is robust to wording. An

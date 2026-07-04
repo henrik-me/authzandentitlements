@@ -281,9 +281,11 @@ else
             return;
         }
 
-        if (ApproveForm.RequestId == Guid.Empty)
+        if (!AccessRequestsModel.CanDecide(_pending, ApproveForm.RequestId))
         {
-            SetOutcome(false, 400, "Approval denied", "Select a pending request to approve.");
+            // Bind the decision to the tenant-scoped pending set — a tampered/cross-tenant
+            // request id (not in _pending) is rejected before any governance call (fail-closed).
+            SetOutcome(false, 400, "Approval denied", "Select a pending request in your tenant to approve.");
             return;
         }
 
@@ -304,9 +306,9 @@ else
             return;
         }
 
-        if (RejectForm.RequestId == Guid.Empty)
+        if (!AccessRequestsModel.CanDecide(_pending, RejectForm.RequestId))
         {
-            SetOutcome(false, 400, "Rejection denied", "Select a pending request to reject.");
+            SetOutcome(false, 400, "Rejection denied", "Select a pending request in your tenant to reject.");
             return;
         }
 
