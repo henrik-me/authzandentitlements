@@ -111,10 +111,25 @@ Registered in `AddPdp` (default stays `reference`); selectable via `Pdp:Provider
 per-adapter catalog parity + threshold-obligation tests). GPT-5.5 rubber-duck R1 (Conditional Go) → R2/R3/R4 (Go) + 3
 Copilot rounds (all resolved) + plan-vs-impl GO. New learnings LRN-025..026.
 
-**Next claimable:** the remaining engine adapter **CS09 (Cedar)** — Wave 3, unblocked by CS05 (CS07/CS08 in flight); plus
-CS13 (audit pipeline; needs CS05). CS11 (governance) stays blocked on CS08. CS06's completion advances CS14 (Blazor
-product UI; needs CS03/CS04/CS06/CS10/CS11), CS16/CS17/CS20 (need engine behavior), and CS24 (perf benchmark; needs
-engines + CS12). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
+**CS08 (engine adapter: OPA / Rego) complete** (PR #38, merged 2026-07-04; follow-ups #40, #41). A third engine plugs into the
+CS05 PDP seam: `OpaDecisionProvider` (`Name="opa"`) forwards each `AccessRequest` to an **out-of-process OPA** REST decision API
+(`POST /v1/data/authz/bank/decision`, `{"input": …}`) and maps the reply onto `AccessDecision`. The `authz.bank` Rego policy
+(`infra/opa/policy/authz.rego`) mirrors `ReferenceDecisionProvider` exactly (ordered checks, 10,000 threshold obligation,
+NotPending-before-SoD, fail-closed `UnknownAction` default), clearing the 22-scenario parity bar; `opa test` covers it (45/45, incl. a
+bounded amount/time/geo/risk/tier ABAC showcase). The adapter is **fail-closed**: any transport/timeout/non-success/absent-result/
+parse error, an unknown reason code, or a decision/reason inconsistency Denies with a provider-local `ProviderUnavailable` + a
+**stable, non-sensitive** message (detail logged), never a permit or a 500. The OPA container is an **opt-in** Aspire resource
+(`openpolicyagent/opa:1.18.2-static`, `WithExplicitStart`, no `WaitFor`); the default provider stays `reference` so build/test/`aspire
+run` never need Docker or OPA. Docs at `docs/authz/opa-adapter.md` + `infra/opa/README.md` (incl. the WASM in-process alternative).
+`dotnet build` 0/0, full-solution `dotnet test` 404/404 (PDP 264, +30 OPA adapter tests); `opa test` 45/45; live `POST
+/api/authz/scenarios/verify` 22/22 with `Pdp:Provider=opa`. GPT-5.5 rubber-duck R1–R5 (Go) + Copilot (3 rounds: fail-closed
+info-leak, sync-contract comment, untrusted reason-code — all resolved) + plan-vs-impl GO. New learnings LRN-027..029.
+
+**Next claimable:** the remaining engine adapter **CS09 (Cedar)** — Wave 3, unblocked by CS05 (CS07 OpenFGA still in flight); plus
+CS13 (audit pipeline; needs CS05) and **CS11 (governance)** — now unblocked (needs CS02 + CS08, both complete). CS06/CS08
+completion advances CS14 (Blazor product UI; needs CS03/CS04/CS06/CS10/CS11), CS16/CS17/CS20 (need engine behavior; still awaiting
+CS07/CS09), and CS24 (perf benchmark; needs engines + CS12). `harness lint` is green; the remaining CSs carry an independent GPT-5.5
+`## Plan review` attestation.
 
 ## Constraints
 

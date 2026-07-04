@@ -33,19 +33,19 @@ Integrate OPA/Rego for maker-checker, segregation-of-duties, and conditional pol
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Author Rego decision policy (mirror reference rules → 22-scenario parity) | pending | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=pending \| learnings=0 |
-| Author `opa test` unit tests for the decision policy | pending | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=pending \| learnings=0 |
-| ABAC conditions showcase (amount/time/geo/risk/tier) + `opa test` | pending | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=pending \| learnings=0 |
-| Add OPA Aspire container (WithExplicitStart, pinned tag, bind-mount policy) + inject endpoint into authz-pdp | pending | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=pending \| learnings=0 |
-| Implement `OpaDecisionProvider` (Name="opa") + DI registration + `Opa` config | pending | sub-agent | agent-id=cs08-impl-adapter \| role=adapter-implementer \| report-status=pending \| learnings=0 |
-| OpaDecisionProvider unit tests (request shaping, response mapping, fail-closed) | pending | sub-agent | agent-id=cs08-impl-adapter \| role=adapter-implementer \| report-status=pending \| learnings=0 |
-| Adapter doc `docs/authz/opa-adapter.md` | pending | sub-agent | agent-id=cs08-impl-adapter \| role=adapter-implementer \| report-status=pending \| learnings=0 |
-| Close-out: docs + restart state | pending | yoga-ae | Update WORKBOARD.md, CONTEXT.md; adapter/policy docs ship in the content PR |
-| Close-out: learnings + follow-ups | pending | yoga-ae | File LEARNINGS.md entries; planned follow-up CSs for any deferred ABAC wire-through |
+| Author Rego decision policy (mirror reference rules → 22-scenario parity) | done | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=complete \| learnings=1 |
+| Author `opa test` unit tests for the decision policy | done | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=complete \| learnings=1 |
+| ABAC conditions showcase (amount/time/geo/risk/tier) + `opa test` | done | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=complete \| learnings=1 |
+| Add OPA Aspire container (WithExplicitStart, pinned tag, bind-mount policy) + inject endpoint into authz-pdp | done | sub-agent | agent-id=cs08-impl-policy \| role=policy-author \| report-status=complete \| learnings=1 |
+| Implement `OpaDecisionProvider` (Name="opa") + DI registration + `Opa` config | done | sub-agent | agent-id=cs08-impl-adapter \| role=adapter-implementer \| report-status=complete \| learnings=1 |
+| OpaDecisionProvider unit tests (request shaping, response mapping, fail-closed) | done | sub-agent | agent-id=cs08-impl-adapter \| role=adapter-implementer \| report-status=complete \| learnings=1 |
+| Adapter doc `docs/authz/opa-adapter.md` | done | sub-agent | agent-id=cs08-impl-adapter \| role=adapter-implementer \| report-status=complete \| learnings=1 |
+| Close-out: docs + restart state | done | yoga-ae | Updated WORKBOARD.md, CONTEXT.md; adapter/policy/bundle docs shipped in #38 + WASM note in #41 |
+| Close-out: learnings + follow-ups | done | yoga-ae | Filed LRN-027..029; no follow-up CS needed (CS09 Cedar already planned) |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+_Delivered the OPA/Rego engine adapter for the unified PDP: an out-of-process OPA REST decision server (opt-in Aspire `opa` container, `openpolicyagent/opa:1.18.2-static`, `WithExplicitStart`, off the default `aspire run` critical path), a `authz.bank` Rego policy that mirrors `ReferenceDecisionProvider` exactly (22-scenario parity), a fail-closed `OpaDecisionProvider` (Name `opa`, sync-over-HTTP, sanitized messages, bounded reason-code validation), a bounded ABAC-conditions showcase, and adapter/bundle docs. Content PR #38 (squash-merged); follow-ups #40 (make a CS06 registration test robust to new engines) and #41 (WASM in-process alternative doc note). `dotnet build` 0/0; full solution 404 tests (PDP 264, incl. 30 OPA adapter tests); `opa test` 45/45; live `POST /api/authz/scenarios/verify` 22/22 with `Pdp:Provider=opa`; fail-closed verified. GPT-5.5 rubber-duck (R1–R5) + Copilot (3 rounds, all addressed). New learnings LRN-027..029 (see LEARNINGS.md)._
 
 ## Model audit
 
@@ -58,4 +58,20 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-_Pending — completed with the GPT-5.5 close-out gate before the `active → done` rename (CS03b). A NEEDS-FIX outcome blocks close-out._
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T00:29:00Z
+**Outcome:** GO
+
+Per-deliverable outcomes:
+
+| # | Deliverable | Outcome |
+|---|---|---|
+| 1 | OPA Aspire container (REST decision API) | match — `AppHost.cs` opt-in `opa` container (`openpolicyagent/opa:1.18.2-static`, `WithExplicitStart`, no `WaitFor`) bind-mounting `infra/opa/policy`; `Opa__BaseUrl` injected into `authz-pdp` |
+| 2 | Rego policies: maker-checker, four-eyes/dual-auth thresholds, SoD, conditions (amount/time/geo/risk/tier) | match — `authz.rego` mirrors `ReferenceDecisionProvider` (ordered checks, reason codes, threshold obligation, NotPending-before-SoD); `amount` drives the live obligation; time/geo/risk/tier delivered as the tested `conditions.rego` policy-layer showcase, documented as beyond the current CS05 contract |
+| 3 | OpaProvider; WASM in-process noted as alternative | match — `OpaDecisionProvider` (Name `opa`, sync-over-HTTP, fail-closed `ProviderUnavailable`, bounded reason-code validation) + DI + `Opa` config; the gate flagged the WASM note as a non-blocking follow-up, added in #41 |
+
+**Exit criteria:** both met — OPA answers the full 22-scenario catalog (live `POST /api/authz/scenarios/verify` → 200, AllPassed 22/22 with `Pdp:Provider=opa`); policies unit-tested with `opa test infra/opa/policy` (45/45).
+
+**Test coverage:** sufficient — 45 `opa test` (30 decision-parity incl. all 22 catalog scenarios + 15 conditions showcase) + 30 deterministic C# adapter tests (request shaping, mapping, reason-code validation, every fail-closed path incl. message sanitization + config-exception backstop).
+
+Independently verified on `main`: `dotnet build` 0/0; full solution 404 tests pass (PDP 264). GPT-5.5 rubber-duck content review R1–R5 (all Go) + Copilot (3 comment rounds addressed: fail-closed info-leak, sync-contract comment accuracy, untrusted reason-code validation). The single divergence the gate raised (missing WASM-alternative doc note) was non-blocking and resolved in #41.
