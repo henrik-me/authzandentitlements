@@ -8,6 +8,18 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 > warnings for gaps in the sequence but treats them as non-fatal; gaps do not
 > cause exit code 1.
 
+**Harvest log — 2026-07-04 (yoga-ae-c3, task CS28h).** First full harvest since project start: all 48 open learnings dispositioned, grouped by theme, and routed to fix/consolidation clickstops. Per the harvest procedure an entry tracked by an unclosed CS stays `open` and flips to `applied` at that CS close-out; CI-enforcement items are `deferred`; superseded items are `obsolete`.
+
+| Disposition | Learnings | Tracking |
+|---|---|---|
+| Fix — governance tenant-scoping & fail-closed | LRN-044, LRN-049 | planned **CS29** |
+| Fix — NuGet suppression/pin re-evaluation | LRN-003, LRN-005 | planned **CS30** |
+| Fix — adapter test seams & degenerate parity | LRN-031, LRN-033, LRN-038 | planned **CS31** |
+| Fix — observability & audit-event enrichment | LRN-013, LRN-014 | planned **CS32** |
+| Consolidate into project-local doc blocks | 37 how-to LRNs (001,002,004,007–012,015–030,032,034,036,037,039,041–043,045–048) | planned **CS33** |
+| Deferred — CI enforcement (private-tier) | LRN-035, LRN-040 | re-eval 2026-10-01 / on tier change |
+| Obsolete — fixed upstream | LRN-006 | agent-harness v0.13.0 |
+
 ---
 
 ## Open
@@ -32,6 +44,8 @@ tags: [aspire, dotnet, scaffolding, windows]
 **Implications carried forward:**
 - CS02+ scaffolding should use `dotnet add package` for Aspire integrations and normalize generated files to LF.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-002
 
 ```yaml
@@ -51,6 +65,8 @@ tags: [nuget, cpm, build, aspire]
 
 **Implications carried forward:**
 - CS02+ adding preview packages will hit the same and can reuse the per-advisory pattern.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-003
 
@@ -73,6 +89,8 @@ claim_area: security-hardening
 **Implications carried forward:**
 - CS18 (security hardening) must revisit: drop suppression entries as non-vulnerable stable Aspire 13 / OTel packages ship, or pin patched versions via CPM.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS30** (NuGet suppression/pin re-evaluation) — `project/clickstops/planned/planned_cs30_nuget-suppression-pin-reeval.md`. Status stays `open` until CS30 closes.
+
 ### LRN-004
 
 ```yaml
@@ -92,6 +110,8 @@ tags: [efcore, npgsql, concurrency, dotnet]
 
 **Implications carried forward:**
 - Later EF Core optimistic-concurrency work on Postgres should use `Property<uint>("xmin").IsRowVersion()` and verify the generated SQL (not the migration C#) to confirm the system-column mapping.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-005
 
@@ -115,24 +135,7 @@ claim_area: security-hardening
 - CS18 (security hardening): drop the MSBuild pin once EF Core Design ships against patched MSBuild.
 - Prefer patched-version CPM transitive pinning over suppression for any new transitive advisory (extends LRN-002/003).
 
-### LRN-006
-
-```yaml
-id: LRN-006
-date: 2026-07-03
-category: tooling
-source_cs: CS02
-status: obsolete
-tags: [harness, review, cli, escalation]
-```
-
-**Problem:** The `harness review <pr>` verb could not be used for the CS02 content review.
-
-**Finding:** `harness review <pr>` (agent-harness v0.12.0) non-dry-run path aborted with "Could not find clickstop file for CS02 under project/clickstops/{active,planned,done}" even though `active_cs02_fintech-domain-skeleton.md` existed on both the PR branch and `main`; the `--dry-run` variant succeeded. Worked around by dispatching the GPT-5.5 reviewer sub-agent directly with the canonical reviewer preamble (OPERATIONS.md § Reviewer dispatch) and recording the verdict manually in the PR Review log. This was a harness (`lib/`) bug — out of scope to fix in-band (Hard Rule §3); escalated to the harness maintainer (filed upstream as `henrik-me/agent-harness#407`).
-
-**Evidence:** this session; `harness review 5 --rubber-duck-only --no-poll` → exit 2 with the lookup error; `--dry-run` variant → exit 0; file present via `git ls-files`.
-
-**Disposition:** obsolete — fixed upstream in **agent-harness v0.13.0** (CS93; `henrik-me/agent-harness#407` closed COMPLETED — `findClickstopFile` in `lib/review.mjs` now normalizes the padded/zero-stripped CS id on both sides and resolves directory-form + done-stage clickstops). This repo bumped its pin to v0.13.0 and removed the temporary `.github/copilot-instructions.md` workaround note; `harness review 5` verified working (exit 0, resolves `done_cs02_…`).
+**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS30** (NuGet suppression/pin re-evaluation) — `project/clickstops/planned/planned_cs30_nuget-suppression-pin-reeval.md`. Status stays `open` until CS30 closes.
 
 ### LRN-007
 
@@ -154,6 +157,8 @@ tags: [review, verification, efcore]
 **Implications carried forward:**
 - Keep the independent-model rubber-duck as the review-of-record; treat automated-reviewer comments as leads to verify, not directives.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-008
 
 ```yaml
@@ -174,6 +179,8 @@ tags: [keycloak, aspire, realm-import, docker]
 **Implications carried forward:**
 - Any Keycloak-26 realm import with a service account needs `KC_FEATURES_DISABLED=organization`; name realm files `<realm>-realm.json`.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-009
 
 ```yaml
@@ -193,6 +200,8 @@ tags: [keycloak, aspire, oidc, issuer]
 
 **Implications carried forward:**
 - CS04 (edge gateway) and any Aspire+Keycloak OIDC reuse the fixed-port + explicit-stable-authority pattern.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-010
 
@@ -215,6 +224,8 @@ claim_area: security-hardening
 **Implications carried forward:**
 - Any JwtBearer/OIDC wiring with custom claim names needs `MapInboundClaims=false` (bank-web too); add an options-resolution regression test — synthetic-principal tests are insufficient.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-011
 
 ```yaml
@@ -236,6 +247,8 @@ claim_area: security-hardening
 **Implications carried forward:**
 - CS04 (edge) and CS05 (PDP) inherit the token-bound-identity + fail-closed-tenant contract; the `branch` claim is carried but not yet enforced (later ABAC).
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-012
 
 ```yaml
@@ -255,6 +268,8 @@ tags: [keycloak, oidc, client-scopes, par]
 
 **Implications carried forward:**
 - When hand-authoring a Keycloak realm export, either include the built-in scopes or carry the required OIDC claims via a custom default scope; only request client scopes the realm defines.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-013
 
@@ -278,6 +293,8 @@ claim_area: observability
 - For any proxy/gateway that audits decisions, key the decision off the proxy pipeline (was-forwarded), not the final status; only audit genuine authz decisions. Fine-grained decisions belong to the terminal service (`Bank.Api` `BankAuthorizationAuditMiddleware`; later the PDP in CS05).
 - Follow-up (non-blocking): enrich edge-denial events with RouteId/RequiredScope (unset via `IReverseProxyFeature` on short-circuits), and skip auditing non-authz-decision requests (unmatched 404 / method-mismatch 405) uniformly across both gates.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS32** (observability & audit-event enrichment) — `project/clickstops/planned/planned_cs32_observability-audit-enrichment.md`. Status stays `open` until CS32 closes.
+
 ### LRN-014
 
 ```yaml
@@ -300,6 +317,8 @@ claim_area: observability
 - Triage the OTLP exporter / OpenTelemetry-instrumentation vs .NET 10 RC1 interaction (candidate for the CS12 observability stack); until then, isolate service-level runtime verification from the AppHost OTLP wiring when it misbehaves.
 - **CS12 update (2026-07-03):** CS12 landed the real OTLP collector (`grafana/otel-lgtm`) and pointed every service's `OTEL_EXPORTER_OTLP_ENDPOINT` at it, but a full `aspire run` reproduction of the empty-body 500 was NOT performed (a parallel `aspire run` may be active; CS12 verified the stack standalone instead). Whether routing OTLP at a ready collector (with `WaitFor(observability)`) resolves the 500 remains open — reproduce on the next clean full `aspire run`.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS32** (observability & audit-event enrichment) — `project/clickstops/planned/planned_cs32_observability-audit-enrichment.md`. Status stays `open` until CS32 closes.
+
 ### LRN-015
 
 ```yaml
@@ -318,6 +337,8 @@ claim_area: entitlements
 
 **Evidence:** PR #18; `src/AuthzEntitlements.Entitlements.Service/Endpoints/EntitlementsEndpoints.cs` `AssignSeatAsync`; runtime concurrency test (30 concurrent → 5 assigned / 25 denied / 0 errors, seatsUsed=5).
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-016
 
 ```yaml
@@ -334,6 +355,8 @@ tags: [aspire, dotnet, sub-agent-dispatch]
 **Finding:** Adding an Aspire service reference requires editing BOTH `AppHost.cs` AND `AppHost.csproj` — the Aspire AppHost SDK source-generates the `Projects.<ProjectName>` type from the `<ProjectReference>` in the `.csproj`, so `AppHost.cs` cannot compile without the csproj reference. A sub-agent briefing that adds a new Aspire service must grant write-ownership of `AppHost.csproj` (and, for a whole new project, the `.sln` + `Directory.Packages.props`) alongside `AppHost.cs`.
 
 **Evidence:** PR #18; sub-agent `cs10-entitlements-service` escalation; `AppHost.cs` uses `Projects.AuthzEntitlements_Entitlements_Service`, generated from the `AppHost.csproj` `ProjectReference`.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-017
 
@@ -352,6 +375,8 @@ tags: [dotnet, http, fail-closed, entitlements]
 
 **Evidence:** PR #18; `src/AuthzEntitlements.Entitlements.Service/Endpoints/EntitlementsEndpoints.cs` `ConsumeQuotaAsync`; `src/AuthzEntitlements.Bank.Api/Entitlements/EntitlementsEnforcer.cs` + `EntitlementsContracts.cs`; Copilot PR review (rounds 1–4).
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-018
 
 ```yaml
@@ -368,6 +393,8 @@ tags: [git, ci, commit-trailers, windows]
 **Finding:** (1) The B1 commit-trailer gate enforces the `Co-authored-by: Copilot` trailer on **every** commit in the PR range, INCLUDING the merge commit — `git merge`'s auto-generated "Merge branch …" message has no trailer, so B1 / `harness lint` fail on content PRs (B1 skips only for `workboard-only`-labelled PRs). Fix: `git commit --amend` the merge commit to add the trailer. (2) After a `git rebase --continue` that resolved a conflict, `.git/COMMIT_EDITMSG` keeps the trailer FOLLOWED BY `# Conflicts:` + rebase comment lines; the local `commit-trailers` linter reads `.git/COMMIT_EDITMSG` and treats only the *trailing* run of `Key: Value` lines as the trailer block, so it reports a false "Missing Co-authored-by" even though the committed message is correct. Fix: `git commit --amend --no-edit` to refresh `COMMIT_EDITMSG`.
 
 **Evidence:** CS10 PR #18 merge commit `d6fb750` failed B1 (missing trailer) → amended to `ce39399`; close-out rebase left `# Conflicts:` in `COMMIT_EDITMSG` → local `commit-trailers` false-fail → `git commit --amend --no-edit` cleared it (`Total: 23 passed / 0 failed`).
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-019
 
@@ -387,6 +414,8 @@ claim_area: orchestration
 
 **Evidence:** CS10 PR #18 (merged CS04: `.sln` / `Directory.Packages.props` / `AppHost.cs` / `AppHost.csproj` / `Program.cs`) + close-out PR #21 (`WORKBOARD.md` vs the CS05 claim); `.sln` resolved via `checkout --theirs` + `dotnet sln add`.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-020
 
 ```yaml
@@ -403,6 +432,8 @@ tags: [review, copilot]
 **Finding:** Copilot re-emits its FULL comment set on every re-review (it re-scans the whole diff), so previously-addressed items reappear as fresh threads even when the fix is in place; and each re-engage tends to find 1–2 additional (often cosmetic/edge-case) nits. Copilot `COMMENTED` (not `CHANGES_REQUESTED`) is non-blocking, and the A16 gate only needs a Copilot review on the current HEAD submitted after the latest local Go. Convergence tactic: fix the genuinely-substantive findings, then set a hard stop — do a final Copilot re-engage, RESOLVE all resulting threads (real + re-raised), and merge WITHOUT pushing further commits (each new commit resets the loop and re-triggers async review). Triage each thread as "false-positive re-raise of a fixed item" (resolve) vs "new substantive bug" (fix once, then re-enter the hard stop).
 
 **Evidence:** CS10 PR #18 — 5 Copilot rounds; the quota-500 + audit-casing comments were re-raised ~4× after being fixed; the one genuinely-new substantive finding each round (release-lock, quota-remaining off-by-one, transient-503 mislabel) was fixed and the rest resolved; merged after the final re-engage + full thread resolution.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-021
 
@@ -424,6 +455,8 @@ tags: [pdp, authz, parity, adapters]
 **Implications carried forward:**
 - CS06–CS09 adapter briefings must require matching the reference provider's *check order*, verified by `ScenarioCatalogRunner` (primary-reason-code parity), not just decision parity.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-022
 
 ```yaml
@@ -443,6 +476,8 @@ tags: [dotnet, opentelemetry, testing, metrics]
 
 **Implications carried forward:**
 - CS06–CS09 adapter tests and any CS that asserts on the shared PDP telemetry must isolate by an untransformed tag (provider) or a raw span tag, never by the normalized metric `action`.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-023
 
@@ -466,6 +501,8 @@ claim_area: observability
 - For any cross-cutting "all services / all X" deliverable, the close-out plan-vs-impl review MUST enumerate the current set from the merged tree, not the branch-base set — concurrent sibling merges can add members after your branch forks.
 - When a CS adds a new ServiceDefaults service (CS06–CS09 adapters, future services), wire it to the observability collector in the same PR.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-024
 
 ```yaml
@@ -488,6 +525,8 @@ claim_area: observability
 - Any future externally-exposed dev UI backed by an image with a default admin account (Grafana, etc.) must disable BOTH the login form AND Basic Auth for an anonymous-only posture — anonymous role alone is not a boundary.
 - Model non-UI container ingress ports as `tcp` so `WithExternalHttpEndpoints()` does not inadvertently expose them.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-025
 
 ```yaml
@@ -507,6 +546,8 @@ tags: [multi-agent, claim, rebase, workboard-auto-approve, ci]
 
 **Implications carried forward:**
 - In a multi-orchestrator repo, rebase any branch onto latest `origin/main` before push/merge if `main` advanced since branching — especially when a dependency CS may have closed out concurrently.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-026
 
@@ -529,6 +570,8 @@ claim_area: engines
 **Implications carried forward:**
 - CS07–CS09 adapter authors: reuse the `IEngineRoleAuthorizer` seam for RBAC-only engines. For richer engines — OpenFGA (ReBAC, CS07), OPA/Rego (CS08), Cedar (CS09) — weigh how much of the fintech decision the engine should own *natively* vs. compose via the shared evaluator; don't force the shared-evaluator split where the engine can express the full decision.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-027
 
 ```yaml
@@ -549,6 +592,8 @@ claim_area: engines
 
 **Implications carried forward:**
 - CS07/CS09 out-of-process adapters (OpenFGA, Cedar): sync `HttpClient.Send` via a named client is fine; always fail closed on ANY exception, sanitize caller-facing messages, and validate the engine's decision/reason against `ReasonCodes` before mapping to `AccessDecision`.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-028
 
@@ -571,6 +616,8 @@ claim_area: engines
 **Implications carried forward:**
 - CS09 (Cedar) and any future registry-extending CS: assert your OWN additions are present, never the exhaustive set, so the next parallel adapter doesn't red `main`.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-029
 
 ```yaml
@@ -590,6 +637,8 @@ tags: [opa, rego, csharp, tooling, tests, windows]
 
 **Implications carried forward:**
 - CS09 (Cedar policy + tests): run the formatter's write mode before the check gate; avoid raw interpolated strings for brace-heavy test fixtures.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-030
 
@@ -611,6 +660,8 @@ tags: [authz, pdp, adapter, fail-closed, security, openfga]
 **Implications carried forward:**
 - CS09 (Cedar) and any future out-of-process adapter: fail closed on every engine-error path (Deny + stable message + logged cause), add a fail-closed test, and wrap the entire endpoint flow — the singleton-bootstrap gotcha makes "the first call fails" reasoning wrong.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-031
 
 ```yaml
@@ -630,6 +681,8 @@ tags: [openfga, rebac, sdk, csharp, aspire, followups]
 
 **Implications carried forward:**
 - Follow-ups (deferred, non-blocking dev-loop hardening): make the OpenFGA authorization-model id configurable/pinned to avoid per-boot model-version growth on a persistent shared store; use a targeted tuple-existence reconciliation instead of read-all (fine for the dedicated tiny-seed store today); adopt `Assert.Skip` for the integration tests when the repo moves to xUnit v3 (currently a soft `return` skip, since 2.9.3 has no dynamic skip and adding `Xunit.SkippableFact` was out of scope).
+
+**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS31** (engine-adapter test seams & degenerate-input parity) — `project/clickstops/planned/planned_cs31_adapter-test-seams-degenerate-parity.md`. Status stays `open` until CS31 closes.
 
 ### LRN-032
 
@@ -652,6 +705,8 @@ tags: [pdp, adapter, cedar, monocloud, dotnet10, parity]
 - Future declarative-policy adapters (and CS16 explainability / CS20 migration): to recover an ORDERED reason from an unordered engine, encode failures as annotated forbids with stable ids + an explicit precedence map, and select the first-failing (lowest precedence) determining member.
 - CS23/CS24 (comparison/perf): Cedar (in-process, `cedar`) and AVP (managed) are the Cedar data points; AVP runs the same policies managed (documented, not wired).
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-033
 
 ```yaml
@@ -671,6 +726,8 @@ tags: [pdp, parity, testing, fail-closed, tenant, security]
 
 **Implications carried forward:**
 - CS16/CS17/CS20/CS23/CS24 and any adapter/eval CS: the 22-scenario catalog is necessary but NOT sufficient — augment with degenerate-input fail-closed parity tests against the reference oracle. Consider adding blank/whitespace-attribute rows to the shared catalog so every engine is held to them.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS31** (engine-adapter test seams & degenerate-input parity) — `project/clickstops/planned/planned_cs31_adapter-test-seams-degenerate-parity.md`. Status stays `open` until CS31 closes.
 
 ### LRN-034
 
@@ -692,27 +749,7 @@ tags: [pdp, authzen, fail-closed, validation, wire-boundary, security]
 **Implications carried forward:**
 - Any future CS adding a new external decision/enforcement endpoint (CS14/CS15/CS19/CS21): treat the wire boundary as untrusted and add action-aware fail-closed input validation; a passing shared catalog does not prove the boundary is safe.
 
-### LRN-035
-
-```yaml
-id: LRN-035
-date: 2026-07-04
-category: process
-source_cs: CS17
-status: open
-tags: [ci, testing, posture, process]
-```
-
-**Problem:** CS17's exit criterion "policy changes are gated by CI tests" collides with this repo's DELIBERATE posture that GitHub Actions run process-gates-only (`harness lint` + drift + review-evidence) while .NET build/test is the LOCAL correctness gate (CONTEXT.md; `.github/workflows/` carry no dotnet step). Adding an active `.NET` CI workflow would change that posture AND interacts with the `workflow-pins` gate (actions must be SHA-pinned).
-
-**Finding:** When a CS deliverable's literal wording conflicts with an established repo posture/decision, do NOT silently change the posture. Deliver the INTENT (here: a runnable policy test suite of +59 golden/property/conformance tests that any policy change must pass) + a documented, ready-to-adopt opt-in path (a `policy-tests.yml` snippet in `docs/authz/policy-lifecycle.md`), and ESCALATE the posture decision to the maintainer (PR #55 Notes). The plan-vs-impl review marked CI-gating `diverged` (intentional), not `dropped`, and returned GO.
-
-**Evidence:** `docs/authz/policy-lifecycle.md` CI note + adoption snippet; PR #55 Notes (escalation); the plan-vs-impl review in `done_cs17_*` (D1-CI = diverged, Outcome GO).
-
-**Implications carried forward:**
-- **Core gap addressed by CS28** (maintainer approved adopting .NET in CI on 2026-07-04): CS28 adds `.github/workflows/dotnet-ci.yml` — full-solution `dotnet build` + `dotnet test` on `pull_request` + `push`→`main`. **Advisory** (see residual below); the "no .NET in CI" gap itself is closed, but this learning stays `open` for the enforcement follow-up.
-- **Residual (needs branch protection → public repo or GitHub Pro):** the check cannot be required-to-merge, and the merge-order class (CS13↔CS16-style stale-green logical conflicts) is only fully *prevented* by require-up-to-date / a merge queue. CS28's `push`→`main` run detects it reactively; full prevention is a CS28 follow-up.
-- Future eval/testing CSs (CS23/CS24) that mention "CI" can now rely on the CS28 `dotnet-ci` check.
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-036
 
@@ -734,6 +771,8 @@ tags: [dotnet, line-endings, lint, windows, ci]
 **Implications carried forward:**
 - Any .NET CS with new source files (CS17+/CS20/CS24): convert authored files to LF explicitly; trust `harness lint` + `.gitattributes`, not `dotnet format`, for line endings. Consider a dedicated CS to add `.editorconfig end_of_line = lf` so `dotnet format` aligns with the repo mandate.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-037
 
 ```yaml
@@ -753,6 +792,8 @@ tags: [opa, rego, testing, windows]
 
 **Implications carried forward:**
 - CS17 (policy lifecycle/testing), CS20, CS24 and any Rego-touching CS: validate Rego edits with the standalone `opa` download rather than assuming a preinstalled CLI or relying solely on the mocked C# adapter tests.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-038
 
@@ -774,6 +815,8 @@ tags: [openfga, rebac, testing, mocking, fail-closed]
 **Implications carried forward:**
 - CS20 (migration/portability), CS24 (perf), or any ReBAC-touching CS: extract an `IOpenFgaCheckClient` seam so ReBAC decisions/explanations are unit-testable without a live OpenFGA server.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS31** (engine-adapter test seams & degenerate-input parity) — `project/clickstops/planned/planned_cs31_adapter-test-seams-degenerate-parity.md`. Status stays `open` until CS31 closes.
+
 ### LRN-039
 
 ```yaml
@@ -794,26 +837,7 @@ tags: [ci, review-evidence, pr-body, review-log]
 **Implications carried forward:**
 - Every content-PR review-log author: keep evidence cells free of the word "placeholder" and `<...>` tokens, and append a fresh `Go`-at-HEAD row after each new commit (including review-fix commits) or the gate fails.
 
-### LRN-040
-
-```yaml
-id: LRN-040
-date: 2026-07-04
-category: process
-source_cs: CS11
-status: open
-tags: [ci, dotnet, merge, multi-agent, main-green]
-```
-
-**Problem:** During CS11 close-out, merging latest `main` into the content branch surfaced that `origin/main` itself did NOT compile: CS13's `HttpForwardingAuditSinkTests.SampleEvent` omitted the `DeterminingRule`/`PolicyReferences`/`Narrative` fields that CS16 made **required** on `PdpDecisionAuditEvent`. Two concurrently-developed CSs (CS13, CS16) changed a shared contract + a consumer of it, and the later merge did not rebuild against the earlier — so `main` went red and stayed red until an out-of-band hotfix.
-
-**Finding:** Because this repo's CI is **process-gates-only** (`harness lint` + drift + review-evidence; no `dotnet build`/`test` step — see CONTEXT.md + the CS17 CI-posture learning), a cross-CS **.NET build break lands on `main` undetected** by CI. The LOCAL full-solution `dotnet build`/`dotnet test` is the ONLY code-correctness gate. Mitigations for a multi-orchestrator fleet: (1) before opening/merging a content PR, `git merge origin/main` locally and run the **whole-solution** `dotnet build` + `dotnet test` (not just your project) — this catches a concurrent CS's contract change against your code AND a pre-existing main break; (2) when `main` is very active, merge-latest + **admin squash-merge promptly** — CS11 hit **4 sequential `main` advances** during its review, forcing 3 re-merges, and a slow review cadence loses the race; (3) additive merge conflicts from two CSs adding a service (sln/AppHost/csproj) resolve by keeping BOTH — take `--theirs` for the `.sln` then `dotnet sln add` your projects to regenerate GUIDs/build-configs cleanly.
-
-**Evidence:** CS11 close-out (this session): `origin/main` `d75d6ea` failed `dotnet build` (CS7036 missing `DeterminingRule` in `HttpForwardingAuditSinkTests.cs`) → fixed in the CS11 merge and independently hotfixed on main by **PR #60 "restore green main after CS13xCS16 audit-event merge"**; 3 re-merges (`3823f97`, `5b41c84`, `0fa1f0f`) across advances `9f2df6f`→`4139355`→`d75d6ea`→`2ddc857`.
-
-**Implications carried forward:**
-- Every orchestrator: run the whole-solution `dotnet build`/`dotnet test` against the latest-`main`-merged HEAD immediately before merging a content PR; do not rely on CI to catch .NET breaks.
-- Consider (as a future CS, mindful of the deliberate process-only-CI posture + `workflow-pins` gate — see the CS17 learning) whether a SHA-pinned .NET build/test CI job is worth adding to catch cross-CS contract breaks automatically.
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-041
 
@@ -835,6 +859,8 @@ tags: [dotnet, channels, concurrency, testing]
 **Implications carried forward:**
 - Any future non-blocking, drop-counting channel producer should use `FullMode=Wait` + `TryWrite`, not `DropWrite`.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-042
 
 ```yaml
@@ -855,6 +881,8 @@ tags: [docs, citations, review, multi-agent, dotnet]
 **Implications carried forward:**
 - Any docs+code CS: re-grep + re-verify every `file:line` citation to a changed file at integration and after each fix-round; prefer file+narrative for lines a concurrent agent is still moving.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-043
 
 ```yaml
@@ -874,6 +902,8 @@ tags: [recon, verification, multi-agent, citations]
 
 **Implications carried forward:**
 - Treat recon (especially from a cheap model) as a lead, not a fact. Sub-agent briefings must instruct: verify every current-state claim against source before citing; surface corrections in the report.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-044
 
@@ -896,6 +926,8 @@ tags: [rebac, openfga, rbac, translation, fail-closed]
 - CS26 (expansion engines) / any ReBAC-model work: reuse the roles-as-usersets pattern + the `^[a-z][a-z0-9_]{0,62}$` fail-closed relation rule; keep ABAC/context out of the RBAC projection.
 - **Open follow-up:** `RbacPolicy.Create` validates cross-references but not that its `roles`/`permissions` lists are non-empty and distinct (Copilot R3, non-blocking); harden it fail-closed when the migration surface is next touched.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS29** (governance tenant-scoping & fail-closed hardening) — `project/clickstops/planned/planned_cs29_governance-tenant-scoping-hardening.md`. Status stays `open` until CS29 closes.
+
 ### LRN-045
 
 ```yaml
@@ -915,6 +947,8 @@ tags: [ci, copilot, review-gates, github-actions]
 
 **Implications carried forward:**
 - Every .NET content-PR (CS22/CS24/CS14/CS15…): after the final fix commit, re-request Copilot at the merge HEAD, then re-run the failed `read-only-gates` job once Copilot's current-HEAD review lands; expect the review-triggered re-run to need a manual nudge.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-046
 
@@ -937,6 +971,8 @@ tags: [dotnet, system-text-json, framework-reference, build]
 - Any new non-Web .NET project referencing a `Sdk.Web` src project: add the `FrameworkReference` up front (matches the CS-tests convention).
 - Freeze reflection-based shared `JsonSerializerOptions` with `MakeReadOnly(populateMissingResolver: true)`.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-047
 
 ```yaml
@@ -957,6 +993,8 @@ tags: [review, copilot, dotnet, fail-closed, robustness]
 **Implications carried forward:**
 - CS22/CS15 and any new .NET CLI/tool code: pre-empt these classes (bounded subprocesses, dedupe inputs, validate schema + numeric args, cancel/await async probes, freeze shared config) before first review to cut Copilot rounds.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
+
 ### LRN-048
 
 ```yaml
@@ -976,6 +1014,8 @@ tags: [blazor, dotnet, static-ssr, oidc, warnings-as-errors]
 
 **Implications carried forward:**
 - CS15 (playground/audit explorer) and any future Blazor UI: default token-protected pages to static SSR + enhanced forms; reserve interactive islands for anonymous-service widgets reading tenant/roles from cascaded auth state; include `MapStaticAssets`; pre-empt BL0008/CS0542 to cut review rounds.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
 ### LRN-049
 
@@ -999,14 +1039,80 @@ tags: [fail-closed, tenant-scoping, confused-deputy, governance, follow-up]
 - Follow-up: add server-side tenant scoping (and ideally authenticated principals) to Governance.Service approve/reject/list; file as a planned CS or fold into a governance-hardening CS. Until then the Bank.Web guard is the only tenant boundary for these endpoints.
 - CS15 and any UI over an anonymous/un-scoped service: fail closed on malformed 2xx (catch `JsonException`) and bind every mutating action to a server-or-tenant-scoped allow-set, not the raw posted id.
 
+**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS29** (governance tenant-scoping & fail-closed hardening) — `project/clickstops/planned/planned_cs29_governance-tenant-scoping-hardening.md`. Status stays `open` until CS29 closes.
+
 ## Applied
 
 _(no entries yet)_
 
 ## Obsolete
 
-_(no entries yet)_
+### LRN-006
+
+```yaml
+id: LRN-006
+date: 2026-07-03
+category: tooling
+source_cs: CS02
+status: obsolete
+tags: [harness, review, cli, escalation]
+```
+
+**Problem:** The `harness review <pr>` verb could not be used for the CS02 content review.
+
+**Finding:** `harness review <pr>` (agent-harness v0.12.0) non-dry-run path aborted with "Could not find clickstop file for CS02 under project/clickstops/{active,planned,done}" even though `active_cs02_fintech-domain-skeleton.md` existed on both the PR branch and `main`; the `--dry-run` variant succeeded. Worked around by dispatching the GPT-5.5 reviewer sub-agent directly with the canonical reviewer preamble (OPERATIONS.md § Reviewer dispatch) and recording the verdict manually in the PR Review log. This was a harness (`lib/`) bug — out of scope to fix in-band (Hard Rule §3); escalated to the harness maintainer (filed upstream as `henrik-me/agent-harness#407`).
+
+**Evidence:** this session; `harness review 5 --rubber-duck-only --no-poll` → exit 2 with the lookup error; `--dry-run` variant → exit 0; file present via `git ls-files`.
+
+**Disposition:** obsolete — fixed upstream in **agent-harness v0.13.0** (CS93; `henrik-me/agent-harness#407` closed COMPLETED — `findClickstopFile` in `lib/review.mjs` now normalizes the padded/zero-stripped CS id on both sides and resolves directory-form + done-stage clickstops). This repo bumped its pin to v0.13.0 and removed the temporary `.github/copilot-instructions.md` workaround note; `harness review 5` verified working (exit 0, resolves `done_cs02_…`).
 
 ## Deferred
 
-_(no entries yet)_
+### LRN-035
+
+```yaml
+id: LRN-035
+date: 2026-07-04
+category: process
+source_cs: CS17
+status: deferred
+deferred_until: 2026-10-01
+tags: [ci, testing, posture, process]
+```
+
+**Problem:** CS17's exit criterion "policy changes are gated by CI tests" collides with this repo's DELIBERATE posture that GitHub Actions run process-gates-only (`harness lint` + drift + review-evidence) while .NET build/test is the LOCAL correctness gate (CONTEXT.md; `.github/workflows/` carry no dotnet step). Adding an active `.NET` CI workflow would change that posture AND interacts with the `workflow-pins` gate (actions must be SHA-pinned).
+
+**Finding:** When a CS deliverable's literal wording conflicts with an established repo posture/decision, do NOT silently change the posture. Deliver the INTENT (here: a runnable policy test suite of +59 golden/property/conformance tests that any policy change must pass) + a documented, ready-to-adopt opt-in path (a `policy-tests.yml` snippet in `docs/authz/policy-lifecycle.md`), and ESCALATE the posture decision to the maintainer (PR #55 Notes). The plan-vs-impl review marked CI-gating `diverged` (intentional), not `dropped`, and returned GO.
+
+**Evidence:** `docs/authz/policy-lifecycle.md` CI note + adoption snippet; PR #55 Notes (escalation); the plan-vs-impl review in `done_cs17_*` (D1-CI = diverged, Outcome GO).
+
+**Implications carried forward:**
+- **Core gap addressed by CS28** (maintainer approved adopting .NET in CI on 2026-07-04): CS28 adds `.github/workflows/dotnet-ci.yml` — full-solution `dotnet build` + `dotnet test` on `pull_request` + `push`→`main`. **Advisory** (see residual below); the "no .NET in CI" gap itself is closed, but this learning stays `open` for the enforcement follow-up.
+- **Residual (needs branch protection → public repo or GitHub Pro):** the check cannot be required-to-merge, and the merge-order class (CS13↔CS16-style stale-green logical conflicts) is only fully *prevented* by require-up-to-date / a merge queue. CS28's `push`→`main` run detects it reactively; full prevention is a CS28 follow-up.
+- Future eval/testing CSs (CS23/CS24) that mention "CI" can now rely on the CS28 `dotnet-ci` check.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): deferred. CS28 added an **advisory** `.github/workflows/dotnet-ci.yml` build+test gate; making it a **required** merge check needs branch-protection required-status-checks, unavailable on this private free-tier repo (discipline-only disposition — see `.harness-known-constraints.md` and INSTRUCTIONS.md § Re-evaluating private-tier disposition). Re-evaluate on tier change (private→public or Free→Pro) or by the deferred_until date.
+
+### LRN-040
+
+```yaml
+id: LRN-040
+date: 2026-07-04
+category: process
+source_cs: CS11
+status: deferred
+deferred_until: 2026-10-01
+tags: [ci, dotnet, merge, multi-agent, main-green]
+```
+
+**Problem:** During CS11 close-out, merging latest `main` into the content branch surfaced that `origin/main` itself did NOT compile: CS13's `HttpForwardingAuditSinkTests.SampleEvent` omitted the `DeterminingRule`/`PolicyReferences`/`Narrative` fields that CS16 made **required** on `PdpDecisionAuditEvent`. Two concurrently-developed CSs (CS13, CS16) changed a shared contract + a consumer of it, and the later merge did not rebuild against the earlier — so `main` went red and stayed red until an out-of-band hotfix.
+
+**Finding:** Because this repo's CI is **process-gates-only** (`harness lint` + drift + review-evidence; no `dotnet build`/`test` step — see CONTEXT.md + the CS17 CI-posture learning), a cross-CS **.NET build break lands on `main` undetected** by CI. The LOCAL full-solution `dotnet build`/`dotnet test` is the ONLY code-correctness gate. Mitigations for a multi-orchestrator fleet: (1) before opening/merging a content PR, `git merge origin/main` locally and run the **whole-solution** `dotnet build` + `dotnet test` (not just your project) — this catches a concurrent CS's contract change against your code AND a pre-existing main break; (2) when `main` is very active, merge-latest + **admin squash-merge promptly** — CS11 hit **4 sequential `main` advances** during its review, forcing 3 re-merges, and a slow review cadence loses the race; (3) additive merge conflicts from two CSs adding a service (sln/AppHost/csproj) resolve by keeping BOTH — take `--theirs` for the `.sln` then `dotnet sln add` your projects to regenerate GUIDs/build-configs cleanly.
+
+**Evidence:** CS11 close-out (this session): `origin/main` `d75d6ea` failed `dotnet build` (CS7036 missing `DeterminingRule` in `HttpForwardingAuditSinkTests.cs`) → fixed in the CS11 merge and independently hotfixed on main by **PR #60 "restore green main after CS13xCS16 audit-event merge"**; 3 re-merges (`3823f97`, `5b41c84`, `0fa1f0f`) across advances `9f2df6f`→`4139355`→`d75d6ea`→`2ddc857`.
+
+**Implications carried forward:**
+- Every orchestrator: run the whole-solution `dotnet build`/`dotnet test` against the latest-`main`-merged HEAD immediately before merging a content PR; do not rely on CI to catch .NET breaks.
+- Consider (as a future CS, mindful of the deliberate process-only-CI posture + `workflow-pins` gate — see the CS17 learning) whether a SHA-pinned .NET build/test CI job is worth adding to catch cross-CS contract breaks automatically.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): deferred. CS28 added an **advisory** `.github/workflows/dotnet-ci.yml` build+test gate; making it a **required** merge check needs branch-protection required-status-checks, unavailable on this private free-tier repo (discipline-only disposition — see `.harness-known-constraints.md` and INSTRUCTIONS.md § Re-evaluating private-tier disposition). Re-evaluate on tier change (private→public or Free→Pro) or by the deferred_until date.
