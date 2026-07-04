@@ -36,6 +36,5 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 | CS22 | CS22 — Compliance mapping (SOX/PCI-DSS/GDPR) | 🟢 Active | yoga-ae-c4 | cs22/content | 2026-07-04 | — |
 | CS15 | CS15 — AuthZ playground + audit explorer | 🟢 Active | yoga-ae-c2 | cs15/content | 2026-07-04 | — |
 | CS19 | CS19 — Agent + non-agent access | 🟢 Active | yoga-ae | cs19/content | 2026-07-04 | — |
-| CS28h | LRN harvest + file CS29–CS33 (fix/consolidate learnings) | 🟢 Active | yoga-ae-c3 | chore/lrn-harvest-cs29-33 | 2026-07-04 | — |
 
 > **Note:** WORKBOARD shows live coordination state only — active orchestrators and their active work. The queue lives in `project/clickstops/planned/` (priority order via filename + per-file `**Depends on:**`); historical record lives in `project/clickstops/done/`. Do not duplicate either here.
