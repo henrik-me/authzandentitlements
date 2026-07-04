@@ -1,10 +1,10 @@
 # CS25 — Managed-vs-self-host TCO + cloud move
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs25/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** 6 — Evaluation lab
 **Lane:** Eval
 **Depends on:** CS23, CS24
