@@ -37,8 +37,8 @@ public static class AccessRequestsModel
 
     // Builds the create-request body from the form fields and the resolved principal id.
     // The principal is bound from the signed-in identity, never a form field — a caller may
-    // not request access as another subject. Justification/code are trimmed; a whitespace
-    // duration collapses to null so the package default applies.
+    // not request access as another subject. Justification/code are trimmed; a missing or
+    // non-positive duration collapses to null so the package default applies.
     public static CreateAccessRequestBody BuildCreateBody(
         string principalId, RequestAccessInput input) =>
         new(

@@ -41,7 +41,7 @@ Bank.Web is a **Blazor Web App with Interactive Server** components enabled
 
 | Concept | Source | Notes |
 |---|---|---|
-| Bank user GUID (Maker/Checker id) | the token `sub` claim | The Keycloak realm user `id`s are aligned with the Bank seed GUIDs (e.g. `teller1` = `40000000-0000-0000-0000-000000000001`), so `sub` **equals** the Bank user row id. `ICurrentUser.ResolveBankUserIdAsync()` resolves it via `GET /api/users`. Bank.Api rejects a create/decide whose `MakerId`/`CheckerId` ≠ token `sub` with **403**. |
+| Bank user GUID (Maker/Checker id) | `ICurrentUser.ResolveBankUserIdAsync()` — `GET /api/users` matched on `preferred_username` | The match returns the Bank user row id, which **equals** the token `sub` because the Keycloak realm user `id`s are aligned with the Bank seed GUIDs (e.g. `teller1` = `40000000-0000-0000-0000-000000000001`). Bank.Api rejects a create/decide whose `MakerId`/`CheckerId` ≠ token `sub` with **403**. |
 | Tenant code | the `tenant` claim | `CONTOSO` = Professional plan, `FABRIKAM` = Standard plan. Used for entitlement lookups. |
 | Governance principal | `user-{preferred_username}` | Matches the Governance seed principals (`user-teller1`, …). |
 | Roles | the `roles` claim | Checker-eligible roles are `BranchManager` and `ComplianceOfficer`. |
