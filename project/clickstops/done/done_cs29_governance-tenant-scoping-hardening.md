@@ -1,10 +1,10 @@
 # CS29 — Governance service tenant-scoping & fail-closed hardening
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs29/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Filed by:** yoga-ae-c3 — 2026-07-04, LRN harvest (CS28h): dispositioning open learnings into fix CSs.
 **Depends on:** CS11, CS14
 
@@ -62,14 +62,14 @@ LRN-044 (CS20): `RbacPolicy.Create` validates cross-references between roles and
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Decide authn model (JwtBearer vs validated-tenant-header) from code | pending | — | Assess Governance.Service exposure + Bank.Web client before choosing |
-| Server-side tenant scoping: list/approve/reject | pending | — | List filtered by caller tenant; approve/reject re-check target tenant |
-| Principal/tenant binding to authenticated context | pending | — | Fail closed on missing/unknown tenant; mirror Bank.Api token-bound contract (LRN-011) |
-| RbacPolicy.Create non-empty/distinct validation | pending | — | Fail closed on empty/duplicate roles/permissions (LRN-044) |
-| Tests | pending | — | Cross-tenant decide → 403/404; tenant-scoped list; RbacPolicy.Create empty/dup → throws |
-| Governance doc update | pending | — | Document the tenant-scoping + principal-binding contract |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and feature docs so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | Flip LRN-049/LRN-044 to applied; file/disposition learnings; open follow-up CSs for unresolved issues |
+| Decide authn model (JwtBearer vs validated-tenant-header) from code | done | yoga-ae-c3 | Chose JwtBearer token-bound tenant (LRN-011); audience bank-api, no realm change |
+| Server-side tenant scoping: list/approve/reject | done | yoga-ae-c3 | Query-level tenant filter; cross-tenant get/approve/reject → 404 before status check |
+| Principal/tenant binding to authenticated context | done | yoga-ae-c3 | RequireTenant reads token tenant, 403 on missing; create binds tenant from token |
+| RbacPolicy.Create non-empty/distinct validation | done | yoga-ae-c3 | Fail-closed on empty/duplicate roles/permissions (LRN-044) |
+| Tests | done | yoga-ae-c3 | Governance +32, Pdp +6, Bank.Web +2; handler-integration deferred (documented) |
+| Governance doc update | done | yoga-ae-c3 | docs/governance/tenant-scoping.md |
+| Close-out: docs + restart state | done | yoga-ae-c3 | WORKBOARD row removed, CONTEXT.md updated |
+| Close-out: learnings + follow-ups | done | yoga-ae-c3 | LRN-049/LRN-044 flipped to applied; handler-integration-test follow-up documented |
 
 ## Notes / Learnings
 
@@ -86,4 +86,20 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T19:32:44Z
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| Server-side tenant scoping + token-bound tenant | match | `GovernanceEndpoints` query-level tenant filter + `GovernanceAuthenticationSetup`; cross-tenant get/approve/reject → 404 before status check; `RequireTenant` → 403 on missing claim |
+| Request create binds tenant from token, not body | match | `CreateRequestAsync` sets `TenantCode` from the validated token; cross-tenant principal → 404 |
+| `RbacPolicy.Create` non-empty/distinct fail-closed | match | `RbacPolicy.cs` throws on empty/duplicate roles/permissions (LRN-044) |
+| Tests | match (documented divergence) | Governance +32, Pdp +6, Bank.Web +2; handler-integration deferred (no EF-InMemory/TestHost in CPM) — documented follow-up |
+| Governance doc | match | `docs/governance/tenant-scoping.md` |
+
+**Test coverage:** sufficient — Governance 96/0, Pdp 550/0, Bank.Web 93/0; full-solution `dotnet test` **1063/0** at d25aa77.
+
+**Outcome GO:** All deliverables and exit criteria met (cross-tenant approve/reject/get blocked server-side via query-level tenant filter; list tenant-scoped; `RbacPolicy.Create` fails closed). Documented divergences: unit/metadata tests not handler-integration; within-tenant approver-`sub` binding deferred; authn-vs-header gate resolved as JwtBearer token-bound tenant (audience bank-api, no realm change). Independent GPT-5.5 rubber-duck R1 (Go) → R2 (Go, query-filter refinement) + Copilot (5 findings resolved) + PvI R1 GO at d25aa77.

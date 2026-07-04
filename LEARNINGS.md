@@ -905,29 +905,6 @@ tags: [recon, verification, multi-agent, citations]
 
 **Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
-### LRN-044
-
-```yaml
-id: LRN-044
-date: 2026-07-04
-category: architectural
-source_cs: CS20
-status: open
-tags: [rebac, openfga, rbac, translation, fail-closed]
-```
-
-**Problem:** CS20's RBAC→ReBAC translator had to decide what an RBAC policy can *faithfully* become in ReBAC, and what constraints a mechanically-generated OpenFGA model must satisfy to be valid.
-
-**Finding:** (1) The "roles as usersets" translation faithfully carries ONLY the pure **role→permission** dimension; contextual/ABAC gates (scope, tenant, subject==maker, pending status, the maker-checker threshold, SoD) are structurally outside the RBAC projection and must stay with the ABAC engines (reference/Cedar/OPA) or be modeled as ReBAC contextual/relationship tuples — never smuggled into the flat role→permission matrix (`bank.account.read` is scope-gated, so it is intentionally absent from the permission set). (2) OpenFGA relation identifiers must match `^[a-z][a-z0-9_]{0,62}$` (start with a lowercase letter, `[a-z0-9_]`, max 63); a mechanical translator must **fail closed** — reject any permission that sanitizes to a leading digit/underscore, empty, or >63 chars — rather than emit an invalid model. The **Copilot** review (not the GPT-5.5 rounds) caught the initial sanitizer using the wrong limit (50) and allowing invalid leading chars; verify engine-identifier rules against the engine's own model-syntax docs.
-
-**Evidence:** PR #71 (`a57475e`); `RbacToRebacTranslator.Sanitize` regex `^[a-z][a-z0-9_]{0,62}$` + `MaxRelationLength=63`; the in-process `TranslatedRebacGraph.Check` parity resolver proving translated-ReBAC == RBAC across the full user×permission grid with no live OpenFGA server; OpenFGA authorization-model-syntax identifier rules.
-
-**Implications carried forward:**
-- CS26 (expansion engines) / any ReBAC-model work: reuse the roles-as-usersets pattern + the `^[a-z][a-z0-9_]{0,62}$` fail-closed relation rule; keep ABAC/context out of the RBAC projection.
-- **Open follow-up:** `RbacPolicy.Create` validates cross-references but not that its `roles`/`permissions` lists are non-empty and distinct (Copilot R3, non-blocking); harden it fail-closed when the migration surface is next touched.
-
-**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS29** (governance tenant-scoping & fail-closed hardening) — `project/clickstops/planned/planned_cs29_governance-tenant-scoping-hardening.md`. Status stays `open` until CS29 closes.
-
 ### LRN-045
 
 ```yaml
@@ -1017,30 +994,6 @@ tags: [blazor, dotnet, static-ssr, oidc, warnings-as-errors]
 
 **Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
-### LRN-049
-
-```yaml
-id: LRN-049
-date: 2026-07-04
-category: architectural
-source_cs: CS14
-status: open
-claim_area: governance
-tags: [fail-closed, tenant-scoping, confused-deputy, governance, follow-up]
-```
-
-**Problem:** The JIT access-request UI (Bank.Web AccessRequests) consumes the **anonymous, non-tenant-scoped** Governance.Service, which returns ALL requests and does not tenant-scope approve/reject. The first tenant fix only filtered the rendered list; a checker could still submit a known cross-tenant request GUID (confused deputy).
-
-**Finding:** Two fail-closed patterns recurred exactly as LRN-047 predicts (independent review catching what a first pass missed): (1) typed clients must catch `JsonException` on `ReadFromJsonAsync` (not only `HttpRequestException`/timeout) so a malformed 2xx body fails closed instead of throwing a 500; (2) UI-layer authorization must bind an action to the **already-scoped** set (`CanDecide(_pending, id)`), never trust the posted id — filtering only the rendered list is insufficient. The Bank.Web guard is defense-in-depth; the complete fix is **server-side tenant scoping in Governance.Service** (out of CS14 scope).
-
-**Evidence:** CS14 PR #76 — R7 GPT-5.5 review returned Needs-Fix (High) on the cross-tenant decide gap; fixed by `AccessRequestsModel.CanDecide` + tenant-scoped `_pending`; `JsonException` fail-closed added across all four Bank.Web clients with tests.
-
-**Implications carried forward:**
-- Follow-up: add server-side tenant scoping (and ideally authenticated principals) to Governance.Service approve/reject/list; file as a planned CS or fold into a governance-hardening CS. Until then the Bank.Web guard is the only tenant boundary for these endpoints.
-- CS15 and any UI over an anonymous/un-scoped service: fail closed on malformed 2xx (catch `JsonException`) and bind every mutating action to a server-or-tenant-scoped allow-set, not the raw posted id.
-
-**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS29** (governance tenant-scoping & fail-closed hardening) — `project/clickstops/planned/planned_cs29_governance-tenant-scoping-hardening.md`. Status stays `open` until CS29 closes.
-
 ### LRN-050
 
 ```yaml
@@ -1110,7 +1063,52 @@ tags: [ci, pr-evidence, review-gates, admin-merge, private-free-tier]
 
 ## Applied
 
-_(no entries yet)_
+### LRN-044
+
+```yaml
+id: LRN-044
+date: 2026-07-04
+category: architectural
+source_cs: CS20
+status: applied
+tags: [rebac, openfga, rbac, translation, fail-closed]
+```
+
+**Problem:** CS20's RBAC→ReBAC translator had to decide what an RBAC policy can *faithfully* become in ReBAC, and what constraints a mechanically-generated OpenFGA model must satisfy to be valid.
+
+**Finding:** (1) The "roles as usersets" translation faithfully carries ONLY the pure **role→permission** dimension; contextual/ABAC gates (scope, tenant, subject==maker, pending status, the maker-checker threshold, SoD) are structurally outside the RBAC projection and must stay with the ABAC engines (reference/Cedar/OPA) or be modeled as ReBAC contextual/relationship tuples — never smuggled into the flat role→permission matrix (`bank.account.read` is scope-gated, so it is intentionally absent from the permission set). (2) OpenFGA relation identifiers must match `^[a-z][a-z0-9_]{0,62}$` (start with a lowercase letter, `[a-z0-9_]`, max 63); a mechanical translator must **fail closed** — reject any permission that sanitizes to a leading digit/underscore, empty, or >63 chars — rather than emit an invalid model. The **Copilot** review (not the GPT-5.5 rounds) caught the initial sanitizer using the wrong limit (50) and allowing invalid leading chars; verify engine-identifier rules against the engine's own model-syntax docs.
+
+**Evidence:** PR #71 (`a57475e`); `RbacToRebacTranslator.Sanitize` regex `^[a-z][a-z0-9_]{0,62}$` + `MaxRelationLength=63`; the in-process `TranslatedRebacGraph.Check` parity resolver proving translated-ReBAC == RBAC across the full user×permission grid with no live OpenFGA server; OpenFGA authorization-model-syntax identifier rules.
+
+**Implications carried forward:**
+- CS26 (expansion engines) / any ReBAC-model work: reuse the roles-as-usersets pattern + the `^[a-z][a-z0-9_]{0,62}$` fail-closed relation rule; keep ABAC/context out of the RBAC projection.
+- **Open follow-up:** `RbacPolicy.Create` validates cross-references but not that its `roles`/`permissions` lists are non-empty and distinct (Copilot R3, non-blocking); harden it fail-closed when the migration surface is next touched.
+
+**Disposition:** Applied by **CS29** (PR #89, merged `d25aa77`): `RbacPolicy.Create` now fails closed on empty or duplicate roles/permissions, in addition to the existing dangling-reference checks. See `src/AuthzEntitlements.Authz.Pdp/Migration/RbacPolicy.cs` + `tests/AuthzEntitlements.Authz.Pdp.Tests/RbacPolicyCreateTests.cs`.
+
+### LRN-049
+
+```yaml
+id: LRN-049
+date: 2026-07-04
+category: architectural
+source_cs: CS14
+status: applied
+claim_area: governance
+tags: [fail-closed, tenant-scoping, confused-deputy, governance, follow-up]
+```
+
+**Problem:** The JIT access-request UI (Bank.Web AccessRequests) consumes the **anonymous, non-tenant-scoped** Governance.Service, which returns ALL requests and does not tenant-scope approve/reject. The first tenant fix only filtered the rendered list; a checker could still submit a known cross-tenant request GUID (confused deputy).
+
+**Finding:** Two fail-closed patterns recurred exactly as LRN-047 predicts (independent review catching what a first pass missed): (1) typed clients must catch `JsonException` on `ReadFromJsonAsync` (not only `HttpRequestException`/timeout) so a malformed 2xx body fails closed instead of throwing a 500; (2) UI-layer authorization must bind an action to the **already-scoped** set (`CanDecide(_pending, id)`), never trust the posted id — filtering only the rendered list is insufficient. The Bank.Web guard is defense-in-depth; the complete fix is **server-side tenant scoping in Governance.Service** (out of CS14 scope).
+
+**Evidence:** CS14 PR #76 — R7 GPT-5.5 review returned Needs-Fix (High) on the cross-tenant decide gap; fixed by `AccessRequestsModel.CanDecide` + tenant-scoped `_pending`; `JsonException` fail-closed added across all four Bank.Web clients with tests.
+
+**Implications carried forward:**
+- Follow-up: add server-side tenant scoping (and ideally authenticated principals) to Governance.Service approve/reject/list; file as a planned CS or fold into a governance-hardening CS. Until then the Bank.Web guard is the only tenant boundary for these endpoints.
+- CS15 and any UI over an anonymous/un-scoped service: fail closed on malformed 2xx (catch `JsonException`) and bind every mutating action to a server-or-tenant-scoped allow-set, not the raw posted id.
+
+**Disposition:** Applied by **CS29** (PR #89, merged `d25aa77`): server-side tenant scoping added to `Governance.Service`'s access-request endpoints — the caller's tenant is bound to the validated Keycloak token and enforced IN-QUERY, so a cross-tenant get/approve/reject returns 404 (the confused-deputy gap is closed) and the list is tenant-filtered. See `docs/governance/tenant-scoping.md`. Within-tenant approver-`sub` binding and broader principal/access scoping remain documented follow-ups.
 
 ## Obsolete
 
