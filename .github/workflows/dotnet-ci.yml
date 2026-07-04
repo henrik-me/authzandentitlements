@@ -1,0 +1,51 @@
+# dotnet-ci.yml — .NET build + test gate (CS28).
+#
+# Builds and tests the whole solution so a broken tree — including cross-CS
+# *logical* merge conflicts (two PRs each green against their own base that do
+# not compile once both land, e.g. CS13xCS16 / LRN-035) — is caught
+# automatically instead of silently landing on `main`.
+#
+#   pull_request -> main : catches breaks visible in the PR vs its merge base.
+#   push         -> main : detects merge-order breaks reactively (turns `main`
+#                          red immediately after a bad merge). Fully PREVENTING
+#                          that class needs require-up-to-date / a merge queue,
+#                          which need branch protection (public repo or GitHub
+#                          Pro) — out of scope; see CS28 / LRN-035.
+#
+# ADVISORY on this private free-tier repo: branch protection is unavailable
+# (the branch-protection API returns HTTP 403), so this check cannot be made
+# required-to-merge yet.
+#
+# Actions are pinned to commit SHAs (harness workflow-pins gate). The
+# Docker-dependent OPA/OpenFGA live tests self-skip, so no services are needed.
+# This file is project-owned (seeded), not harness-managed.
+
+name: dotnet-ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Group per workflow+ref; only cancel superseded PR runs so a push-to-main
+# diagnostic run is never cancelled (preserving the red-`main` signal).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        with:
+          global-json-file: global.json
+      - name: Build (restore + compile; warnings are errors via Directory.Build.props)
+        run: dotnet build AuthzEntitlements.sln
+      - name: Test (reuse the build; live-engine tests self-skip offline)
+        run: dotnet test AuthzEntitlements.sln --no-build
