@@ -793,6 +793,27 @@ tags: [ci, review-evidence, pr-body, review-log]
 **Implications carried forward:**
 - Every content-PR review-log author: keep evidence cells free of the word "placeholder" and `<...>` tokens, and append a fresh `Go`-at-HEAD row after each new commit (including review-fix commits) or the gate fails.
 
+### LRN-040
+
+```yaml
+id: LRN-040
+date: 2026-07-04
+category: process
+source_cs: CS11
+status: open
+tags: [ci, dotnet, merge, multi-agent, main-green]
+```
+
+**Problem:** During CS11 close-out, merging latest `main` into the content branch surfaced that `origin/main` itself did NOT compile: CS13's `HttpForwardingAuditSinkTests.SampleEvent` omitted the `DeterminingRule`/`PolicyReferences`/`Narrative` fields that CS16 made **required** on `PdpDecisionAuditEvent`. Two concurrently-developed CSs (CS13, CS16) changed a shared contract + a consumer of it, and the later merge did not rebuild against the earlier — so `main` went red and stayed red until an out-of-band hotfix.
+
+**Finding:** Because this repo's CI is **process-gates-only** (`harness lint` + drift + review-evidence; no `dotnet build`/`test` step — see CONTEXT.md + the CS17 CI-posture learning), a cross-CS **.NET build break lands on `main` undetected** by CI. The LOCAL full-solution `dotnet build`/`dotnet test` is the ONLY code-correctness gate. Mitigations for a multi-orchestrator fleet: (1) before opening/merging a content PR, `git merge origin/main` locally and run the **whole-solution** `dotnet build` + `dotnet test` (not just your project) — this catches a concurrent CS's contract change against your code AND a pre-existing main break; (2) when `main` is very active, merge-latest + **admin squash-merge promptly** — CS11 hit **4 sequential `main` advances** during its review, forcing 3 re-merges, and a slow review cadence loses the race; (3) additive merge conflicts from two CSs adding a service (sln/AppHost/csproj) resolve by keeping BOTH — take `--theirs` for the `.sln` then `dotnet sln add` your projects to regenerate GUIDs/build-configs cleanly.
+
+**Evidence:** CS11 close-out (this session): `origin/main` `d75d6ea` failed `dotnet build` (CS7036 missing `DeterminingRule` in `HttpForwardingAuditSinkTests.cs`) → fixed in the CS11 merge and independently hotfixed on main by **PR #60 "restore green main after CS13xCS16 audit-event merge"**; 3 re-merges (`3823f97`, `5b41c84`, `0fa1f0f`) across advances `9f2df6f`→`4139355`→`d75d6ea`→`2ddc857`.
+
+**Implications carried forward:**
+- Every orchestrator: run the whole-solution `dotnet build`/`dotnet test` against the latest-`main`-merged HEAD immediately before merging a content PR; do not rely on CI to catch .NET breaks.
+- Consider (as a future CS, mindful of the deliberate process-only-CI posture + `workflow-pins` gate — see the CS17 learning) whether a SHA-pinned .NET build/test CI job is worth adding to catch cross-CS contract breaks automatically.
+
 ## Applied
 
 _(no entries yet)_
