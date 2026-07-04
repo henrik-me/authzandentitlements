@@ -198,7 +198,7 @@ is found.
 ### Step 5 — Run the linter
 
 ```sh
-npx -y github:henrik-me/agent-harness#v0.15.0 lint
+npx -y github:henrik-me/agent-harness#v0.16.0 lint
 ```
 
 This runs the `LEARNINGS.md` check (among the harness's other linters). Fix any
@@ -242,7 +242,7 @@ but differ in scope and trigger.
      without substantive progress escalates the entry to weekly-only and
      removes it from before-claim prompts.
 
-2. Run `npx -y github:henrik-me/agent-harness#v0.15.0 lint` to confirm no errors remain.
+2. Run `npx -y github:henrik-me/agent-harness#v0.16.0 lint` to confirm no errors remain.
 
 3. Commit the batch of dispositioned entries as a single `learnings: weekly harvest` commit.
 
@@ -271,7 +271,7 @@ Runs automatically as part of `harness harvest --before-claim <area>`.
 4. "Skip-for-this-CS" is a soft bypass — the entry remains `open` but is
    excluded from the current CS's before-claim prompt. It will still appear
    in the next weekly harvest.
-5. After disposition, run `npx -y github:henrik-me/agent-harness#v0.15.0 lint` before opening
+5. After disposition, run `npx -y github:henrik-me/agent-harness#v0.16.0 lint` before opening
    the claim PR.
 
 **Invariant:** No CS claim PR should be opened while there are undispositioned
@@ -379,8 +379,8 @@ The YAML frontmatter of every entry is validated against
 Run the linter at any time:
 
 ```sh
-npx -y github:henrik-me/agent-harness#v0.15.0 lint           # runs the LEARNINGS.md check over the repo
-npx -y github:henrik-me/agent-harness#v0.15.0 lint --quiet   # summary only
+npx -y github:henrik-me/agent-harness#v0.16.0 lint           # runs the LEARNINGS.md check over the repo
+npx -y github:henrik-me/agent-harness#v0.16.0 lint --quiet   # summary only
 ```
 
 Exit code 0 = no linter errors. Exit code 1 = at least one linter error (for

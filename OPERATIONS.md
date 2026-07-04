@@ -190,13 +190,13 @@ unless its basename is declared in an optional `.harness-closeout-allow-drop` fi
 **What:** move a planned CS into flight — run the preflight + harvest gate, cut
 the `cs<NN>/claim` branch, `git mv` the CS file `planned → active`, and add the
 WORKBOARD Active Work row. **When:** at the start of a CS, from an up-to-date
-`main`, before any implementation work. **How:** run `npx -y github:henrik-me/agent-harness#v0.15.0 claim CS<NN>`
+`main`, before any implementation work. **How:** run `npx -y github:henrik-me/agent-harness#v0.16.0 claim CS<NN>`
 (dry-run by default; `--apply` executes the branch cut + rename + WORKBOARD
 edit). It NEVER commits and NEVER pushes — you own the commit message
 (`Claim CS<NN>` with the `Co-authored-by: Copilot` trailer) and the
 `workboard-only`-labelled claim PR (user reviews; squash-merge — see
 [§ Three-PR shape](#three-pr-shape)). The full preflights and executable steps
-live in `npx -y github:henrik-me/agent-harness#v0.15.0 claim --help`; use the directory form for
+live in `npx -y github:henrik-me/agent-harness#v0.16.0 claim --help`; use the directory form for
 artifact-bearing CSs (see
 [TRACKING.md § Clickstop lifecycle](TRACKING.md#clickstop-lifecycle)).
 
@@ -213,7 +213,7 @@ before the workboard-claim PR lands.
 Before claiming any CS, verify no strategic planning content lives outside
 the canonical `project/clickstops/{planned,active,done}/**` arc:
 
-1. Run `npx -y github:henrik-me/agent-harness#v0.15.0 lint` — must exit 0 (it includes the
+1. Run `npx -y github:henrik-me/agent-harness#v0.16.0 lint` — must exit 0 (it includes the
    planning-locality check).
 2. If the orchestrator's session-state plan file (`~/.copilot/session-state/<id>/plan.md`)
    contains anything beyond (a) which CS this session is currently executing
@@ -681,7 +681,7 @@ the `sub-invaders-bootstrap-summary.md` misrouting
    - **Acceptance criteria:** how the consumer agent will know the
      work is complete.
    - **Verification steps:** which harness checks / lint commands to
-     run on the consumer side (e.g. `npx -y github:henrik-me/agent-harness#v0.15.0 lint`).
+     run on the consumer side (e.g. `npx -y github:henrik-me/agent-harness#v0.16.0 lint`).
    - **Relevant LRNs / docs:** links to applicable `LEARNINGS.md`
      entries and the harness `OPERATIONS.md` / `INSTRUCTIONS.md`
      sections that govern the handoff.
@@ -1155,37 +1155,14 @@ need" produces silent gaps that surface as integration failures later.
 
 ## Conventions to follow
 
-- ESM `.mjs` only, Node 20+ stdlib. No CommonJS `require()`, no `.cjs`
-  files, no npm dependencies unless explicitly authorized in this dispatch.
-
-- Fresh git worktrees/checkouts need their own `npm install` before running
-  dependency-backed harness linters; `node_modules` is gitignored and
-  per-checkout, not shared from the parent worktree.
-
 - LF line endings, no BOM. After every file write on Windows, normalize:
   strip BOM if present (first 3 bytes must NOT be 0xEF 0xBB 0xBF), replace
   \r\n with \n. All content comparisons must normalize in the read step.
   (LRN-006, LRN-018, LRN-065)
 
-- `requireValue(args, i, flagName)` guard for every value-taking CLI flag
-  (LRN-040). Must verify args[i+1] exists AND reject tokens starting with
-  `-`, exiting code 2 + usage message. Bare `if (args[i+1])` silently
-  consumes the next flag as a value.
-
-- Schema is source of truth (LRN-039). Read `schemas/*.schema.json` BEFORE
-  writing any field access against harness.config.json, .harness-lock.json,
-  or any other structured config. Do not guess field names.
-
-- Stdout for success output; stderr for errors and warnings (LRN-044).
-  `--quiet` suppresses success stdout only. Errors always go to stderr.
-
 - No dot-notation placeholders (LRN-049). Use flat keys only:
   `ae` not `{{project.agent_suffix}}`. Dot-notation is not
   supported by the template engine and will be emitted literally.
-
-- Consumer-root-relative paths (LRN-050). Scripts run from the consumer's
-  cwd, not the harness source location. Never use `import.meta.url` or
-  `process.cwd()` to resolve consumer-repo files.
 
 - Cross-repo path discipline (LRN-105). When a sub-agent operates in a repo
   OTHER than the orchestrator's, every path in the briefing must be rooted
@@ -1199,6 +1176,8 @@ need" produces silent gaps that surface as integration failures later.
   message to stderr + process.exit(1). NEVER silent default. NEVER let a
   stack trace be the only error signal.
 
+<!-- harness:dispatch-language-conventions -->
+
 ## Self-checks before reporting
 
 Run all of the following and include each result in SELF-CHECKS RUN:
@@ -1206,18 +1185,12 @@ Run all of the following and include each result in SELF-CHECKS RUN:
 1. `git status --short` — only owned files appear; nothing staged.
 2. `git log --oneline -1` — must match preflight SHA.
 3. Text-encoding + line-ending validation (BOM + line endings; LRN-065,
-   LRN-074): `npx -y github:henrik-me/agent-harness#v0.15.0 lint` must exit 0. The encoding check
+   LRN-074): `npx -y github:henrik-me/agent-harness#v0.16.0 lint` must exit 0. The encoding check
    runs as part of the lint aggregate over the whole cwd (not just
    modified files); it catches CRLF/bare-\r line endings introduced by
    Windows core.autocrlf or stale editor settings.
-4. If tests were added/modified: `node --test` — report count delta
-   (e.g. "23 → 27 tests; all pass").
-5. For any .mjs files authored: `node -c <file>` exits 0.
-6. If template files were modified (anything under `template/`),
-   `npx -y github:henrik-me/agent-harness#v0.15.0 lint` must exit 0 — the lint aggregate includes the
-   templates linter (LRN-049/050/051: no dot-notation placeholders, no
-   relative-up paths, no self-referencing TODO/FIXME tokens in PR-template
-   files).
+
+<!-- harness:dispatch-language-self-checks -->
 
 ## Reporting independence (CS48 / issue #142)
 
@@ -1251,6 +1224,99 @@ missing fields explicitly listed.
     LEARNINGS CANDIDATES: (none) | <category>: <problem>: <finding>: <evidence>
     NEXT STEPS (if partial/blocked):
       - <what's needed to complete>
+```
+
+#### Language profiles
+
+The `## Conventions to follow` and `## Self-checks before reporting` sections
+inside the core fence above each end with an injection marker
+(`<!-- harness:dispatch-language-conventions -->` /
+`<!-- harness:dispatch-language-self-checks -->`). `harness dispatch` replaces
+each marker with the matching part of the language profile selected by
+`dispatch.language_profile` in `harness.config.json` (default `node`) or the
+`--language-profile <name>` override, so a non-Node consumer (e.g. a .NET
+project) no longer has to negate Node/ESM/npm conventions in every dispatch.
+Each profile below lives in its own ```text fence whose first content line is
+`## LANGUAGE PROFILE: <name>`, split by `<!-- harness:profile-self-checks -->`
+into a conventions part and a self-checks part. The language-agnostic core
+(preflight, file ownership, required reading, fail-closed, report shape) is
+emitted for every profile.
+
+```text
+## LANGUAGE PROFILE: node
+
+### conventions
+
+- ESM `.mjs` only, Node 20+ stdlib. No CommonJS `require()`, no `.cjs`
+  files, no npm dependencies unless explicitly authorized in this dispatch.
+
+- Fresh git worktrees/checkouts need their own `npm install` before running
+  dependency-backed harness linters; `node_modules` is gitignored and
+  per-checkout, not shared from the parent worktree.
+
+- `requireValue(args, i, flagName)` guard for every value-taking CLI flag
+  (LRN-040). Must verify args[i+1] exists AND reject tokens starting with
+  `-`, exiting code 2 + usage message. Bare `if (args[i+1])` silently
+  consumes the next flag as a value.
+
+- Schema is source of truth (LRN-039). Read `schemas/*.schema.json` BEFORE
+  writing any field access against harness.config.json, .harness-lock.json,
+  or any other structured config. Do not guess field names.
+
+- Stdout for success output; stderr for errors and warnings (LRN-044).
+  `--quiet` suppresses success stdout only. Errors always go to stderr.
+
+- Consumer-root-relative paths (LRN-050). Scripts run from the consumer's
+  cwd, not the harness source location. Never use `import.meta.url` or
+  `process.cwd()` to resolve consumer-repo files.
+
+<!-- harness:profile-self-checks -->
+
+### self-checks
+
+4. If tests were added/modified: `node --test` — report count delta
+   (e.g. "23 → 27 tests; all pass").
+5. For any .mjs files authored: `node -c <file>` exits 0.
+6. If template files were modified (anything under `template/`),
+   `npx -y github:henrik-me/agent-harness#v0.16.0 lint` must exit 0 — the lint aggregate includes the
+   templates linter (LRN-049/050/051: no dot-notation placeholders, no
+   relative-up paths, no self-referencing TODO/FIXME tokens in PR-template
+   files).
+```
+
+```text
+## LANGUAGE PROFILE: dotnet
+
+### conventions
+
+- C#/.NET 8+ on the .NET SDK toolchain. A new service or library owns its
+  `.csproj` together with its solution `.sln` entry and, once introduced,
+  `Directory.Packages.props` as a single ownership bundle, so the project
+  file, solution registration, and central-package pins move together
+  (issue #423 / the CS10 Aspire-service ownership finding).
+
+- NuGet central package management: declare each package version once in
+  `Directory.Packages.props` (`<PackageVersion Include="..." Version="..." />`)
+  and reference it from a `.csproj` with a version-less
+  `<PackageReference Include="..." />`. Do not pin versions per project.
+
+- Argument parsing, file layout, and tooling follow .NET/C# idioms rather
+  than the Node-profile equivalents; honor the project's established analyzer
+  settings (nullable reference types, warnings-as-errors) instead of
+  introducing new ones.
+
+- Fail-closed parsing still applies (agnostic doctrine restated for the .NET
+  toolchain): malformed JSON/config → a clear stderr error + non-zero exit,
+  never a silent default.
+
+<!-- harness:profile-self-checks -->
+
+### self-checks
+
+4. `dotnet build` — the affected projects/solution build with no errors.
+5. `dotnet test` — report the pass/fail count (e.g. "42 passed, 0 failed").
+6. `dotnet format --verify-no-changes` — formatting + whitespace conform
+   (non-zero exit if any file would be reformatted).
 ```
 
 ### Canonical reviewer preamble (CS35 C35-1)
@@ -1360,7 +1426,7 @@ The invocation (`--review-output`, `--round`, `--base`/`--head`,
 `--prev-head` for `Rn`, the `--repo`/`--pr`/`--reviewer-model` independence
 guard, and `--update-pr`), the validated predicates (Analyzed-HEAD line,
 per-file enumeration match, finding-row + verdict grammar), and the exit codes
-all live in `npx -y github:henrik-me/agent-harness#v0.15.0 review-output --help`. The aggregator
+all live in `npx -y github:henrik-me/agent-harness#v0.16.0 review-output --help`. The aggregator
 `harness pr-evidence` does NOT include this gate (per C40-8 — it requires the
 reviewer-output file, which is unavailable in CI); this is a standalone
 orchestrator-side step.
@@ -1504,7 +1570,7 @@ evidence updates.
 **What:** validate the target PR, refuse workboard-only or fork PRs, enforce the
 reviewer-model independence invariant, emit the manual MVP rubber-duck prompt,
 optionally trigger/poll Copilot, and idempotently update `## Review log` plus
-`## Model audit`. **How:** run `npx -y github:henrik-me/agent-harness#v0.15.0 review --help` for the full
+`## Model audit`. **How:** run `npx -y github:henrik-me/agent-harness#v0.16.0 review --help` for the full
 flag set (`--dry-run` to preview the round, `--no-poll` to dispatch only,
 `--rubber-duck-only` for local review without Copilot, `--copilot-only` for a
 Copilot retry after a valid local Go row exists, plus `--model` / `--round`) and
@@ -1536,11 +1602,11 @@ for the full transcript.
 
 ### Recommended invocation (CS41+):
 
-Run `npx -y github:henrik-me/agent-harness#v0.15.0 copilot-engage <pr-number>` to request the Copilot
+Run `npx -y github:henrik-me/agent-harness#v0.16.0 copilot-engage <pr-number>` to request the Copilot
 review and poll for a completed review at the PR head. **How:** the full flag
 set (`--repo`, auto-detected from the git remote when omitted; `--head`,
 `--no-poll`, `--poll-timeout`, `--submitted-after`, `--cache-dir`) and exit
-codes live in `npx -y github:henrik-me/agent-harness#v0.15.0 copilot-engage --help`. Key doctrine the
+codes live in `npx -y github:henrik-me/agent-harness#v0.16.0 copilot-engage --help`. Key doctrine the
 help encodes: by default the poll HEAD is the PR's GitHub `headRefOid` (not the
 local checkout, with a warning when they differ); the `--submitted-after` floor
 enforces the A5 ordering doctrine so a stale Copilot review predating the latest
@@ -1663,7 +1729,7 @@ two scripts would double the API spend without adding signal (per ADR4-3).
 ```sh
 PR_BODY=$(mktemp)
 gh pr view <num> --json body --jq .body > "$PR_BODY"
-npx -y github:henrik-me/agent-harness#v0.15.0 pr-evidence \
+npx -y github:henrik-me/agent-harness#v0.16.0 pr-evidence \
   --base "$(gh pr view <num> --json baseRefOid --jq .baseRefOid)" \
   --head "$(gh pr view <num> --json headRefOid --jq .headRefOid)" \
   --pr-body "$PR_BODY"
@@ -2371,7 +2437,7 @@ All file edits land on the `cs<NN>/content` branch:
 4. **Validate.** From the repo root:
 
    ```bash
-   npx -y github:henrik-me/agent-harness#v0.15.0 lint --quiet     # expect: 0 failed
+   npx -y github:henrik-me/agent-harness#v0.16.0 lint --quiet     # expect: 0 failed
    node --test tests/*.test.mjs        # expect: 0 failed
    ```
 
@@ -2508,7 +2574,7 @@ npm version <x.y.z> --no-git-tag-version
 #   then: sweep README pins v<prev> → v<x.y.z>
 
 # 4. Validate
-npx -y github:henrik-me/agent-harness#v0.15.0 lint --quiet
+npx -y github:henrik-me/agent-harness#v0.16.0 lint --quiet
 node --test tests/*.test.mjs
 
 # 5-7. Review + engage Copilot + merge
@@ -2721,7 +2787,7 @@ bypasses these helpers.
 
 ### Commit-trailer hook (`install-hooks`)
 
-`npx -y github:henrik-me/agent-harness#v0.15.0 install-hooks` installs an **opt-in** git `prepare-commit-msg`
+`npx -y github:henrik-me/agent-harness#v0.16.0 install-hooks` installs an **opt-in** git `prepare-commit-msg`
 hook (CS100, [#421](https://github.com/henrik-me/agent-harness/issues/421)) into
 the repository's active hooks directory. The hook appends the canonical
 `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>` trailer to
@@ -2730,7 +2796,7 @@ so the commit-trailers (B1) gate passes by construction and you no longer need t
 `git commit --amend` a `git merge` that integrates `main` into a long-running CS
 branch (the recurring LRN-018 friction).
 
-- **Opt-in only.** `npx -y github:henrik-me/agent-harness#v0.15.0 init` never installs the hook; it is written
+- **Opt-in only.** `npx -y github:henrik-me/agent-harness#v0.16.0 init` never installs the hook; it is written
   solely when you run `install-hooks` explicitly.
 - **Merge-safe placement.** The trailer is inserted **above** git's comment /
   scissors template (not at end-of-file), so it survives git's message cleanup on

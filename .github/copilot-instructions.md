@@ -53,8 +53,8 @@ and escalate — do not fix it in-band.
 JSON schemas in `schemas/` define the canonical shape of every harness
 artefact. If your deliverable conflicts with a schema, fix the deliverable,
 not the schema, unless the CS plan explicitly assigns you a schema change.
-Run `npx -y github:henrik-me/agent-harness#v0.15.0 sync --mode=check` (validates your config against the
-schema) and `npx -y github:henrik-me/agent-harness#v0.15.0 lint` to confirm conformance before reporting
+Run `npx -y github:henrik-me/agent-harness#v0.16.0 sync --mode=check` (validates your config against the
+schema) and `npx -y github:henrik-me/agent-harness#v0.16.0 lint` to confirm conformance before reporting
 back.
 
 ### 5 — Mandatory briefing preamble (orchestrator-side)
@@ -190,7 +190,7 @@ PR-body linting and any other harness-registered checks. If `harness` is not
 on the PATH, invoke it via:
 
 ```
-npx -y github:henrik-me/agent-harness#v0.15.0 lint
+npx -y github:henrik-me/agent-harness#v0.16.0 lint
 ```
 
 ---
