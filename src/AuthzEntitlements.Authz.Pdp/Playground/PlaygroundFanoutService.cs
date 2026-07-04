@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using AuthzEntitlements.Authz.Pdp.Contracts;
 using AuthzEntitlements.Authz.Pdp.Providers;
+using Microsoft.Extensions.Logging;
 
 namespace AuthzEntitlements.Authz.Pdp.Playground;
 
@@ -17,9 +18,20 @@ public sealed class PlaygroundFanoutService
     // "ProviderUnavailable" and "EngineUnavailable" classify as unavailable.
     private const string UnavailableMarker = "unavailable";
 
-    private readonly AuthorizationDecisionProviderFactory _factory;
+    // Sanitized, caller-facing message used when a provider throws. The real exception (which may
+    // carry internal/sensitive detail) is logged server-side, never returned to the anonymous
+    // fan-out caller.
+    private const string EngineThrewMessage = "The engine threw an unexpected error during evaluation.";
 
-    public PlaygroundFanoutService(AuthorizationDecisionProviderFactory factory) => _factory = factory;
+    private readonly AuthorizationDecisionProviderFactory _factory;
+    private readonly ILogger<PlaygroundFanoutService> _logger;
+
+    public PlaygroundFanoutService(
+        AuthorizationDecisionProviderFactory factory, ILogger<PlaygroundFanoutService> logger)
+    {
+        _factory = factory;
+        _logger = logger;
+    }
 
     // Fan out one request across the given engines (or every registered provider when none are named)
     // and return the per-engine results plus the cross-engine agreement verdict. Each engine is asked
@@ -74,9 +86,12 @@ public sealed class PlaygroundFanoutService
         }
         catch (Exception ex)
         {
+            // Log the real exception server-side; return only a sanitized message to the caller
+            // (the fan-out endpoint is anonymous, so the message must not leak internal detail).
+            _logger.LogWarning(ex, "Playground fan-out: engine {Engine} threw during evaluation.", provider.Name);
             var latencyOnThrow = Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
-            var denied = AccessDecision.Deny(new Reason("ProviderUnavailable", ex.Message));
-            return Result(provider.Name, denied, latencyOnThrow, available: false, unavailableReason: ex.Message);
+            var denied = AccessDecision.Deny(new Reason("ProviderUnavailable", EngineThrewMessage));
+            return Result(provider.Name, denied, latencyOnThrow, available: false, unavailableReason: EngineThrewMessage);
         }
 
         var latencyMs = Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;

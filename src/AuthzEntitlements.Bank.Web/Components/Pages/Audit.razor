@@ -2,7 +2,6 @@
 @attribute [Authorize]
 @rendermode RenderMode.InteractiveServer
 @inject IAuditClient AuditApi
-@inject NavigationManager Navigation
 
 @* Audit Explorer (CS15): filter/search the tamper-evident decision log, show live hash-chain
    verification, and "replay" any entry by opening it in the Playground pre-filled with the captured
@@ -21,8 +20,8 @@
 <div class="notice" role="group" aria-label="Chain verification">
     @if (_verification is null && _verified)
     {
-        <p role="alert">Chain verification unavailable — the audit service did not respond
-            (fail-closed).</p>
+        <p role="alert">Chain verification failed (fail-closed) — the audit service is
+            unreachable or rejected the request; the chain could not be confirmed.</p>
     }
     else if (_verification is { } verification)
     {
@@ -172,7 +171,8 @@
             _entries = await AuditApi.GetEntriesAsync(query);
             if (_entries is null)
             {
-                _error = "Audit service unavailable — the query failed (fail-closed).";
+                _error = "Audit query failed (fail-closed) — the audit service is unreachable or " +
+                    "rejected the request.";
             }
         }
         finally

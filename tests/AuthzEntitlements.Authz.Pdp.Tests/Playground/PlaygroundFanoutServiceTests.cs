@@ -1,6 +1,7 @@
 using AuthzEntitlements.Authz.Pdp.Contracts;
 using AuthzEntitlements.Authz.Pdp.Playground;
 using AuthzEntitlements.Authz.Pdp.Providers;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace AuthzEntitlements.Authz.Pdp.Tests.Playground;
@@ -13,7 +14,7 @@ namespace AuthzEntitlements.Authz.Pdp.Tests.Playground;
 public sealed class PlaygroundFanoutServiceTests
 {
     private static PlaygroundFanoutService Service(AuthorizationDecisionProviderFactory factory) =>
-        new(factory);
+        new(factory, NullLogger<PlaygroundFanoutService>.Instance);
 
     private static PlaygroundFanoutService RbacService() =>
         Service(LifecycleTestSupport.RbacFactory());
@@ -232,7 +233,9 @@ public sealed class PlaygroundFanoutServiceTests
         Assert.False(thrown.Available);
         Assert.Equal(Decision.Deny, thrown.Decision);
         Assert.Equal("ProviderUnavailable", thrown.Reasons[0].Code);
-        Assert.Equal("boom!", thrown.UnavailableReason);
+        // The raw exception message ("boom!") is NOT leaked to the caller; a sanitized message is used.
+        Assert.Equal("The engine threw an unexpected error during evaluation.", thrown.UnavailableReason);
+        Assert.DoesNotContain("boom!", thrown.UnavailableReason);
         Assert.NotNull(thrown.Explanation);
 
         // The other engines answered normally and still agree among themselves.

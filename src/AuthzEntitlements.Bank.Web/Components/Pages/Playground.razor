@@ -309,8 +309,8 @@
             _response = await Pdp.FanoutAsync(request);
             if (_response is null)
             {
-                _error = "PDP unavailable — the fan-out request failed (fail-closed). " +
-                    "Check that authz-pdp is running and the request is valid.";
+                _error = "Fan-out failed (fail-closed) — authz-pdp is unreachable, or it rejected " +
+                    "the request as invalid. Check the request fields and that authz-pdp is running.";
             }
         }
         finally
