@@ -713,6 +713,46 @@ tags: [ci, testing, posture, process]
 - Maintainer decision pending: adopt a scoped `.NET` policy-tests workflow, or keep the local-gate posture? Until decided, CS17's gate is the local `dotnet test` suite.
 - Future eval/testing CSs (CS23/CS24) that mention "CI" should resolve this posture first.
 
+### LRN-036
+
+```yaml
+id: LRN-036
+date: 2026-07-04
+category: process
+source_cs: CS13
+status: open
+tags: [ci, merge, dotnet, process, main-green]
+```
+
+**Problem:** CS13 and CS16 were developed + merged concurrently. Both touched the `PdpDecisionAuditEvent` record — CS16 added three REQUIRED fields (`DeterminingRule`/`PolicyReferences`/`Narrative`); CS13 added a test that constructs the event. Each PR was green on its own branch and GitHub reported the CS13 PR MERGEABLE, but the two changes are a **semantic merge conflict**: they merge cleanly as text yet the combined `main` did not compile (`CS7036`). Because the harness CI runs process-gates-only and does NOT build/test .NET (LRN-035), no gate caught it — `main` went red on merge and stayed red until a manual local build revealed it.
+
+**Finding:** After merging into a `main` that received other PRs concurrently, ALWAYS `dotnet build`/`dotnet test` the combined tree locally before considering the CS done — a clean text-merge does not imply a clean compile. This is a concrete, high-cost consequence of the LRN-035 open question. Fixed by hotfix PR #60 (a one-line test-constructor update). Strengthens the case for a `.NET build/test` CI step or a GitHub merge-queue so two independently-green PRs cannot red `main`.
+
+**Evidence:** PR #57 (CS13) + PR #56 (CS16) → red `main` at `6729082` (`HttpForwardingAuditSinkTests.cs` CS7036: missing `DeterminingRule`); hotfix PR #60 (`d75d6ea`) restored `dotnet build` 0/0 + 667/667. Cross-ref LRN-035 (CI posture).
+
+**Implications carried forward:**
+- Weekly harvest should disposition LRN-035 + LRN-036 together: decide on a `.NET` build/test CI gate or merge-queue vs. the current local-gate posture. Until then, orchestrators MUST locally build/test the merged `main` post-merge.
+
+### LRN-037
+
+```yaml
+id: LRN-037
+date: 2026-07-04
+category: tooling
+source_cs: CS13
+status: open
+tags: [dotnet, channels, concurrency, testing]
+```
+
+**Problem:** The PDP audit-forwarding sink hands each decision to a bounded `Channel<T>` via the non-blocking `ChannelWriter.TryWrite` and must COUNT dropped events (a backpressure signal) without ever blocking the decision hot path. The intuitive `BoundedChannelFullMode.DropWrite` did not work for this.
+
+**Finding:** With `BoundedChannelFullMode.DropWrite`, `TryWrite` ALWAYS returns `true` and drops silently inside the channel, so the writer cannot observe or count drops. Use `BoundedChannelFullMode.Wait` instead: `TryWrite` still never blocks (only `WriteAsync` would await), but it returns `false` when the buffer is full, giving the sink an observable, countable drop. Verified empirically: DropWrite → first=true, second=true; Wait → first=true, second=false.
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Audit/PdpAuditSinkServiceCollectionExtensions.cs` (FullMode=Wait) + `HttpForwardingPdpDecisionAuditSink.cs` (TryWrite → dropped counter); `HttpForwardingAuditSinkTests` drop-count test; CS13 review-fix `cs13-fix` finding.
+
+**Implications carried forward:**
+- Any future non-blocking, drop-counting channel producer should use `FullMode=Wait` + `TryWrite`, not `DropWrite`.
+
 ## Applied
 
 _(no entries yet)_
