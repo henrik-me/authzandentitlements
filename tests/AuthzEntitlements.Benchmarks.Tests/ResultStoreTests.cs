@@ -89,6 +89,15 @@ public sealed class ResultStoreTests : IDisposable
         Assert.Throws<BenchmarkDataException>(() => ResultStore.Parse("null", "in-memory"));
     }
 
+    [Fact]
+    public void Parse_UnsupportedSchemaVersion_FailsClosed()
+    {
+        var json = $$"""{"schemaVersion": {{BenchmarkRun.CurrentSchemaVersion + 1}}, "engines": []}""";
+
+        var ex = Assert.Throws<BenchmarkDataException>(() => ResultStore.Parse(json, "in-memory"));
+        Assert.Contains("schemaVersion", ex.Message);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDir))

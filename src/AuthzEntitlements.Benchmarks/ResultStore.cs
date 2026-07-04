@@ -76,9 +76,23 @@ public static class ResultStore
                 $"Benchmark data from '{source}' is not valid JSON: {ex.Message}", ex);
         }
 
-        return run
-            ?? throw new BenchmarkDataException(
+        if (run is null)
+        {
+            throw new BenchmarkDataException(
                 $"Benchmark data from '{source}' deserialized to null.");
+        }
+
+        // Fail closed on an incompatible schema: System.Text.Json silently ignores unknown fields and
+        // defaults missing ones, so a newer/broken artifact would otherwise be compared as nonsense
+        // instead of rejected.
+        if (run.SchemaVersion != BenchmarkRun.CurrentSchemaVersion)
+        {
+            throw new BenchmarkDataException(
+                $"Benchmark data from '{source}' has unsupported schemaVersion {run.SchemaVersion} " +
+                $"(expected {BenchmarkRun.CurrentSchemaVersion}).");
+        }
+
+        return run;
     }
 
     // Best-effort short git SHA of the current HEAD. Returns "unknown" when git is unavailable or
