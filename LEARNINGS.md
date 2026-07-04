@@ -835,6 +835,128 @@ tags: [dotnet, channels, concurrency, testing]
 **Implications carried forward:**
 - Any future non-blocking, drop-counting channel producer should use `FullMode=Wait` + `TryWrite`, not `DropWrite`.
 
+### LRN-042
+
+```yaml
+id: LRN-042
+date: 2026-07-04
+category: process
+source_cs: CS18
+status: open
+tags: [docs, citations, review, multi-agent, dotnet]
+```
+
+**Problem:** CS18 paired a code change (JWT `TokenValidationParameters` hardening) with docs that cite that same code by `file:line` (`docs/security/threat-model.md`, `secrets-and-least-privilege.md`). Adding lines to `AuthenticationSetup.cs` / `GatewayAuthenticationSetup.cs` shifted every citation below the insertion point, so the docs' `file:line` references silently pointed at the wrong lines — and it happened **twice** (the initial hardening, then again in the Copilot fix-round that added `ValidateIssuerSigningKey`).
+
+**Finding:** When a CS ships a code change AND docs that cite that code by `file:line`, the citations WILL drift each time the code shifts. Mitigations: (1) have doc sub-agents cite the NEW-code control by **file + narrative** (not exact line numbers) when a sibling/fix-round is concurrently editing that file, and reserve `file:line` for stable, unchanged code; (2) at integration time AND after every review-fix round, `grep` the docs for citations to any changed file and re-verify each `file:line` by opening the target — treat citation drift as a mandatory re-verify step, not a one-time check; (3) the independent rubber-duck reviewer must spot-check that cited `file:line` references resolve (REVIEWS.md § 2.6a), which caught nothing here only because the orchestrator re-fixed them pre-review.
+
+**Evidence:** In this session, `AuthenticationSetup.cs` `RequireHttpsMetadata`/`TokenValidationParameters`/`RoleClaimType` lines moved 108→115, 110-119→117-134, 117-118→132-133 across two edits; `docs/security/threat-model.md` citations at lines 129/132/198/209 and `secrets-and-least-privilege.md:102` were re-pointed twice to stay accurate.
+
+**Implications carried forward:**
+- Any docs+code CS: re-grep + re-verify every `file:line` citation to a changed file at integration and after each fix-round; prefer file+narrative for lines a concurrent agent is still moving.
+
+### LRN-043
+
+```yaml
+id: LRN-043
+date: 2026-07-04
+category: process
+source_cs: CS18
+status: open
+tags: [recon, verification, multi-agent, citations]
+```
+
+**Problem:** The CS18 orchestrator ran a fast/cheap recon agent (gpt-5.4-mini) to map the security surface and threaded its findings into the sub-agent briefings. One finding was **wrong**: it claimed `Bank.Api` is externally exposed via `WithExternalHttpEndpoints()`. A doc implementer (claude-opus-4.8) caught it by opening `AppHost.cs` and confirming Bank.Api has NO external endpoint (only Grafana, edge-gateway, and bank-web do) — the more-secure, already-internal posture.
+
+**Finding:** Recon produced by a fast/inexpensive model can contain confident factual errors. Every downstream agent (and the orchestrator) MUST verify each **current-state claim against source before citing it** — even claims the orchestrator itself provided in the briefing. Brief sub-agents explicitly that recon line numbers/claims are *approximate and unverified*, and that their job includes source-verification; a "briefing correction" note in the deliverable (as the secrets doc did) is the correct outcome, not silent propagation.
+
+**Evidence:** `secrets-lp` sub-agent report + `docs/security/secrets-and-least-privilege.md` "Note — Bank.Api exposure (briefing correction)": `WithExternalHttpEndpoints` appears only at `AppHost.cs:37,:142,:151` (Grafana/edge-gateway/bank-web), NOT on `bank-api` at `AppHost.cs:115-124`.
+
+**Implications carried forward:**
+- Treat recon (especially from a cheap model) as a lead, not a fact. Sub-agent briefings must instruct: verify every current-state claim against source before citing; surface corrections in the report.
+
+### LRN-044
+
+```yaml
+id: LRN-044
+date: 2026-07-04
+category: architectural
+source_cs: CS20
+status: open
+tags: [rebac, openfga, rbac, translation, fail-closed]
+```
+
+**Problem:** CS20's RBAC→ReBAC translator had to decide what an RBAC policy can *faithfully* become in ReBAC, and what constraints a mechanically-generated OpenFGA model must satisfy to be valid.
+
+**Finding:** (1) The "roles as usersets" translation faithfully carries ONLY the pure **role→permission** dimension; contextual/ABAC gates (scope, tenant, subject==maker, pending status, the maker-checker threshold, SoD) are structurally outside the RBAC projection and must stay with the ABAC engines (reference/Cedar/OPA) or be modeled as ReBAC contextual/relationship tuples — never smuggled into the flat role→permission matrix (`bank.account.read` is scope-gated, so it is intentionally absent from the permission set). (2) OpenFGA relation identifiers must match `^[a-z][a-z0-9_]{0,62}$` (start with a lowercase letter, `[a-z0-9_]`, max 63); a mechanical translator must **fail closed** — reject any permission that sanitizes to a leading digit/underscore, empty, or >63 chars — rather than emit an invalid model. The **Copilot** review (not the GPT-5.5 rounds) caught the initial sanitizer using the wrong limit (50) and allowing invalid leading chars; verify engine-identifier rules against the engine's own model-syntax docs.
+
+**Evidence:** PR #71 (`a57475e`); `RbacToRebacTranslator.Sanitize` regex `^[a-z][a-z0-9_]{0,62}$` + `MaxRelationLength=63`; the in-process `TranslatedRebacGraph.Check` parity resolver proving translated-ReBAC == RBAC across the full user×permission grid with no live OpenFGA server; OpenFGA authorization-model-syntax identifier rules.
+
+**Implications carried forward:**
+- CS26 (expansion engines) / any ReBAC-model work: reuse the roles-as-usersets pattern + the `^[a-z][a-z0-9_]{0,62}$` fail-closed relation rule; keep ABAC/context out of the RBAC projection.
+- **Open follow-up:** `RbacPolicy.Create` validates cross-references but not that its `roles`/`permissions` lists are non-empty and distinct (Copilot R3, non-blocking); harden it fail-closed when the migration surface is next touched.
+
+### LRN-045
+
+```yaml
+id: LRN-045
+date: 2026-07-04
+category: process
+source_cs: CS20
+status: open
+tags: [ci, copilot, review-gates, github-actions]
+```
+
+**Problem:** The CS20 content PR's `read-only-gates` job kept failing on the A5+A16 Copilot gate even after Copilot had reviewed an earlier HEAD, and the `pull_request_review`-triggered re-run did not clear it automatically.
+
+**Finding:** The A5+A16 gate requires a Copilot review whose commit == the **current PR HEAD**; every new commit (including review-fix commits) needs Copilot to **re-review the new HEAD** — re-request via `gh api --method POST repos/<o>/<r>/pulls/<n>/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"`. The auto re-run of `pr-evidence-lint` triggered by Copilot's review submission lands in **`action_required`** status (bot-triggered workflow runs need approval on this repo) and will NOT self-clear; once Copilot's current-HEAD review exists, re-run the previously-failed job (`gh run rerun <id> --failed`) or approve the pending run. Copilot re-scans the whole diff on every engage and re-emits its full comment set (REVIEWS.md § 2.4.3) — resolve those re-raises with a disposition, don't re-fix.
+
+**Evidence:** PR #71 — Copilot reviewed `3f3952b` twice (9 comments) but not the later HEADs; A5+A16 failed at `bccb868` until Copilot was re-requested (reviewed `bccb868` @ 05:39:55Z) and run `28696430589` was re-run `--failed`; the review-triggered run `28696547030` sat in `action_required`.
+
+**Implications carried forward:**
+- Every .NET content-PR (CS22/CS24/CS14/CS15…): after the final fix commit, re-request Copilot at the merge HEAD, then re-run the failed `read-only-gates` job once Copilot's current-HEAD review lands; expect the review-triggered re-run to need a manual nudge.
+
+### LRN-046
+
+```yaml
+id: LRN-046
+date: 2026-07-04
+category: tooling
+source_cs: CS24
+status: open
+tags: [dotnet, system-text-json, framework-reference, build]
+```
+
+**Problem:** Two .NET build/runtime gotchas surfaced building CS24's benchmark project (a plain `Microsoft.NET.Sdk` console/test project referencing the ASP.NET-Core `Authz.Pdp` project, and freezing a shared `JsonSerializerOptions`).
+
+**Finding:** (1) `JsonSerializerOptions.MakeReadOnly()` (parameterless) throws `InvalidOperationException: ... must specify a TypeInfoResolver ... before being marked as read-only` for the default reflection-based serializer; use the `MakeReadOnly(populateMissingResolver: true)` overload to populate the default reflection resolver **and** freeze the instance (freezing is worth doing — a shared mutable `JsonSerializerOptions` that defines an on-disk contract is a footgun). (2) `<FrameworkReference Include="Microsoft.AspNetCore.App" />` does **not** transitively propagate from a referenced `Microsoft.NET.Sdk.Web` project to a plain console/test `Microsoft.NET.Sdk` project; any project that transitively touches ASP.NET-Core types (e.g. constructs the `aspnet` engine adapter) must declare the `FrameworkReference` itself.
+
+**Evidence:** CS24 PR #75 — the benchmark console + test csproj each needed `<FrameworkReference Include="Microsoft.AspNetCore.App" />`; `BenchmarkJson.Options` failed at type-init with the bare `MakeReadOnly()` (`ResultStoreTests` → `TypeInitializationException`) until switched to `MakeReadOnly(populateMissingResolver: true)`.
+
+**Implications carried forward:**
+- Any new non-Web .NET project referencing a `Sdk.Web` src project: add the `FrameworkReference` up front (matches the CS-tests convention).
+- Freeze reflection-based shared `JsonSerializerOptions` with `MakeReadOnly(populateMissingResolver: true)`.
+
+### LRN-047
+
+```yaml
+id: LRN-047
+date: 2026-07-04
+category: process
+source_cs: CS24
+status: open
+tags: [review, copilot, dotnet, fail-closed, robustness]
+```
+
+**Problem:** CS24's new .NET benchmark CLI passed a full-diff GPT-5.5 rubber-duck review (Go, no findings), but Copilot then surfaced a distinct legitimate robustness issue on each of 6 consecutive rounds.
+
+**Finding:** For new .NET tool/CLI/parsing code, budget multiple Copilot rounds and expect Copilot to systematically catch **fail-closed / resource-cleanliness** gaps the rubber-duck misses: a subprocess `ReadToEnd`-before-`WaitForExit` hang, silently-accepted duplicate inputs (`--engines`, duplicate baseline keys), missing `schemaVersion` validation on deserialize, an uncancelled/unobserved async connect on a timeout probe, a mutable shared `JsonSerializerOptions`, and unvalidated numeric arguments. Each was a real hardening — treat "one Copilot finding per round" as convergence-in-progress, not noise (cf. LRN-031/024). Decline only with an explicit on-thread rationale (e.g. the leading-`-` value guard is intentional per LRN-040).
+
+**Evidence:** CS24 PR #75 — 6 Copilot rounds (`fa0dd95`→`93408c8`), one valid fail-closed/robustness finding each, all fixed with tests (benchmark tests 46→52); the GPT-5.5 full-diff review found none of them.
+
+**Implications carried forward:**
+- CS22/CS15 and any new .NET CLI/tool code: pre-empt these classes (bounded subprocesses, dedupe inputs, validate schema + numeric args, cancel/await async probes, freeze shared config) before first review to cut Copilot rounds.
+
 ## Applied
 
 _(no entries yet)_

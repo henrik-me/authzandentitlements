@@ -220,11 +220,46 @@ the `push`→`main` run detects such breaks reactively. Verified **live**: `buil
 review (Go-with-amendments) + content rubber-duck (Go, 2 Copilot rounds) + plan-vs-impl GO. LRN-035 updated (core gap
 addressed; enforcement residual kept open).
 
-**Next claimable:** with **CS11, CS13, CS16, and CS17 DONE**,
-the ready-and-unowned queue includes **CS18** (security hardening; needs CS04+CS05),
-**CS20** (migration & portability; needs CS05–CS08), and **CS24** (perf benchmark; needs engines + CS12). **All five engine adapters
-plus the unified explanation model are DONE**; CS11 completion advances **CS14** (Blazor product UI; needs CS03/CS04/CS06/CS10/CS11) and
-**CS22** (compliance mapping; needs CS11+CS12+CS13). `harness lint` is green; the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
+**CS18 (security hardening + threat model) complete** (PR #69, squash-merged 2026-07-04 as `8fb4106`). A STRIDE threat
+model for the authorization system itself: `docs/security/threat-model.md` maps 10 trust boundaries and every STRIDE
+category to its **shipped, `file:line`-cited** control, residual risk, and tracked follow-on — covering the four
+called-out threats (token replay/forgery, confused-deputy, tuple/policy tampering, fail-closed-on-PDP-outage). Recon
+confirmed the posture was **already strong** (issuer/audience/signature/lifetime token validation, `MapInboundClaims=false`,
+HTTPS-metadata-outside-Dev; maker/checker/tenant bound to the token or the trusted resource row, never caller input;
+fail-closed-on-outage across every PDP engine + entitlements + governance SoD — all built+tested in CS03–CS11), so CS18 is
+predominantly **threat-model + verification + targeted hardening**. Hardening: both JWT setups (`AuthenticationSetup.cs`,
+`GatewayAuthenticationSetup.cs`) gain an explicit tightened `ClockSkew` (30s, from the 5-min default) + `RequireExpirationTime`
++ `RequireSignedTokens` + `ValidateIssuerSigningKey`, with new offline token-security tests (config assertions + functional
+expired/tampered/wrong-aud/wrong-iss/missing-exp rejection) in both test projects. `docs/security/secrets-and-least-privilege.md`
+inventories the dev-only committed secrets (all confirmed dev-only; the Postgres password is an Aspire parameter), a
+least-privilege review, and a production hardening checklist. Engine tuple/policy **cryptographic signing** is a tracked
+follow-on (R1 plan-review amendment — drift detection ≠ signature). `dotnet build` 0/0; full solution `dotnet test`
+**784/784**; `build-test` CI green. GPT-5.5 rubber-duck R1+R2 (Go) + Copilot (4 comments → explicit `ValidateIssuerSigningKey`
++ test hygiene, all addressed) + plan-vs-impl GO. New learnings LRN-042..043.
+
+**CS20 (migration & portability — extensibility) complete** (PR #71, squash-merged 2026-07-04 as `a57475e`). Demonstrates
+engine extensibility on the existing seams as a **library + tests + docs** change (no new HTTP surface): (D1) a config-driven
+engine swap needs **no app-code change** — one unchanged `DecideVia` call site routes to `reference`/`casbin`/`cedar`/`aspnet`
+purely by `Pdp:Provider` (CS05 `AuthorizationDecisionProviderFactory`); (D2) a new `AuthzEntitlements.Authz.Pdp.Migration`
+**RBAC→ReBAC translator** mechanically converts an RBAC policy (`RbacPolicy`/`FintechRbacPolicy`, grant matrix mirroring
+`ReferenceDecisionProvider`'s role eligibility) into an OpenFGA schema-1.1 "roles as usersets" model + `RebacTuple`s
+(`RbacToRebacTranslator` → `TranslatedRebacGraph`), with an **in-process `Check` parity resolver** proving translated-ReBAC ==
+RBAC across the full user×permission grid — **no live OpenFGA server**; the relation-name sanitizer is **fail-closed to the
+OpenFGA identifier rule** `^[a-z][a-z0-9_]{0,62}$`; and (D3) a **dual-run/shadow parity gate** (CS17 `ShadowRunner.RunCatalog`)
+proves `reference` vs `casbin`/`cedar`/`aspnet` = zero divergences (plus a non-vacuous divergence-caught test). Docs at
+`docs/authz/migration-and-portability.md` + `docs/authz/adding-an-engine-adapter.md`. Only the pure role→permission dimension
+translates; contextual/ABAC gates stay with the ABAC engines (documented). `dotnet build` 0/0, PDP `dotnet test` 512→**544**,
+`build-test` CI green, `harness lint` 22/0. GPT-5.5 rubber-duck R1–R4 (Go) + 3 Copilot rounds (OpenFGA relation-rule
+correctness + nits, all resolved) + plan-vs-impl GO. New learnings LRN-044..045.
+
+**CS24 (performance benchmark + tracking) complete** (PR #75, squash-merged 2026-07-04 as `b8c2720`). A new zero-dependency `AuthzEntitlements.Benchmarks` console + test project measures PDP authorization latency by running the shared `FintechScenarioCatalog` through each engine and timing every `Evaluate` allocation-free (`Stopwatch.GetTimestamp`/`GetElapsedTime`): in-process `reference`/`aspnet`/`casbin`/`cedar` are measured; live `opa`/`openfga` **probe-and-self-skip** offline (cancellation-bounded TCP probe — no Docker on the default path). `LatencyStatistics` computes cold + warm **p50/p95/p99** + throughput (nearest-rank); `ResultStore` persists runs as camelCase JSON and is **fail-closed** (malformed/empty/null/unsupported-`schemaVersion`; timeout-bounded git-sha capture); `RegressionDetector` flags warm-p95 regressions vs a committed baseline (25% relative **and** 0.10 ms absolute floor) and `--check` exits non-zero to alert. For live trend tracking, an **append-only `pdp.evaluate.duration` histogram** was added to `PdpTelemetry` + recorded in `PdpDecisionService` (behavior preserved), visualized by a new Grafana `infra/observability/grafana/dashboards/pdp-performance.json` (p50/p95/p99 via `histogram_quantile` + decision throughput). Doc at `docs/eval/performance-benchmarks.md`. `dotnet build` 0/0; full solution `dotnet test` **868/868** (Benchmarks.Tests 52). GPT-5.5 rubber-duck (full-diff Go) + **6 Copilot rounds** — each a real fail-closed/robustness hardening (subprocess hang, dup-engine/dup-baseline, `schemaVersion` validation, probe-cancel, frozen `JsonSerializerOptions` + non-negative tolerance) all resolved — + plan-vs-impl GO. Plan D2 "caching" was scoped to the cold/warm split (not explicit cache hit/miss — documented divergence; test-coverage follow-ups noted). New learnings LRN-046..047.
+
+**Next claimable:** with **CS11, CS13, CS16, CS17, CS18, CS20, CS24, and CS28 DONE** — and **CS14** (Blazor product UI) now
+**active** under another orchestrator — the ready-and-unowned queue includes **CS22**
+(compliance mapping; needs CS11+CS12+CS13) and **CS15** (playground + audit explorer; needs engines + CS13). CS24 done does not
+yet unblock CS23 (still needs CS15) or CS25 (still needs CS23). All five engine
+adapters + the unified explanation model are DONE; `harness lint` is green and the remaining CSs carry an independent GPT-5.5
+`## Plan review` attestation.
 
 ## Constraints
 

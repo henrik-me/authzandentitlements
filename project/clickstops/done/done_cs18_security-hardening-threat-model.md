@@ -1,10 +1,10 @@
 # CS18 — Security hardening + threat model
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae
 **Branch:** cs18/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
 **Depends on:** CS04, CS05
@@ -60,4 +60,16 @@ Threat-model and harden the authorization system itself (high-risk).
 
 ## Plan-vs-implementation review
 
-_Pending — completed at close-out per OPERATIONS.md § Plan-vs-implementation review (close-out gate). The GO/NEEDS-FIX outcome is recorded here before the active → done rename._
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T05:12:00Z
+**Outcome:** GO
+
+Independent plan-vs-implementation review against the merged content (commit `8fb4106`, PR #69).
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| STRIDE threat-model doc | match | `docs/security/threat-model.md` defines assets, 10 trust boundaries, full STRIDE sections, cited+verified controls, residual risks, and follow-ons. |
+| Mitigations: tuple/policy tampering, confused-deputy, token replay/forgery | match | Tuple/policy tampering covered as residual risk + tracked follow-on (R1 amendment); confused-deputy documented (token/resource-row binding); token replay/forgery documented AND hardened in both JWT setups (30s ClockSkew, RequireExpirationTime, RequireSignedTokens, ValidateIssuerSigningKey). |
+| Fail-closed defaults on PDP outage; secrets management; least-privilege review | match | Fail-closed documented + backed by existing PDP/entitlements/governance tests; `docs/security/secrets-and-least-privilege.md` provides a secrets inventory, dev/prod handling guidance, least-privilege review, and hardening checklist. |
+
+**Test-coverage:** sufficient — new Bank.Api + Edge.Gateway token-security tests assert the hardened JWT config and functionally reject expired / tampered / wrong-audience / wrong-issuer / missing-exp / old-default-skew tokens while accepting a valid token; existing tests cover fail-closed PDP adapter, entitlements-outage, and governance SoD/PDP-outage behavior. No material CS18 coverage gaps. Full solution 784/784.
