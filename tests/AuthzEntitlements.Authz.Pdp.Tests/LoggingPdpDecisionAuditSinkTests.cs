@@ -83,6 +83,6 @@ public sealed class LoggingPdpDecisionAuditSinkTests
         Assert.Contains(
             entry.State,
             kv => kv.Key == "PolicyReferences"
-                && (string?)kv.Value == "cedar-policy:approval.MakerEqualsChecker, reason-code:MakerEqualsChecker");
+                && (string?)kv.Value == "cedar-policy:approval.MakerEqualsChecker | reason-code:MakerEqualsChecker");
     }
 }

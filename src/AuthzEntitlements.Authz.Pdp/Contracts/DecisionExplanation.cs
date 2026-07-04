@@ -15,7 +15,9 @@ public sealed record DecisionExplanation(
 public sealed record PolicyReference(string Kind, string Reference, string? Detail = null);
 
 // The normalized, engine-agnostic determining-rule vocabulary. Every engine maps its decision
-// onto exactly one of these so explanations compare across engines (derived from the reason code).
+// onto exactly one of these so explanations compare across engines. DecisionExplanations.RuleForReason
+// gives the default mapping from a reason code; an engine MAY set a richer value directly (e.g. OpenFGA
+// uses Relationship for a permit whose reason code is Permit).
 public static class DeterminingRules
 {
     public const string AllRulesSatisfied = "all-rules-satisfied";     // Permit
@@ -34,7 +36,7 @@ public static class DeterminingRules
 public static class PolicyReferenceKinds
 {
     public const string ReasonCode = "reason-code";                 // baseline (no engine enrichment)
-    public const string Rule = "rule";                              // reference-engine pipeline rule
+    public const string Rule = "rule";                              // normalized pipeline rule (reference + shared FintechRuleEvaluator ABAC checks)
     public const string RegoRule = "rego-rule";                     // OPA
     public const string CedarPolicy = "cedar-policy";               // Cedar policy id
     public const string CasbinRule = "casbin-rule";                 // Casbin matched policy line

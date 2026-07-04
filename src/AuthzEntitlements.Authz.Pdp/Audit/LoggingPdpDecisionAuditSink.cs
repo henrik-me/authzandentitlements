@@ -21,7 +21,7 @@ public sealed class LoggingPdpDecisionAuditSink(ILogger<LoggingPdpDecisionAuditS
             decisionEvent.SubjectId,
             decisionEvent.Tenant,
             decisionEvent.DeterminingRule,
-            string.Join(", ", decisionEvent.PolicyReferences),
+            string.Join(" | ", decisionEvent.PolicyReferences),
             decisionEvent.Narrative,
             decisionEvent.TraceId,
             decisionEvent.TimestampUtc);
