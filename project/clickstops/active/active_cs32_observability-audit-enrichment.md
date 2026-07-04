@@ -60,12 +60,12 @@ None — but note that the 500 may be an Aspire/RC environmental issue not fully
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Triage/repro the aspire-run empty-body 500 | pending | — | Full `aspire run` with collector ready (WaitFor(observability)); fix or document root cause (LRN-014) |
-| Edge-denial event RouteId/RequiredScope enrichment | pending | — | Capture matched route metadata pre-short-circuit (not IReverseProxyFeature, unset on short-circuit) (LRN-013) |
-| Uniform non-authz (404/405) audit skip | pending | — | Both GatewayAuditMiddleware + BankAuthorizationAuditMiddleware skip unmatched 404 / method-mismatch 405 (LRN-013) |
-| Tests | pending | — | 401/403 edge-deny carry route/scope; 404/405 not audited on either gate |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, feature docs so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | Flip LRN-014/013 to applied; file/disposition learnings; open follow-up CSs for unresolved issues |
+| Triage/repro the aspire-run empty-body 500 | done | yoga-ae-c3 | Documented root cause (non-reproducible early-RC; OTLP request-path isolated; all 7 svcs WaitFor) + runbook; AppHost unchanged (LRN-014) |
+| Edge-denial event RouteId/RequiredScope enrichment | done | yoga-ae-c3 | feature→endpoint-RouteModel fallback; 401/403 denies carry route/scope (LRN-013) |
+| Uniform non-authz (404/405) audit skip | done | yoga-ae-c3 | Both gates skip unmatched-404 + method-mismatch-405 (LRN-013) |
+| Tests | done | yoga-ae-c3 | Edge 81, Bank.Api 95; enrichment + skip tests on both gates |
+| Close-out: docs + restart state | done | yoga-ae-c3 | CONTEXT.md updated; docs/observability/aspire-run-500-triage.md + docs/authz/audit-enrichment-and-skip-contract.md |
+| Close-out: learnings + follow-ups | done | yoga-ae-c3 | LRN-013/014 flipped to applied; doc-link-hygiene follow-up noted |
 
 ## Notes / Learnings
 
@@ -82,4 +82,19 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T21:22:45Z
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| Aspire-run empty-body 500 root-cause note or fix | match | Documented-divergence: no AppHost change; OTLP exporter request-path isolation verified + all 7 services already `WaitFor(observability)`; early-RC/environmental root-cause + runbook in `docs/observability/aspire-run-500-triage.md` |
+| Edge-denial events carry RouteId/RequiredScope (pre-short-circuit) + 401/403 tests | match | `GatewayAuditMiddleware.ResolveRouteMetadata` feature→endpoint-RouteModel fallback; `GatewayAuditEnrichmentTests` assert 401/403 carry route/scope |
+| Uniform 404/405 non-authz skip across both gates + tests | match | Edge `ShouldAudit` (404/405) + Bank.Api `ShouldAudit(endpointMatched, statusCode)`; skip tests on both gates |
+| Audit enrichment/skip contract doc | match | `docs/authz/audit-enrichment-and-skip-contract.md` |
+
+**Test coverage:** sufficient — `dotnet build` 0/0; Edge 81, Bank.Api 95; full solution `dotnet test` **1347/1347**.
+
+**Outcome GO:** All deliverables + exit criteria met. LRN-014's `aspire run` 500 is a **documented divergence** (not a dropped deliverable): the triage doc records the non-reproducible early-RC/environmental assessment, the OTLP request-path-isolation proof, the existing `WaitFor(observability)` mitigation state, and a clean-machine confirmation runbook. GPT-5.5 content review R1 Go + Copilot (1 pre-existing-link nit → doc-hygiene follow-up) + PvI GO.

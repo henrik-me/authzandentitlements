@@ -271,54 +271,6 @@ tags: [keycloak, oidc, client-scopes, par]
 
 **Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
-### LRN-013
-
-```yaml
-id: LRN-013
-date: 2026-07-03
-category: architectural
-source_cs: CS04
-status: open
-tags: [audit, yarp, gateway, aspnetcore, dotnet]
-claim_area: observability
-```
-
-**Problem:** The CS04 edge gateway must emit accurate, audit-ready coarse-authorization *decision* events, but an audit middleware that wraps the YARP proxy cannot infer the edge decision from the HTTP status code alone.
-
-**Finding:** A proxy-wrapping audit middleware sees the FINAL status, which conflates edge decisions with downstream ones: a request the edge *allows and routes* can still be 403'd by the backend's fine-grained authz (→ misreported as an edge deny), and `context.GetEndpoint() != null` still matches ASP.NET's synthetic **405** endpoint (→ an unmatched method audited as a false `allow/routed`). The reliable "was actually forwarded" signal is the **YARP proxy pipeline** itself: set the edge-authorized marker inside `MapReverseProxy(proxyPipeline => { proxyPipeline.Use(...); proxyPipeline.UseSessionAffinity(); proxyPipeline.UseLoadBalancing(); proxyPipeline.UsePassiveHealthChecks(); })`, which runs only for a request that matched a real proxy route, cleared its coarse policy, and is about to be forwarded. Then audit only genuine decisions (routed, or an edge 401/403 short-circuit). Three GPT-5.5 rubber-duck rounds surfaced these three misclassifications in sequence.
-
-**Evidence:** PR #17; GPT-5.5 rubber-duck R1 (downstream-403), R2 (any-request marker), R3 (405 synthetic endpoint) → R4 Go; runtime-verified (`DELETE /api/accounts` → 405 with zero audit events; `POST /api/accounts` coarse.authenticated → allow/routed). `src/AuthzEntitlements.Edge.Gateway/Program.cs`, `Audit/GatewayAuditMiddleware.cs`.
-
-**Implications carried forward:**
-- For any proxy/gateway that audits decisions, key the decision off the proxy pipeline (was-forwarded), not the final status; only audit genuine authz decisions. Fine-grained decisions belong to the terminal service (`Bank.Api` `BankAuthorizationAuditMiddleware`; later the PDP in CS05).
-- Follow-up (non-blocking): enrich edge-denial events with RouteId/RequiredScope (unset via `IReverseProxyFeature` on short-circuits), and skip auditing non-authz-decision requests (unmatched 404 / method-mismatch 405) uniformly across both gates.
-
-**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS32** (observability & audit-event enrichment) — `project/clickstops/planned/planned_cs32_observability-audit-enrichment.md`. Status stays `open` until CS32 closes.
-
-### LRN-014
-
-```yaml
-id: LRN-014
-date: 2026-07-03
-category: tooling
-source_cs: CS04
-status: open
-tags: [aspire, otel, dotnet, runtime, windows]
-claim_area: observability
-```
-
-**Problem:** During CS04 `aspire run` verification, `Bank.Api` returned an empty-body HTTP 500 on **every** request (including `/alive`), which blocked the edge gateway's `WaitFor(bank-api)` so the gateway never started.
-
-**Finding:** `Bank.Api` is unchanged by CS04, Keycloak was reachable, and the edge gateway run **standalone** (without the Aspire-injected OTLP export env) served and enforced correctly — so the 500 is an environmental Aspire/OTLP-export interaction under `dotnet run` of the AppHost, orthogonal to CS04. Verifying the gateway standalone (Keycloak on its fixed port + `Bank.Api` as the YARP destination) is a reliable way to isolate service logic from the Aspire orchestration/OTLP layer.
-
-**Evidence:** this session; `GET http://localhost:5000/alive` → 500 (len 0) under `aspire run`; the same gateway build served 200 + correct 401/403/routed decisions standalone. `src/AuthzEntitlements.AppHost/AppHost.cs`.
-
-**Implications carried forward:**
-- Triage the OTLP exporter / OpenTelemetry-instrumentation vs .NET 10 RC1 interaction (candidate for the CS12 observability stack); until then, isolate service-level runtime verification from the AppHost OTLP wiring when it misbehaves.
-- **CS12 update (2026-07-03):** CS12 landed the real OTLP collector (`grafana/otel-lgtm`) and pointed every service's `OTEL_EXPORTER_OTLP_ENDPOINT` at it, but a full `aspire run` reproduction of the empty-body 500 was NOT performed (a parallel `aspire run` may be active; CS12 verified the stack standalone instead). Whether routing OTLP at a ready collector (with `WaitFor(observability)`) resolves the 500 remains open — reproduce on the next clean full `aspire run`.
-
-**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS32** (observability & audit-event enrichment) — `project/clickstops/planned/planned_cs32_observability-audit-enrichment.md`. Status stays `open` until CS32 closes.
-
 ### LRN-015
 
 ```yaml
@@ -1171,6 +1123,54 @@ tags: [ci, github, ruleset, codeql, copilot, merge, public-repo]
 **Disposition:** open — surface at the next harvest; re-disposition LRN-035/LRN-040 now that required-status-check enforcement exists on the (public) repo.
 
 ## Applied
+
+### LRN-013
+
+```yaml
+id: LRN-013
+date: 2026-07-03
+category: architectural
+source_cs: CS04
+status: applied
+tags: [audit, yarp, gateway, aspnetcore, dotnet]
+claim_area: observability
+```
+
+**Problem:** The CS04 edge gateway must emit accurate, audit-ready coarse-authorization *decision* events, but an audit middleware that wraps the YARP proxy cannot infer the edge decision from the HTTP status code alone.
+
+**Finding:** A proxy-wrapping audit middleware sees the FINAL status, which conflates edge decisions with downstream ones: a request the edge *allows and routes* can still be 403'd by the backend's fine-grained authz (→ misreported as an edge deny), and `context.GetEndpoint() != null` still matches ASP.NET's synthetic **405** endpoint (→ an unmatched method audited as a false `allow/routed`). The reliable "was actually forwarded" signal is the **YARP proxy pipeline** itself: set the edge-authorized marker inside `MapReverseProxy(proxyPipeline => { proxyPipeline.Use(...); proxyPipeline.UseSessionAffinity(); proxyPipeline.UseLoadBalancing(); proxyPipeline.UsePassiveHealthChecks(); })`, which runs only for a request that matched a real proxy route, cleared its coarse policy, and is about to be forwarded. Then audit only genuine decisions (routed, or an edge 401/403 short-circuit). Three GPT-5.5 rubber-duck rounds surfaced these three misclassifications in sequence.
+
+**Evidence:** PR #17; GPT-5.5 rubber-duck R1 (downstream-403), R2 (any-request marker), R3 (405 synthetic endpoint) → R4 Go; runtime-verified (`DELETE /api/accounts` → 405 with zero audit events; `POST /api/accounts` coarse.authenticated → allow/routed). `src/AuthzEntitlements.Edge.Gateway/Program.cs`, `Audit/GatewayAuditMiddleware.cs`.
+
+**Implications carried forward:**
+- For any proxy/gateway that audits decisions, key the decision off the proxy pipeline (was-forwarded), not the final status; only audit genuine authz decisions. Fine-grained decisions belong to the terminal service (`Bank.Api` `BankAuthorizationAuditMiddleware`; later the PDP in CS05).
+- Follow-up (non-blocking): enrich edge-denial events with RouteId/RequiredScope (unset via `IReverseProxyFeature` on short-circuits), and skip auditing non-authz-decision requests (unmatched 404 / method-mismatch 405) uniformly across both gates.
+
+**Disposition:** Applied by **CS32** (PR #112, merged `6f596a2`): edge-denial audit events now carry RouteId/RequiredScope — `GatewayAuditMiddleware` falls back from `IReverseProxyFeature` (unset on a short-circuit 401/403 deny) to the matched endpoint's YARP `RouteModel` metadata; and BOTH gates uniformly skip auditing non-authz requests (unmatched 404 / method-mismatch 405) via `ShouldAudit`. See `docs/authz/audit-enrichment-and-skip-contract.md`.
+
+### LRN-014
+
+```yaml
+id: LRN-014
+date: 2026-07-03
+category: tooling
+source_cs: CS04
+status: applied
+tags: [aspire, otel, dotnet, runtime, windows]
+claim_area: observability
+```
+
+**Problem:** During CS04 `aspire run` verification, `Bank.Api` returned an empty-body HTTP 500 on **every** request (including `/alive`), which blocked the edge gateway's `WaitFor(bank-api)` so the gateway never started.
+
+**Finding:** `Bank.Api` is unchanged by CS04, Keycloak was reachable, and the edge gateway run **standalone** (without the Aspire-injected OTLP export env) served and enforced correctly — so the 500 is an environmental Aspire/OTLP-export interaction under `dotnet run` of the AppHost, orthogonal to CS04. Verifying the gateway standalone (Keycloak on its fixed port + `Bank.Api` as the YARP destination) is a reliable way to isolate service logic from the Aspire orchestration/OTLP layer.
+
+**Evidence:** this session; `GET http://localhost:5000/alive` → 500 (len 0) under `aspire run`; the same gateway build served 200 + correct 401/403/routed decisions standalone. `src/AuthzEntitlements.AppHost/AppHost.cs`.
+
+**Implications carried forward:**
+- Triage the OTLP exporter / OpenTelemetry-instrumentation vs .NET 10 RC1 interaction (candidate for the CS12 observability stack); until then, isolate service-level runtime verification from the AppHost OTLP wiring when it misbehaves.
+- **CS12 update (2026-07-03):** CS12 landed the real OTLP collector (`grafana/otel-lgtm`) and pointed every service's `OTEL_EXPORTER_OTLP_ENDPOINT` at it, but a full `aspire run` reproduction of the empty-body 500 was NOT performed (a parallel `aspire run` may be active; CS12 verified the stack standalone instead). Whether routing OTLP at a ready collector (with `WaitFor(observability)`) resolves the 500 remains open — reproduce on the next clean full `aspire run`.
+
+**Disposition:** Applied by **CS32** (PR #112, merged `6f596a2`): triaged the `aspire run` empty-body 500. An offline probe proved the OTLP exporter is **request-path isolated** (a dead OTLP endpoint leaves `/alive` + `/api/*` at 200) and all 7 exporting services already `WaitFor(observability)`, so no missing-`WaitFor` fix exists — the 500 is a non-reproducible early-RC/environmental interaction. Documented root cause + a clean-machine confirmation runbook in `docs/observability/aspire-run-500-triage.md`; `AppHost.cs` unchanged. Definitive confirmation via a routine full `aspire run` remains an open follow-up.
 
 ### LRN-031
 
