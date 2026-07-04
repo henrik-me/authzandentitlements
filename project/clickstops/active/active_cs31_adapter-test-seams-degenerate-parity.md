@@ -62,12 +62,12 @@ None.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Extract IOpenFgaCheckClient seam | pending | — | OpenFgaProvider depends on it; OpenFgaRebacService implements it; test double forces allowed=true/false offline (LRN-038) |
-| Offline ReBAC permit/deny explanation tests | pending | — | Assert Engine/DeterminingRule explanation without a live server |
-| Degenerate-input fail-closed parity tests | pending | — | null/empty/whitespace attrs vs ReferenceDecisionProvider oracle for every engine (LRN-033) |
-| OpenFGA model-id pin + targeted reconciliation | pending | — | Configurable/pinned auth-model id; tuple-existence reconciliation vs read-all (LRN-031) |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, feature docs so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | Flip LRN-038/033/031 to applied; file/disposition learnings; open follow-up CSs for unresolved issues |
+| Extract IOpenFgaCheckClient seam | done | yoga-ae-c3 | One-member forward-Check seam; provider depends on it; DI resolves same singleton (LRN-038) |
+| Offline ReBAC permit/deny explanation tests | done | yoga-ae-c3 | FakeOpenFgaCheckClient forces allowed=true/false; asserts engine/DeterminingRule/tuple ref |
+| Degenerate-input fail-closed parity tests | done | yoga-ae-c3 | null/empty/whitespace vs ReferenceDecisionProvider oracle across engines (LRN-033) |
+| OpenFGA model-id pin + targeted reconciliation | done | yoga-ae-c3 | AuthorizationModelId pin; per-tuple existence probe replaces read-all (LRN-031) |
+| Close-out: docs + restart state | done | yoga-ae-c3 | CONTEXT.md updated; doc docs/authz/adapter-test-seams-and-degenerate-parity.md |
+| Close-out: learnings + follow-ups | done | yoga-ae-c3 | LRN-038/033/031 flipped to applied |
 
 ## Notes / Learnings
 
@@ -84,4 +84,19 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T20:35:04Z
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| `IOpenFgaCheckClient` seam + offline permit/deny explanation tests | match | Seam exposes only `CheckAsync`; provider depends on it; DI maps it to the same `OpenFgaRebacService` singleton; offline allow/deny/fail-closed tests use `FakeOpenFgaCheckClient` |
+| Degenerate-input fail-closed parity vs reference oracle | match | `DegenerateInputParityTests` compares reference/aspnet/casbin/cedar on null/empty/whitespace; OpenFGA/OPA boundaries covered separately; OPA ABAC degenerate parity stays in Rego |
+| OpenFGA model-id pin + targeted reconciliation | match | `OpenFgaOptions.AuthorizationModelId` pin; pin-when-configured else write-then-pin; per-tuple existence probe (not read-all); offline pin tests + self-skipping live test |
+| Adapter seam / degenerate-parity doc | match | `docs/authz/adapter-test-seams-and-degenerate-parity.md` |
+
+**Test coverage:** sufficient — verified HEAD `66fbc7d`; `dotnet build` 0/0; `dotnet test ...Authz.Pdp.Tests` **726/726**.
+
+**Outcome GO:** All CS31 deliverables + exit criteria met; documented divergences honored (seam exposes only `CheckAsync`; degenerate cases separate from the shared catalog; OPA ABAC degenerate parity stays in the Rego suite). GPT-5.5 content review R1 Go + 2 narrow re-attests (Copilot nits + rebase) + Copilot (3 nits resolved) + PvI GO.

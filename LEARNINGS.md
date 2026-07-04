@@ -662,28 +662,6 @@ tags: [authz, pdp, adapter, fail-closed, security, openfga]
 
 **Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
 
-### LRN-031
-
-```yaml
-id: LRN-031
-date: 2026-07-04
-category: process
-source_cs: CS07
-status: open
-tags: [openfga, rebac, sdk, csharp, aspire, followups]
-```
-
-**Problem:** OpenFGA (out-of-process, async SDK, versioned models) integration surfaced several authoring gotchas plus deferred hardening.
-
-**Finding:** (1) The sync `IAuthorizationDecisionProvider.Evaluate` bridges the async `OpenFga.Sdk` with `GetAwaiter().GetResult()` (sanctioned by the contract) — the pattern any async adapter needs. (2) OpenFGA authorization models are **immutable/versioned**: bootstrap writes the exact embedded model and pins the returned model id (favour correctness over reusing a possibly-stale prior version); a dedicated store per `StoreName` keeps tuple reconciliation O(seed). (3) `Dictionary.KeyCollection` IS `IReadOnlyCollection` on net10 so a `Keys` cast does not throw, but materialize (`.ToArray()`) to avoid a fragile runtime-type-dependent cast. (4) `openfga/openfga` runs as a two-step `migrate` (one-shot) + `run` server on postgres (`OPENFGA_DATASTORE_ENGINE/URI`).
-
-**Evidence:** `OpenFgaRebacService` (lazy client, idempotent bootstrap, model-id pinning, read-diff tuple write); `OpenFgaProvider` sync bridge; `AppHost.cs` migrate+run containers; Copilot rounds (SupportedActions cast, per-boot model-version growth).
-
-**Implications carried forward:**
-- Follow-ups (deferred, non-blocking dev-loop hardening): make the OpenFGA authorization-model id configurable/pinned to avoid per-boot model-version growth on a persistent shared store; use a targeted tuple-existence reconciliation instead of read-all (fine for the dedicated tiny-seed store today); adopt `Assert.Skip` for the integration tests when the repo moves to xUnit v3 (currently a soft `return` skip, since 2.9.3 has no dynamic skip and adding `Xunit.SkippableFact` was out of scope).
-
-**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS31** (engine-adapter test seams & degenerate-input parity) — `project/clickstops/planned/planned_cs31_adapter-test-seams-degenerate-parity.md`. Status stays `open` until CS31 closes.
-
 ### LRN-032
 
 ```yaml
@@ -706,28 +684,6 @@ tags: [pdp, adapter, cedar, monocloud, dotnet10, parity]
 - CS23/CS24 (comparison/perf): Cedar (in-process, `cedar`) and AVP (managed) are the Cedar data points; AVP runs the same policies managed (documented, not wired).
 
 **Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
-
-### LRN-033
-
-```yaml
-id: LRN-033
-date: 2026-07-04
-category: process
-source_cs: CS09
-status: open
-tags: [pdp, parity, testing, fail-closed, tenant, security]
-```
-
-**Problem:** CS09's Cedar adapter passed all 22 `FintechScenarioCatalog` scenarios and full build/test, but GPT-5.5 review (R1 Block) found a FAIL-OPEN tenant-isolation gap the catalog missed: with BOTH tenants null/blank, Cedar mapped them to `""` and `"" == ""` PERMITTED, whereas the reference `TenantMatches` fails closed (`!IsNullOrWhiteSpace(subject) && !IsNullOrWhiteSpace(resource) && equal`). Every catalog row uses non-blank tenants, so tests stayed green over a real vuln.
-
-**Finding:** A shared parity catalog of "realistic" values does NOT exercise fail-closed predicates on degenerate/boundary inputs. For every fail-closed rule (tenant, maker, status, scope), add explicit tests with null/empty/whitespace on EACH side, and assert engine parity against the `ReferenceDecisionProvider` oracle (Decision + `Reasons[0].Code`), not just a hardcoded expectation. The Cedar fix: normalize null/whitespace tenant → `""` AND require both sides non-empty in the forbid (`principal.tenant != "" && resource.tenant != "" && principal.tenant == resource.tenant`).
-
-**Evidence:** `CedarDecisionProvider.NormalizeTenant`; the four tenant forbids in `CedarPolicyModel`; `CedarDecisionProviderTests` 7 blank/null/whitespace-tenant tests asserting equivalence to `ReferenceDecisionProvider`. GPT-5.5 R1 Block → R2 Go-with-amendments.
-
-**Implications carried forward:**
-- CS16/CS17/CS20/CS23/CS24 and any adapter/eval CS: the 22-scenario catalog is necessary but NOT sufficient — augment with degenerate-input fail-closed parity tests against the reference oracle. Consider adding blank/whitespace-attribute rows to the shared catalog so every engine is held to them.
-
-**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS31** (engine-adapter test seams & degenerate-input parity) — `project/clickstops/planned/planned_cs31_adapter-test-seams-degenerate-parity.md`. Status stays `open` until CS31 closes.
 
 ### LRN-034
 
@@ -794,28 +750,6 @@ tags: [opa, rego, testing, windows]
 - CS17 (policy lifecycle/testing), CS20, CS24 and any Rego-touching CS: validate Rego edits with the standalone `opa` download rather than assuming a preinstalled CLI or relying solely on the mocked C# adapter tests.
 
 **Disposition:** Harvest 2026-07-04 (CS28h): durable how-to insight — to be consolidated into a project-local convention/review doc block by planned **CS33** (`project/clickstops/planned/planned_cs33_consolidate-learnings-into-docs.md`); flips to `applied` when CS33 lands. Status stays `open` until then.
-
-### LRN-038
-
-```yaml
-id: LRN-038
-date: 2026-07-04
-category: architectural
-source_cs: CS16
-status: open
-tags: [openfga, rebac, testing, mocking, fail-closed]
-```
-
-**Problem:** CS16 needed to assert the OpenFGA adapter's permit/deny `DecisionExplanation` (engine=openfga, DeterminingRule=relationship, the relationship-tuple ref) in the OFFLINE default test suite, but `OpenFgaProvider.Evaluate` reaches the explanation only after a live `Check`, and `OpenFgaRebacService` is a **sealed, non-virtual** concrete class with no seam to force `allowed=true` offline (a blank `ApiUrl` throws in `BuildClient`).
-
-**Finding:** The offline suite can only verify the relationship-tuple reference FORMAT (from the pure `OpenFgaRequestMapper` output) + the fail-closed/boundary explanations; the actual permit/deny Engine/DeterminingRule assertion requires the live-server integration suite (self-skipping) or a runtime smoke. To make ReBAC permit/deny explanations unit-testable offline, `OpenFgaRebacService` would need an extracted interface (e.g. `IOpenFgaCheckClient`) the provider depends on — a small refactor deferred out of CS16 (additive-only) but worth doing when ReBAC is next touched.
-
-**Evidence:** CS16 `cs16-openfga` sub-agent report; `OpenFgaRebacService` is `sealed` with concrete `CheckAsync`; CS16 verified the permit/deny explanation via the runtime `/evaluate` smoke instead.
-
-**Implications carried forward:**
-- CS20 (migration/portability), CS24 (perf), or any ReBAC-touching CS: extract an `IOpenFgaCheckClient` seam so ReBAC decisions/explanations are unit-testable without a live OpenFGA server.
-
-**Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS31** (engine-adapter test seams & degenerate-input parity) — `project/clickstops/planned/planned_cs31_adapter-test-seams-degenerate-parity.md`. Status stays `open` until CS31 closes.
 
 ### LRN-039
 
@@ -1237,6 +1171,72 @@ tags: [ci, github, ruleset, codeql, copilot, merge, public-repo]
 **Disposition:** open — surface at the next harvest; re-disposition LRN-035/LRN-040 now that required-status-check enforcement exists on the (public) repo.
 
 ## Applied
+
+### LRN-031
+
+```yaml
+id: LRN-031
+date: 2026-07-04
+category: process
+source_cs: CS07
+status: applied
+tags: [openfga, rebac, sdk, csharp, aspire, followups]
+```
+
+**Problem:** OpenFGA (out-of-process, async SDK, versioned models) integration surfaced several authoring gotchas plus deferred hardening.
+
+**Finding:** (1) The sync `IAuthorizationDecisionProvider.Evaluate` bridges the async `OpenFga.Sdk` with `GetAwaiter().GetResult()` (sanctioned by the contract) — the pattern any async adapter needs. (2) OpenFGA authorization models are **immutable/versioned**: bootstrap writes the exact embedded model and pins the returned model id (favour correctness over reusing a possibly-stale prior version); a dedicated store per `StoreName` keeps tuple reconciliation O(seed). (3) `Dictionary.KeyCollection` IS `IReadOnlyCollection` on net10 so a `Keys` cast does not throw, but materialize (`.ToArray()`) to avoid a fragile runtime-type-dependent cast. (4) `openfga/openfga` runs as a two-step `migrate` (one-shot) + `run` server on postgres (`OPENFGA_DATASTORE_ENGINE/URI`).
+
+**Evidence:** `OpenFgaRebacService` (lazy client, idempotent bootstrap, model-id pinning, read-diff tuple write); `OpenFgaProvider` sync bridge; `AppHost.cs` migrate+run containers; Copilot rounds (SupportedActions cast, per-boot model-version growth).
+
+**Implications carried forward:**
+- Follow-ups (deferred, non-blocking dev-loop hardening): make the OpenFGA authorization-model id configurable/pinned to avoid per-boot model-version growth on a persistent shared store; use a targeted tuple-existence reconciliation instead of read-all (fine for the dedicated tiny-seed store today); adopt `Assert.Skip` for the integration tests when the repo moves to xUnit v3 (currently a soft `return` skip, since 2.9.3 has no dynamic skip and adding `Xunit.SkippableFact` was out of scope).
+
+**Disposition:** Applied by **CS31** (PR #100, merged `66fbc7d`): `OpenFgaOptions.AuthorizationModelId` pin (pin-when-configured, else write-then-pin — avoids per-boot model-version growth) + targeted per-tuple existence reconciliation replacing read-all. See `OpenFgaRebacService`/`OpenFgaModelPinTests`. The xUnit-v3 `Assert.Skip` adoption for the live tests remains a future follow-up (still a soft-return skip).
+
+### LRN-033
+
+```yaml
+id: LRN-033
+date: 2026-07-04
+category: process
+source_cs: CS09
+status: applied
+tags: [pdp, parity, testing, fail-closed, tenant, security]
+```
+
+**Problem:** CS09's Cedar adapter passed all 22 `FintechScenarioCatalog` scenarios and full build/test, but GPT-5.5 review (R1 Block) found a FAIL-OPEN tenant-isolation gap the catalog missed: with BOTH tenants null/blank, Cedar mapped them to `""` and `"" == ""` PERMITTED, whereas the reference `TenantMatches` fails closed (`!IsNullOrWhiteSpace(subject) && !IsNullOrWhiteSpace(resource) && equal`). Every catalog row uses non-blank tenants, so tests stayed green over a real vuln.
+
+**Finding:** A shared parity catalog of "realistic" values does NOT exercise fail-closed predicates on degenerate/boundary inputs. For every fail-closed rule (tenant, maker, status, scope), add explicit tests with null/empty/whitespace on EACH side, and assert engine parity against the `ReferenceDecisionProvider` oracle (Decision + `Reasons[0].Code`), not just a hardcoded expectation. The Cedar fix: normalize null/whitespace tenant → `""` AND require both sides non-empty in the forbid (`principal.tenant != "" && resource.tenant != "" && principal.tenant == resource.tenant`).
+
+**Evidence:** `CedarDecisionProvider.NormalizeTenant`; the four tenant forbids in `CedarPolicyModel`; `CedarDecisionProviderTests` 7 blank/null/whitespace-tenant tests asserting equivalence to `ReferenceDecisionProvider`. GPT-5.5 R1 Block → R2 Go-with-amendments.
+
+**Implications carried forward:**
+- CS16/CS17/CS20/CS23/CS24 and any adapter/eval CS: the 22-scenario catalog is necessary but NOT sufficient — augment with degenerate-input fail-closed parity tests against the reference oracle. Consider adding blank/whitespace-attribute rows to the shared catalog so every engine is held to them.
+
+**Disposition:** Applied by **CS31** (PR #100, merged `66fbc7d`): added degenerate-input (null/empty/whitespace) fail-closed parity tests asserting equivalence to the `ReferenceDecisionProvider` oracle (Decision + `Reasons[0].Code`) for every in-process engine (reference/aspnet/casbin/cedar); OPA/OpenFGA boundaries are covered at the mapper/pure level and OPA ABAC degenerate parity stays in the Rego suite. See `tests/AuthzEntitlements.Authz.Pdp.Tests/DegenerateInputParityTests.cs`. The shared 22-scenario `FintechScenarioCatalog` is intentionally unchanged.
+
+### LRN-038
+
+```yaml
+id: LRN-038
+date: 2026-07-04
+category: architectural
+source_cs: CS16
+status: applied
+tags: [openfga, rebac, testing, mocking, fail-closed]
+```
+
+**Problem:** CS16 needed to assert the OpenFGA adapter's permit/deny `DecisionExplanation` (engine=openfga, DeterminingRule=relationship, the relationship-tuple ref) in the OFFLINE default test suite, but `OpenFgaProvider.Evaluate` reaches the explanation only after a live `Check`, and `OpenFgaRebacService` is a **sealed, non-virtual** concrete class with no seam to force `allowed=true` offline (a blank `ApiUrl` throws in `BuildClient`).
+
+**Finding:** The offline suite can only verify the relationship-tuple reference FORMAT (from the pure `OpenFgaRequestMapper` output) + the fail-closed/boundary explanations; the actual permit/deny Engine/DeterminingRule assertion requires the live-server integration suite (self-skipping) or a runtime smoke. To make ReBAC permit/deny explanations unit-testable offline, `OpenFgaRebacService` would need an extracted interface (e.g. `IOpenFgaCheckClient`) the provider depends on — a small refactor deferred out of CS16 (additive-only) but worth doing when ReBAC is next touched.
+
+**Evidence:** CS16 `cs16-openfga` sub-agent report; `OpenFgaRebacService` is `sealed` with concrete `CheckAsync`; CS16 verified the permit/deny explanation via the runtime `/evaluate` smoke instead.
+
+**Implications carried forward:**
+- CS20 (migration/portability), CS24 (perf), or any ReBAC-touching CS: extract an `IOpenFgaCheckClient` seam so ReBAC decisions/explanations are unit-testable without a live OpenFGA server.
+
+**Disposition:** Applied by **CS31** (PR #100, merged `66fbc7d`): extracted `IOpenFgaCheckClient` — the one-member forward-Check seam `OpenFgaProvider` depends on (`OpenFgaRebacService` implements it; DI resolves the same singleton) — so the ReBAC permit/deny `DecisionExplanation` (engine/DeterminingRule/tuple ref) is unit-testable OFFLINE via a `FakeOpenFgaCheckClient`. See `tests/AuthzEntitlements.Authz.Pdp.Tests/OpenFgaProviderSeamTests.cs`.
 
 ### LRN-044
 
