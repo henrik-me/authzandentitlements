@@ -799,19 +799,20 @@ tags: [ci, review-evidence, pr-body, review-log]
 id: LRN-040
 date: 2026-07-04
 category: process
-source_cs: CS13
+source_cs: CS11
 status: open
-tags: [ci, merge, dotnet, process, main-green]
+tags: [ci, dotnet, merge, multi-agent, main-green]
 ```
 
-**Problem:** CS13 and CS16 were developed + merged concurrently. Both touched the `PdpDecisionAuditEvent` record — CS16 added three REQUIRED fields (`DeterminingRule`/`PolicyReferences`/`Narrative`); CS13 added a test that constructs the event. Each PR was green on its own branch and GitHub reported the CS13 PR MERGEABLE, but the two changes are a **semantic merge conflict**: they merge cleanly as text yet the combined `main` did not compile (`CS7036`). Because the harness CI runs process-gates-only and does NOT build/test .NET (LRN-035), no gate caught it — `main` went red on merge and stayed red until a manual local build revealed it.
+**Problem:** During CS11 close-out, merging latest `main` into the content branch surfaced that `origin/main` itself did NOT compile: CS13's `HttpForwardingAuditSinkTests.SampleEvent` omitted the `DeterminingRule`/`PolicyReferences`/`Narrative` fields that CS16 made **required** on `PdpDecisionAuditEvent`. Two concurrently-developed CSs (CS13, CS16) changed a shared contract + a consumer of it, and the later merge did not rebuild against the earlier — so `main` went red and stayed red until an out-of-band hotfix.
 
-**Finding:** After merging into a `main` that received other PRs concurrently, ALWAYS `dotnet build`/`dotnet test` the combined tree locally before considering the CS done — a clean text-merge does not imply a clean compile. This is a concrete, high-cost consequence of the LRN-035 open question. Fixed by hotfix PR #60 (a one-line test-constructor update). Strengthens the case for a `.NET build/test` CI step or a GitHub merge-queue so two independently-green PRs cannot red `main`.
+**Finding:** Because this repo's CI is **process-gates-only** (`harness lint` + drift + review-evidence; no `dotnet build`/`test` step — see CONTEXT.md + the CS17 CI-posture learning), a cross-CS **.NET build break lands on `main` undetected** by CI. The LOCAL full-solution `dotnet build`/`dotnet test` is the ONLY code-correctness gate. Mitigations for a multi-orchestrator fleet: (1) before opening/merging a content PR, `git merge origin/main` locally and run the **whole-solution** `dotnet build` + `dotnet test` (not just your project) — this catches a concurrent CS's contract change against your code AND a pre-existing main break; (2) when `main` is very active, merge-latest + **admin squash-merge promptly** — CS11 hit **4 sequential `main` advances** during its review, forcing 3 re-merges, and a slow review cadence loses the race; (3) additive merge conflicts from two CSs adding a service (sln/AppHost/csproj) resolve by keeping BOTH — take `--theirs` for the `.sln` then `dotnet sln add` your projects to regenerate GUIDs/build-configs cleanly.
 
-**Evidence:** PR #57 (CS13) + PR #56 (CS16) → red `main` at `6729082` (`HttpForwardingAuditSinkTests.cs` CS7036: missing `DeterminingRule`); hotfix PR #60 (`d75d6ea`) restored `dotnet build` 0/0 + 667/667. Cross-ref LRN-035 (CI posture).
+**Evidence:** CS11 close-out (this session): `origin/main` `d75d6ea` failed `dotnet build` (CS7036 missing `DeterminingRule` in `HttpForwardingAuditSinkTests.cs`) → fixed in the CS11 merge and independently hotfixed on main by **PR #60 "restore green main after CS13xCS16 audit-event merge"**; 3 re-merges (`3823f97`, `5b41c84`, `0fa1f0f`) across advances `9f2df6f`→`4139355`→`d75d6ea`→`2ddc857`.
 
 **Implications carried forward:**
-- Weekly harvest should disposition LRN-035 + LRN-040 together: decide on a `.NET` build/test CI gate or merge-queue vs. the current local-gate posture. Until then, orchestrators MUST locally build/test the merged `main` post-merge.
+- Every orchestrator: run the whole-solution `dotnet build`/`dotnet test` against the latest-`main`-merged HEAD immediately before merging a content PR; do not rely on CI to catch .NET breaks.
+- Consider (as a future CS, mindful of the deliberate process-only-CI posture + `workflow-pins` gate — see the CS17 learning) whether a SHA-pinned .NET build/test CI job is worth adding to catch cross-CS contract breaks automatically.
 
 ### LRN-041
 

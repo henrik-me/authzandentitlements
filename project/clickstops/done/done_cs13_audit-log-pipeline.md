@@ -38,13 +38,13 @@ Implement a tamper-evident, append-only audit log covering every authz/entitleme
 | Verification + query endpoints | complete | yoga-ae-c2 | agent-id=yoga-ae-c2/audit-svc \| role=implementer \| report-status=complete \| learnings=0 |
 | Wire producers (PDP sink + AppHost) | complete | yoga-ae-c2 | agent-id=yoga-ae-c2/pdp-sink \| role=implementer \| report-status=complete \| learnings=1; AppHost wiring by orchestrator |
 | Close-out: docs + restart state | complete | yoga-ae-c2 | WORKBOARD row removed, CONTEXT.md updated, docs/authz/audit-pipeline.md shipped |
-| Close-out: learnings + follow-ups | complete | yoga-ae-c2 | LRN-036 (CI does not build .NET) + LRN-037 (DropWrite/TryWrite) filed |
+| Close-out: learnings + follow-ups | complete | yoga-ae-c2 | LRN-041 (DropWrite/TryWrite) filed; CS13×CS16 build break documented in LRN-040 (CS11 close-out) |
 
 ## Notes / Learnings
 
 - Content PR #57 (feat) + build-unbreak hotfix PR #60. 5-round GPT-5.5 rubber-duck review (R1 No-go → R5 Go) + Copilot (2 rounds) + plan-vs-impl GO.
-- **Semantic merge conflict (LRN-036):** CS16 added required fields to `PdpDecisionAuditEvent` while CS13 added a test constructing it; the PRs merged cleanly as text but the combined `main` did not compile (harness CI does not build .NET). Fixed by #60.
-- **Follow-up candidates (dispositioned as learnings for weekly harvest, not filed as CSs):** (a) a `dotnet build`/`dotnet test` CI step or merge-queue so concurrent PRs can't red main (LRN-036); (b) capture CS16 explainability fields (`determiningRule`/`policyReferences`/`narrative`) in the audit store — already on the wire, currently dropped by the ingest DTO; (c) external anchoring for full rewrite-prevention (documented out-of-scope in `audit-pipeline.md`).
+- **Semantic merge conflict (LRN-040):** CS16 added required fields to `PdpDecisionAuditEvent` while CS13 added a test constructing it; the PRs merged cleanly as text but the combined `main` did not compile (harness CI does not build .NET). Fixed by #60.
+- **Follow-up candidates (dispositioned as learnings for weekly harvest, not filed as CSs):** (a) a `dotnet build`/`dotnet test` CI step or merge-queue so concurrent PRs can't red main (LRN-040); (b) capture CS16 explainability fields (`determiningRule`/`policyReferences`/`narrative`) in the audit store — already on the wire, currently dropped by the ingest DTO; (c) external anchoring for full rewrite-prevention (documented out-of-scope in `audit-pipeline.md`).
 
 ## Model audit
 
