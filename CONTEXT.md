@@ -209,6 +209,17 @@ enforcement of governance grants, break-glass/CS21, and live audit ingestion (CS
 
 **CS13 (tamper-evident audit log pipeline) complete** (content PR #57 + build-unbreak hotfix PR #60, squash-merged 2026-07-04). A new `AuthzEntitlements.Audit.Service` (ASP.NET Core minimal APIs, EF Core 10 + Npgsql over the `audit` DB) is a **tamper-evident, append-only, hash-chained** audit store: `AuditHashChain` (pure, DB-free) computes a SHA-256 **row hash** binding the sequence + previous row hash + every content field (UTC/µs-normalized timestamp so the hash survives the `timestamptz` round-trip; genesis prev-hash = 64 zeros), and `AuditChainWriter` serializes appends (single-writer `SemaphoreSlim` + transaction; `Sequence` PK + unique `RowHash` index as the DB backstop). `AuditEndpoints` exposes `POST /api/audit/decisions` (server-stamps `Producer="pdp"`), `GET /api/audit/verify` (streaming `VerifyAsync` + an optional **trusted checkpoint** `?expectedSequence=&expectedRowHash=` that catches tail-truncation / full-suffix rewrite a bare chain can't self-detect; malformed checkpoint → 400 fail-closed), and `GET /api/audit/entries` (filtered/paged). **PDP ingestion first:** `PdpDecisionService` already emits one `PdpDecisionAuditEvent` per decision; a **config-gated** HTTP-forwarding sink (`Audit:Sink=http`, default stays the offline logging sink) ships it to the store via a non-blocking bounded channel + resilient `BackgroundService`, off the decision hot path. `AppHost.cs` runs `audit-service` on the default run path and injects `Audit__Sink=http` + the service URL into `authz-pdp` (no hard `WaitFor`). Doc at `docs/authz/audit-pipeline.md`. `dotnet build` 0/0; full solution `dotnet test` **667/667** (Audit.Service 46 pure hash-chain/verify/checkpoint + PDP forwarding-sink tests). 5-round GPT-5.5 rubber-duck (R1 No-go: no trusted anchor → R2–R5 Go) + Copilot (2 rounds, resolved) + plan-vs-impl GO. The CS13×CS16 semantic merge conflict (both touched `PdpDecisionAuditEvent`) that red-greened `main`, fixed by hotfix #60, is documented in LRN-040; new channel learning LRN-041.
 
+**CS28 (.NET build/test CI gate) complete** (PR #68, squash-merged 2026-07-04 as `e5c8366`). `.github/workflows/dotnet-ci.yml`
+now builds + tests the whole solution on `pull_request`→`main` and `push`→`main` (SHA-pinned `actions/checkout` v6.0.2 +
+`actions/setup-dotnet` v5.4.0 from `global.json`; `dotnet build` then `dotnet test --no-build --no-restore`; no Docker — the
+OPA/OpenFGA live tests self-skip), closing the **LRN-035 / CS13×CS16** gap where neither CI nor `harness startup` built .NET, so
+a cross-CS *logical* merge conflict (two PRs each green vs their own base) could land a non-compiling `main` uncaught.
+**Advisory** on this private free-tier repo (branch-protection API → HTTP 403): the check is not required-to-merge, and fully
+*preventing* the merge-order class needs require-up-to-date / a merge queue — a follow-up for when the repo goes public/Pro;
+the `push`→`main` run detects such breaks reactively. Verified **live**: `build-test` green (~1m30s) on PR #68. GPT-5.5 plan
+review (Go-with-amendments) + content rubber-duck (Go, 2 Copilot rounds) + plan-vs-impl GO. LRN-035 updated (core gap
+addressed; enforcement residual kept open).
+
 **Next claimable:** with **CS11, CS13, CS16, and CS17 DONE**,
 the ready-and-unowned queue includes **CS18** (security hardening; needs CS04+CS05),
 **CS20** (migration & portability; needs CS05–CS08), and **CS24** (perf benchmark; needs engines + CS12). **All five engine adapters

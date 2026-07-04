@@ -1,10 +1,10 @@
 # CS28 — .NET build/test CI gate (close the cross-CS integration gap)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs28/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Filed by:** yoga-ae-c3, 2026-07-04 — surfaced by LRN-035 and the CS13↔CS16 `PdpDecisionAuditEvent` merge break (each PR green vs its own base; `main` failed to compile after both merged; fixed reactively in PR #60). Maintainer requested closing the gap.
 **Depends on:** none
 
@@ -84,4 +84,24 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T05:00:07Z
+**Outcome:** GO
+
+Per-deliverable outcome — all `match`:
+
+| Item | Outcome | Evidence |
+|---|---|---|
+| dotnet-ci.yml workflow | match | Builds/tests `AuthzEntitlements.sln` on `ubuntu-latest` with least-privilege `contents: read`. |
+| LRN-035 update | match | Core "no .NET in CI" gap addressed; residual (branch-protection / merge-queue) preserved + kept open. |
+| CONTEXT.md update | match | Advisory .NET CI added; required-to-merge enforcement pending branch protection. |
+| Triggers | match | `pull_request`→`main` + `push`→`main`. |
+| SHA-pinning | match | `actions/checkout` v6.0.2 + `actions/setup-dotnet` v5.4.0 pinned to commit SHAs. |
+| setup-dotnet from global.json | match | `global-json-file: global.json`. |
+| no-Docker | match | No services; the OPA/OpenFGA live tests self-skip. |
+| advisory-not-required | match | Private free-tier: advisory, not required-to-merge (documented). |
+| concurrency | match | Per `workflow`+`ref`; `cancel-in-progress` only for PRs (preserves the push-to-main signal). |
+
+**Verification:** sufficient — the `dotnet-ci` workflow ran **live** on PR #68 (`build-test` green ~1m30s: checkout + `global.json` .NET 10 SDK install + full-solution build + test); `harness lint` 0 failed.
+
+**Outcome GO:** no blocking gaps. Review lineage: GPT-5.5 plan review (Go-with-amendments, applied) → content rubber-duck (Go-with-amendments → Go) + Copilot (2 rounds resolved) → plan-vs-impl GO.
