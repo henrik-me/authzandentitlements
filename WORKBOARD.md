@@ -33,7 +33,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS07 | CS07 — Adapter: OpenFGA (ReBAC / Zanzibar) | 🟢 Active | yoga-ae-c2 | cs07/content | 2026-07-03 | — |
 | CS09 | CS09 — Adapter: Cedar (policy / ABAC) | 🟢 Active | yoga-ae-c4 | cs09/content | 2026-07-04 | — |
 | CS11 | CS11 — Access-governance entitlements (Entra pattern) | 🟢 Active | yoga-ae | cs11/content | 2026-07-04 | — |
 
