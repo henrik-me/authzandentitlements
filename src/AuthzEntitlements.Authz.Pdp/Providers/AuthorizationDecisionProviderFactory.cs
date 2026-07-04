@@ -94,7 +94,7 @@ public sealed class AuthorizationDecisionProviderFactory
     // whitespace (from env/secret/query sources) still resolves — consistent with the constructor
     // trimming PdpOptions.Provider. A blank name never matches (fail closed). The out is nullable +
     // [NotNullWhen(true)] so callers get a compiler warning if they read it without checking the bool.
-    public bool TryGetProvider(string name, [NotNullWhen(true)] out IAuthorizationDecisionProvider? provider)
+    public bool TryGetProvider(string? name, [NotNullWhen(true)] out IAuthorizationDecisionProvider? provider)
     {
         var trimmed = name?.Trim();
         provider = string.IsNullOrEmpty(trimmed)
