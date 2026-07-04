@@ -370,6 +370,25 @@ tags: [copilot, review, docs, merge]
 
 **Disposition:** open — surface at next harvest; candidate for CS33 (review-loop guidance for docs PRs).
 
+### LRN-064
+
+```yaml
+id: LRN-064
+date: 2026-07-04
+category: process
+source_cs: CS25
+status: open
+tags: [docs, eval, tco, pricing, vendor, honesty-caveat]
+```
+
+**Problem:** CS25 authored a managed-vs-self-host **TCO** doc covering five commercial authorization SaaS (Auth0/Okta FGA, AuthZed Cloud, Oso Cloud, Permit.io, AVP). Concrete list prices, tier limits, and SLA percentages are volatile and mostly **not first-party**: only AVP published an authoritative per-request number; every other vendor's public price came via third-party aggregators (g2/saasworthy/toolradar), and all enterprise/dedicated tiers are quote-only ("contact sales").
+
+**Finding:** For eval-lab economics docs, author at the **pricing-model + cost-driver** level (what you are metered on — per-MAU / per-request / per-tuple / per-seat / flat / custom — and who carries which ops burden), NOT at the exact-figure level. Anchor every quantitative claim to a dated **Sources** section, add a prominent honesty caveat ("read this for the model, not the number"), and mark each figure indicative. This mirrors the CS24 benchmark doc's "absolute latencies are environment-specific" caveat and keeps the doc durable as prices drift. Separately: repo-grounded claims in such a doc must still be fact-checked against the shipped surface — the one factual error caught pre-merge was an off-by-one Postgres-DB count (five→six incl. the optional `unleash` DB).
+
+**Evidence:** `docs/eval/managed-vs-selfhost-tco.md` (CS25, PR #114) — caveat + Sources (accessed 2026-07-04); AVP ~$5/million cited from the AWS what's-new (2025-06), all other vendor prices caveated/aggregator-sourced. Independent GPT-5.5 rubber-duck R1–R4 verified every repo-backed fact-claim (engine/CS maps, image pins, six Postgres DBs, AVP-AWS-only, azd target).
+
+**Disposition:** open — surface at the next harvest; apply as CONVENTIONS / eval-doc guidance if the lab authors more vendor-economics docs.
+
 ## Applied
 
 ### LRN-013
