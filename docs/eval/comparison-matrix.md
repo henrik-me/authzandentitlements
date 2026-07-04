@@ -73,6 +73,7 @@ them as relative, not absolute (see the caveat above).
 |---|---|---|---|---|---|---|
 | Hosting | In-process | In-process | In-process | In-process | Out-of-process (REST) | Out-of-process (server) |
 | Model(s) | RBAC + ABAC | RBAC gate + shared ABAC | RBAC gate + shared ABAC | RBAC + ABAC (full decision in Cedar) | ABAC / policy-as-code (full decision in Rego) | ReBAC (Zanzibar) |
+| Consistency | Strong (in-process, synchronous) | Strong (in-process, synchronous) | Strong (in-process, synchronous) | Strong (in-process, synchronous) | Per loaded policy/data bundle (stateless eval) | Per-request `consistency` (minimize-latency / higher-consistency) |
 | Policy language / DSL | C# pipeline | ASP.NET policy requirements | Casbin RBAC model + policy | Cedar policies + entities | Rego | OpenFGA model + relationship tuples |
 | Who owns the decision | Whole decision (C#) | Role gate only; ABAC via `FintechRuleEvaluator` | Role gate only; ABAC via `FintechRuleEvaluator` | Whole decision natively | Whole decision natively | Relationship Check |
 | Cold latency (ms) | 0.0011 | 0.0004 | 0.0008 | 1.1672 | live (self-skips offline) | live (self-skips offline) |
@@ -83,6 +84,7 @@ them as relative, not absolute (see the caveat above).
 | Auditability / explanation | `rule` (normalized) | `aspnet-requirement` (+ `rule`) | `casbin-rule` (+ `rule`) | `cedar-policy` (determining ids, precedence) | `rego-rule` (+ package path) | `relationship-tuple` (checked tuple) |
 | Ops burden | None | None | None | None (in-proc engine) | Runs an OPA server / policy bundle | Runs an OpenFGA server + store |
 | .NET support | First-class (this repo) | Shared framework, no package | `Casbin.NET` package | `MonoCloud.Cedar` package | HTTP client (any) | OpenFGA .NET SDK |
+| Licensing / maturity | This repo (reference oracle) | ASP.NET Core (MIT), mature | `Casbin.NET` (Apache-2.0), mature | Cedar (Apache-2.0, AWS), newer — `MonoCloud.Cedar` port | OPA (Apache-2.0), CNCF Graduated | OpenFGA (Apache-2.0), CNCF Incubating |
 | Fail-closed when unavailable | N/A (in-proc) | N/A (in-proc) | N/A (in-proc) | Deny on engine error | Deny on transport/timeout/undefined | Deny on unreachable/error |
 
 **Grounding notes for the cells above:**
