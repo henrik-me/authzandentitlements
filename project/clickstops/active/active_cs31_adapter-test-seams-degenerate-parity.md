@@ -1,9 +1,9 @@
 # CS31 — Engine-adapter test seams & degenerate-input parity
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c3
+**Branch:** cs31/content
+**Started:** 2026-07-04
 **Closed:** —
 **Filed by:** yoga-ae-c3 — 2026-07-04, LRN harvest (CS28h): dispositioning open learnings into fix CSs.
 **Depends on:** CS07, CS09, CS16
@@ -62,11 +62,25 @@ None.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Extract IOpenFgaCheckClient seam | pending | — | OpenFgaProvider depends on it; OpenFgaRebacService implements it; test double forces allowed=true/false offline (LRN-038) |
+| Offline ReBAC permit/deny explanation tests | pending | — | Assert Engine/DeterminingRule explanation without a live server |
+| Degenerate-input fail-closed parity tests | pending | — | null/empty/whitespace attrs vs ReferenceDecisionProvider oracle for every engine (LRN-033) |
+| OpenFGA model-id pin + targeted reconciliation | pending | — | Configurable/pinned auth-model id; tuple-existence reconciliation vs read-all (LRN-031) |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, feature docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | Flip LRN-038/033/031 to applied; file/disposition learnings; open follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c3 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
