@@ -1171,6 +1171,71 @@ tags: [audit, replay, tamper-evident, abac, follow-up]
 
 **Disposition:** open — deferred architectural enhancement; file a planned CS if prioritized at harvest.
 
+### LRN-058
+
+```yaml
+id: LRN-058
+date: 2026-07-04
+category: architectural
+source_cs: CS19
+status: open
+claim_area: security-hardening
+tags: [authz, obo, delegation, fail-closed, claims, security]
+```
+
+**Problem:** The first CS19 on-behalf-of (OBO) claim helper gated a delegation on `subject_type != "user"` (any non-human), so a typo / unknown / mis-cased `subject_type` (e.g. `robot`, `AGENT`) plus a non-blank `on_behalf_of` silently resolved as a valid delegation.
+
+**Finding:** "Any non-human" is NOT fail-closed for delegation. Resolve an OBO delegation only for an explicit **ordinal allow-list of recognized delegate kinds** matching the PDP `Actor.Type` domain (`{agent, service}`); reject blank/unknown/mis-cased values. Ordinal (case-sensitive) matters — the claim is a fixed lowercase machine token, so `AGENT`/`Service` must not match. The constrained-delegation decision is the intersection (user-permit ∧ agent delegated scope), so an agent can never exceed the user; a base user-Deny passes through unchanged and the `Actor==null` path stays byte-identical.
+
+**Evidence:** PR #85 GPT-5.5 R1 (Needs-Fix) → R2 Go; `ActorClaims.cs`/`GatewayActorClaims.cs` `DelegationCapableTypes = new(StringComparer.Ordinal){agent,service}` in `TryGetDelegation`; `ReferenceDecisionProvider` OBO wrapper; `ActorClaimsTests`/`GatewayActorClaimsTests` (`robot`/`AGENT`/`Service`/blank → false, `service` → true).
+
+**Implications carried forward:**
+- CS21 (break-glass/delegation) reuses these helpers + `Subject.Actor` — keep the ordinal known-delegate-kind allow-list; a break-glass grant is an OBO delegation with an elevated, expiring scope set on the same claim contract.
+
+**Disposition:** open — pattern established + applied in CS19; carried into CS21.
+
+### LRN-059
+
+```yaml
+id: LRN-059
+date: 2026-07-04
+category: architectural
+source_cs: CS19
+status: open
+claim_area: security-hardening
+tags: [security, logging, cwe-117, log-forging, audit, codeql]
+```
+
+**Problem:** The PDP audit sink wrote request/engine-derived string fields (subject/actor ids + types from the anonymous, caller-controlled `/evaluate` body, and OpenFGA relationship-tuple policy references) into an `ILogger` message template. CodeQL `cs/log-forging` flagged them (CWE-117) once the repo went public.
+
+**Finding:** Untrusted values rendered into a log message can inject newlines to forge fake log lines — **even via structured `ILogger` placeholders**, because the default renderer substitutes the values into the text (CodeQL does not treat structured logging alone as a barrier). Sanitize CR/LF from **every** rendered string in the sink (a `Clean()` helper), including joined collections like `PolicyReferences` (GPT-5.5 R5 caught that these embed caller-derived ids for OpenFGA). The audit-of-record (the hash-chained `PdpDecisionAuditEvent` → Audit.Service) keeps raw values; only the human-readable log string is sanitized. Fix the finding, don't dismiss it — the `code_scanning` ruleset rule blocks merge on open high+ alerts.
+
+**Evidence:** PR #85 CodeQL alerts 10–12 (`cs/log-forging`, medium) fixed on re-scan; GPT-5.5 R5 (Needs-Fix on the `PolicyReferences` path) → R6 Go; `LoggingPdpDecisionAuditSink.Clean` wraps all 16 rendered string args + regression test (newline-laden subject/actor id + policy-reference → no raw CR/LF in the message or structured props).
+
+**Implications carried forward:**
+- CS32 (observability + audit enrichment) and any service writing request-derived data to `ILogger`: apply the same CR/LF sanitization to untrusted rendered fields; `BankAuthorizationAuditMiddleware` and other sinks logging request fields likely carry the same latent pattern.
+
+**Disposition:** open — applied in CS19 for the PDP sink; the repo-wide logging-sanitization sweep is a candidate for CS32.
+
+### LRN-060
+
+```yaml
+id: LRN-060
+date: 2026-07-04
+category: process
+source_cs: CS19
+status: open
+tags: [ci, github, ruleset, codeql, copilot, merge, public-repo]
+```
+
+**Problem:** CS19 was implemented under a private free-tier GitHub Actions **billing block** (all PR jobs failed to start; the Copilot review returned only the billing-error stub). Mid-CS the repo was made **public** to restore Actions capacity, which simultaneously activated CodeQL `code_scanning` + a "push to main" **ruleset** (`copilot_code_review` + `code_scanning` + `build-test`/`structural-gate` required checks + `required_review_thread_resolution`).
+
+**Finding:** When a repo goes public mid-CS: (1) re-trigger stale/never-run PR CI by **close/reopen** (fires `pull_request` `reopened` on all workflows, preserves HEAD + the review-log `analyzed_head` anchor — a push would restart the review cycle); (2) **re-engage Copilot** (`harness copilot-engage`) so it delivers a *real* review (the billing-era one was a stub) — it will surface genuine findings on the diff over several rounds; (3) CodeQL will raise real code-scanning findings that must be **fixed** (not dismissed) to satisfy the `code_scanning` ruleset rule; (4) stale/**duplicate check-runs** from reruns can leave a spurious `mergeStateStatus=BLOCKED` even when every ruleset requirement is met — verify required checks green on HEAD + 0 unresolved threads + a Copilot review at HEAD + 0 open high+ CodeQL alerts, then **owner admin-merge** (`gh pr merge --admin`); repo-wide auto-merge is disabled.
+
+**Evidence:** PR #85 — billing-stub Copilot review (18:17Z) → post-public real reviews (19:14/19:27/19:49Z); CodeQL alerts 10–12 fixed; `gh pr merge 85 --squash --admin` after a persistent stale `BLOCKED`; ruleset `18513457` (see the "merge policy" repository memory). Repo-made-public is the **tier-change trigger** for the deferred LRN-035 / LRN-040 (the ruleset now enforces `build-test` + `structural-gate` as required-to-merge — their "needs branch protection" residual is satisfied; re-disposition at the next harvest).
+
+**Disposition:** open — surface at the next harvest; re-disposition LRN-035/LRN-040 now that required-status-check enforcement exists on the (public) repo.
+
 ## Applied
 
 ### LRN-044
