@@ -33,10 +33,10 @@ Map the lab’s controls to regulatory frameworks and surface evidence.
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Author control mapping | pending | — | |
-| Retention + evidence | pending | — | |
-| SoD + certification reports | pending | — | |
-| Compliance dashboards | pending | — | |
+| Author control mapping | done | yoga-ae-c4 | `docs/compliance/control-mapping.md` (176 lines): one table per framework (SOX/PCI-DSS/GDPR) → shipped controls, verified file:line, evidence surfaces + honest gaps. agent-id=cs22-docs \| role=implementer \| report-status=complete \| learnings=1 |
+| Retention + evidence | done | yoga-ae-c4 | Audit-integrity report (pure `AuditHashChain`: mutation/truncation+checkpoint/gap/prev-hash detection) + least-privilege attestation (live-probe self-skip) in the compliance tool. agent-id=cs22-tool \| role=implementer \| report-status=complete \| learnings=2 |
+| SoD + certification reports | done | yoga-ae-c4 | SoD report (reference PDP + `GovernanceSodPolicy`, all 5 pairs) + access-certification report (live-probe self-skip) in the compliance tool. agent-id=cs22-tool \| role=implementer \| report-status=complete \| learnings=2 |
+| Compliance dashboards | done | yoga-ae-c4 | Grafana `compliance.json` (185 lines, 8 panels): SoD denials, governance decisions/grants/reviews, PDP outcomes, entitlements. agent-id=cs22-dashboard \| role=implementer \| report-status=complete \| learnings=1 |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and feature docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; open planned follow-up CSs for unresolved issues |
 
