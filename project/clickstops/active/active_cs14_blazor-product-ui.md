@@ -37,8 +37,8 @@ Build the Blazor fintech product demonstrating the layers in real workflows.
 | Account/transaction UI (maker create-transaction) | done | yoga-ae-c2 | agent-id=cs14-maker \| role=maker-page \| report-status=complete \| learnings=1 (BL0008) |
 | Maker-checker flow (checker approvals) | done | yoga-ae-c2 | agent-id=cs14-checker \| role=checker-page \| report-status=complete \| learnings=1 (RoleNames path) |
 | Entitlement/JIT UX (gates + interactive island + JIT access requests) | done | yoga-ae-c2 | agent-id=cs14-entitlements \| role=entitlements-page \| report-status=complete \| learnings=2 (CS0542, RenderMode) |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
+| Close-out: docs + restart state | done | yoga-ae-c2 | docs/product/bank-web.md + CONTEXT.md updated; WORKBOARD row removed at close-out |
+| Close-out: learnings + follow-ups | done | yoga-ae-c2 | LRN-048 (Blazor static-SSR gotchas) + LRN-049 (governance server-side tenant scoping follow-up) filed |
 
 ## Notes / Learnings
 
@@ -55,4 +55,19 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-_Pending — completed at close-out per OPERATIONS.md § Plan-vs-implementation review (close-out gate). The GO/NEEDS-FIX outcome is recorded here before the active → done rename._
+**Reviewer:** gpt-5.5 (rubber-duck, agent `cs14-planvsimpl`) — independent of the claude-opus-4.6/4.7/4.8 implementers
+**Date:** 2026-07-04
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| D1: Bank.Web (Blazor Interactive) with OIDC login | match | `Program.cs` configures cookie+OIDC against Keycloak (CS03 contract preserved, + write scopes), Interactive Server components + render mode, and `/login`/`/logout` endpoints. |
+| D2: Account views; create-transaction; maker-checker approval | match | Accounts + AccountDetail read via the edge gateway; NewTransaction (maker) and Approvals (checker) derive Maker/Checker id from the token and surface SoD / decide-once outcomes; Bank.Api enforces the rules server-side. |
+| D3: Entitlement/feature-gate UX; JIT access-request flow | match | Entitlements page renders plan + feature gates and an Interactive Server feature-check island; AccessRequests implements the JIT request/approve/reject flow with an identity-bound principal and a tenant-scoped decide guard. |
+| Exit: AuthN → coarse → fine → entitlements, visible outcomes | match | OIDC → edge-gateway coarse scope/tenant policies → Bank.Api maker-checker/SoD + commercial entitlement → `ApiResult` renders coarse/fine/entitlement/decide-once/unavailable denials. Live browser e2e via `aspire run` (documented). |
+
+**Non-blocking follow-ups:** (1) Governance.Service approve/reject tenant scoping is guarded in Bank.Web before the call rather than enforced server-side on the anonymous governance endpoints (LEARNINGS LRN-049); (2) live browser end-to-end requires `aspire run` (Docker + Keycloak), documented in `docs/product/bank-web.md`, not CI-executed.
+
+Build/test/lint at close-out: `dotnet build` 0/0, `dotnet test` 959/0 (Bank.Web.Tests 91), `harness lint` 22/0.

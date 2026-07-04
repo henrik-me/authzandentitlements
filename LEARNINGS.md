@@ -957,6 +957,48 @@ tags: [review, copilot, dotnet, fail-closed, robustness]
 **Implications carried forward:**
 - CS22/CS15 and any new .NET CLI/tool code: pre-empt these classes (bounded subprocesses, dedupe inputs, validate schema + numeric args, cancel/await async probes, freeze shared config) before first review to cut Copilot rounds.
 
+### LRN-048
+
+```yaml
+id: LRN-048
+date: 2026-07-04
+category: tooling
+source_cs: CS14
+status: open
+tags: [blazor, dotnet, static-ssr, oidc, warnings-as-errors]
+```
+
+**Problem:** Building the first Blazor Web App (Bank.Web) surfaced several .NET-10 Blazor gotchas that break a warnings-as-errors build or the interactive render mode in non-obvious ways.
+
+**Finding:** For a Blazor Web App that calls token-protected APIs: (1) token-forwarding pages MUST be **static SSR** (no `@rendermode InteractiveServer`) so `IHttpContextAccessor.HttpContext` / `GetTokenAsync` are available on the request; an interactive component that needs identity reads it from the **cascaded `AuthenticationState`**, not `IHttpContextAccessor` (a circuit has no per-event HttpContext). (2) `app.MapStaticAssets()` is REQUIRED before `MapRazorComponents` — without it `_framework/blazor.web.js` (and `wwwroot/*`) 404 and interactive islands never hydrate. (3) Analyzer **BL0008** (warnings-as-errors) forbids a property initializer on a `[SupplyParameterFromForm]` property → use `= default!` + `??= new()` in `OnInitialized`. (4) **CS0542**: a routable component whose `@page` last segment matches an `@inject` member name collides with the generated class name → name the injected member distinctly. (5) `@rendermode InteractiveServer` shorthand needs `@using static Microsoft.AspNetCore.Components.Web.RenderMode` or the qualified `RenderMode.InteractiveServer`. (6) Multiple static-SSR `<EditForm>` on one page each need a unique `FormName` + matching `[SupplyParameterFromForm(FormName=...)]`.
+
+**Evidence:** CS14 PR #76 — foundation + maker/checker/entitlements sub-agents each hit one of BL0008/CS0542/RenderMode; the R1 GPT-5.5 review returned Needs-Fix on the missing `MapStaticAssets` (verified via a standalone boot smoke test: `/_framework/blazor.web.js` 404→200). `docs/product/bank-web.md` documents the rendering/token strategy.
+
+**Implications carried forward:**
+- CS15 (playground/audit explorer) and any future Blazor UI: default token-protected pages to static SSR + enhanced forms; reserve interactive islands for anonymous-service widgets reading tenant/roles from cascaded auth state; include `MapStaticAssets`; pre-empt BL0008/CS0542 to cut review rounds.
+
+### LRN-049
+
+```yaml
+id: LRN-049
+date: 2026-07-04
+category: architectural
+source_cs: CS14
+status: open
+claim_area: governance
+tags: [fail-closed, tenant-scoping, confused-deputy, governance, follow-up]
+```
+
+**Problem:** The JIT access-request UI (Bank.Web AccessRequests) consumes the **anonymous, non-tenant-scoped** Governance.Service, which returns ALL requests and does not tenant-scope approve/reject. The first tenant fix only filtered the rendered list; a checker could still submit a known cross-tenant request GUID (confused deputy).
+
+**Finding:** Two fail-closed patterns recurred exactly as LRN-047 predicts (independent review catching what a first pass missed): (1) typed clients must catch `JsonException` on `ReadFromJsonAsync` (not only `HttpRequestException`/timeout) so a malformed 2xx body fails closed instead of throwing a 500; (2) UI-layer authorization must bind an action to the **already-scoped** set (`CanDecide(_pending, id)`), never trust the posted id — filtering only the rendered list is insufficient. The Bank.Web guard is defense-in-depth; the complete fix is **server-side tenant scoping in Governance.Service** (out of CS14 scope).
+
+**Evidence:** CS14 PR #76 — R7 GPT-5.5 review returned Needs-Fix (High) on the cross-tenant decide gap; fixed by `AccessRequestsModel.CanDecide` + tenant-scoped `_pending`; `JsonException` fail-closed added across all four Bank.Web clients with tests.
+
+**Implications carried forward:**
+- Follow-up: add server-side tenant scoping (and ideally authenticated principals) to Governance.Service approve/reject/list; file as a planned CS or fold into a governance-hardening CS. Until then the Bank.Web guard is the only tenant boundary for these endpoints.
+- CS15 and any UI over an anonymous/un-scoped service: fail closed on malformed 2xx (catch `JsonException`) and bind every mutating action to a server-or-tenant-scoped allow-set, not the raw posted id.
+
 ## Applied
 
 _(no entries yet)_
