@@ -221,6 +221,29 @@ time; they have repeatedly been review blockers (LRN-011, LRN-017):
 - **Emit audit-ready decision events.** Every authz/entitlement decision emits a structured
   event with stable, matchable fields — the decision-type/outcome **values** are lower-cased
   for stable matching; ingestion may be deferred (Audit.Service, CS13) but emission is not.
+- **A self-skipping live-probe / evidence tool classifies THREE cases, never two:** (a) transport
+  failure / timeout → self-skip (`collected=false`); (b) service REACHED but non-success HTTP
+  status OR malformed body → **fail closed** (clear error + non-zero exit); (c) genuine caller
+  cancellation → **propagate** `OperationCanceledException`. An HttpClient timeout and a caller
+  cancellation both surface as `OperationCanceledException`, so separate them —
+  `catch (OperationCanceledException) when (!callerToken.IsCancellationRequested)` → self-skip
+  (timeout), and let a genuinely-cancelled caller token propagate. Collapsing (b) into (a) hides a
+  broken service behind an all-clear — a fail-OPEN evidence gap (LRN-050).
+- **On-behalf-of (OBO) / delegation resolves ONLY for an ordinal (case-sensitive) allow-list of
+  recognized delegate kinds** matching the PDP `Actor.Type` domain (`{agent, service}`); a
+  blank / unknown / mis-cased `subject_type` (`robot`, `AGENT`, `Service`) with a non-blank
+  `on_behalf_of` must NOT resolve as a delegation ("any non-human" is fail-OPEN). The
+  constrained-delegation decision is the **intersection** (user-permit ∧ agent-delegated-scope),
+  so an agent never exceeds the user; a base user-Deny and the `Actor==null` direct path are
+  unchanged (LRN-058).
+- **Sanitize CR/LF from EVERY request-/engine-derived string rendered into an `ILogger` message**
+  — even via structured `{Placeholder}` args (the default renderer substitutes values into the
+  text, so CodeQL `cs/log-forging` / CWE-117 does not treat structured logging as a barrier). Use
+  `AuthzEntitlements.ServiceDefaults.LogSanitizer.Clean(...)` on every rendered string, including
+  joined collections (OpenFGA `PolicyReferences` embed caller-derived ids); the hash-chained
+  audit-of-record keeps raw values — only the human-readable log string is sanitized. The
+  `code_scanning` ruleset blocks merge on open high+ alerts — fix, don't dismiss (LRN-059; applied
+  repo-wide by CS34).
 
 ### Concurrency (Postgres + EF Core)
 
@@ -296,8 +319,10 @@ For a .NET-10 Blazor Web App that calls token-protected APIs (LRN-048):
   `_framework/blazor.web.js` (and `wwwroot/*`) 404 and interactive islands never hydrate.
 - Under warnings-as-errors: **BL0008** forbids a property initializer on a
   `[SupplyParameterFromForm]` property (use `= default!` + `??= new()` in `OnInitialized`);
-  **CS0542** fires when an `@page` last segment matches an `@inject` member name (name the
-  member distinctly); `@rendermode InteractiveServer` shorthand needs
+  **CS0542** fires when a member (e.g. an `@inject` field) is named the same as the generated
+  component class — which is the `.razor` file name (so `Audit.razor` injecting
+  `IAuditClient Audit` collides), not merely the `@page` route; name injected members distinctly
+  (`AuditApi` / `XClient`) (LRN-048, LRN-054); `@rendermode InteractiveServer` shorthand needs
   `@using static Microsoft.AspNetCore.Components.Web.RenderMode`; multiple static-SSR
   `<EditForm>` on one page each need a unique `FormName`.
 
@@ -354,4 +379,22 @@ catalog (`ScenarioCatalogRunner`), which passes a provider only when it returns 
 - **Non-blocking, drop-counting `Channel<T>` producer:** use `BoundedChannelFullMode.Wait` +
   `TryWrite` (returns `false` when the buffer is full → an observable, countable drop), NOT
   `DropWrite` (under which `TryWrite` always returns `true` and drops silently) (LRN-041).
+- **OTLP→Prometheus metric-name mangling is deterministic** — dots→underscores, unit suffix
+  appended, `_total` on counters (`pdp.decisions.total`→`pdp_decisions_total`;
+  `pdp.evaluate.duration` ms→`pdp_evaluate_duration_milliseconds_bucket`). Derive a new Grafana
+  panel's Prometheus metric name from the C# `Meter`/instrument name by this rule, but treat a
+  panel over a never-yet-scraped custom metric as **inference** until confirmed against a live
+  `/metrics` scrape (`aspire run` + exercise the decision path); prefer an already-scrape-proven
+  metric for flagship panels (LRN-051).
+
+### Eval-lab economics docs
+
+- **Author economics / TCO docs at the pricing-MODEL + cost-driver level** (what you are metered
+  on — per-MAU / per-request / per-tuple / per-seat / flat / custom — and who carries which ops
+  burden), NOT at the exact-figure level: list prices / tier limits / SLA %s are volatile and
+  mostly not first-party (enterprise tiers are quote-only). Anchor every quantitative claim to a
+  dated `## Sources` section, mark each figure indicative, and add a prominent "read for the
+  model, not the number" honesty caveat. Repo-grounded claims are still fact-checked against the
+  shipped surface (a five-vs-six Postgres-DB miscount was the one error caught pre-merge)
+  (LRN-064).
 <!-- harness:local-end id=conventions.project -->
