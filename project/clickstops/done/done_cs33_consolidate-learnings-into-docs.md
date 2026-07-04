@@ -1,10 +1,10 @@
 # CS33 — Consolidate durable learnings into project-local convention/review doc blocks
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs33/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Filed by:** yoga-ae-c3 — 2026-07-04, LRN harvest (CS28h): dispositioning open learnings into fix CSs.
 **Depends on:** none
 
@@ -58,12 +58,12 @@ None — project-local doc content only; no managed-core or code changes.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Consolidate dotnet/Aspire/Keycloak/Blazor/EF/adapter gotchas | pending | — | Into CONVENTIONS.md `conventions.project` local block; each bullet LRN-cited |
-| Consolidate review/Copilot/merge/citation/CI-evidence gotchas | pending | — | Into REVIEWS.md `reviews.project-gates` (and/or OPERATIONS project block); LRN-cited |
-| Flip consolidated how-to LRNs to applied | pending | — | Each LRN → applied with Disposition = the doc block landed |
-| Verify no managed-core edits | pending | — | harness sync --mode=check no drift; edit only allowlisted local blocks |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | File/disposition learnings; open follow-up CSs for unresolved issues |
+| Consolidate dotnet/Aspire/Keycloak/Blazor/EF/adapter gotchas | done | yoga-ae-c3 | 25 LRNs into CONVENTIONS.md `conventions.project`, themed + LRN-cited |
+| Consolidate review/Copilot/merge/citation/CI-evidence gotchas | done | yoga-ae-c3 | 12 LRNs into REVIEWS.md `reviews.project-gates` |
+| Flip consolidated how-to LRNs to applied | done | yoga-ae-c3 | All 37 flipped to applied with Disposition (doc block + PR #119 + `8c71a23`) |
+| Verify no managed-core edits | done | yoga-ae-c3 | `harness sync --mode=check` → no drift; only local blocks edited |
+| Close-out: docs + restart state | done | yoga-ae-c3 | CONTEXT.md updated |
+| Close-out: learnings + follow-ups | done | yoga-ae-c3 | 37 how-to LRNs applied; harvest queue (CS29-CS33) complete |
 
 ## Notes / Learnings
 
@@ -80,4 +80,18 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T21:58:56Z
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| `CONVENTIONS.md` `conventions.project` extended, LRN-cited | match | 25 targeted convention LRNs consolidated + cited in the local block |
+| `REVIEWS.md` `reviews.project-gates` extended | match | 12 targeted review/process LRNs consolidated + cited in the local block |
+| `LEARNINGS.md` entries flipped to `applied` with disposition | match | All 37 `status: applied` under `## Applied`; dispositions cite the destination doc block + PR #119 + commit `8c71a23` |
+
+**Test coverage:** N/A (docs only) — `harness lint` 0 failed; `harness sync --mode=check` **no drift** (only the allowlisted local blocks edited).
+
+**Outcome GO:** All deliverables + exit criteria met. R1 returned NEEDS-FIX for one mechanical item — the 37 dispositions cited PR #119 without the landing commit SHA required by plan Decision #3 — fixed by adding `8c71a23` to all 37 → **R2 GO**. Content review: GPT-5.5 R1 Needs-Fix (LRN-002 citation overstatement) → R2 Go → narrow re-attest (doc nits) + Copilot (3 nits: PR-ref/command-placeholders/LF-recipe, resolved).
