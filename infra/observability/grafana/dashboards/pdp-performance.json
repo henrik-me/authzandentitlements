@@ -1,0 +1,88 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "PDP evaluate latency p50 (ms) by provider",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never", "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "editorMode": "code", "expr": "histogram_quantile(0.50, sum by (le, provider) (rate(pdp_evaluate_duration_milliseconds_bucket[$__rate_interval])))", "legendFormat": "{{provider}}", "range": true } ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "PDP evaluate latency p95 (ms) by provider",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never", "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "editorMode": "code", "expr": "histogram_quantile(0.95, sum by (le, provider) (rate(pdp_evaluate_duration_milliseconds_bucket[$__rate_interval])))", "legendFormat": "{{provider}}", "range": true } ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "PDP evaluate latency p99 (ms) by provider",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never", "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "editorMode": "code", "expr": "histogram_quantile(0.99, sum by (le, provider) (rate(pdp_evaluate_duration_milliseconds_bucket[$__rate_interval])))", "legendFormat": "{{provider}}", "range": true } ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "PDP decision throughput (decisions/s) by provider",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never", "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "editorMode": "code", "expr": "sum by (provider) (rate(pdp_decisions_total[$__rate_interval]))", "legendFormat": "{{provider}}", "range": true } ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "PDP evaluate latency p95 (ms) by action",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never", "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "editorMode": "code", "expr": "histogram_quantile(0.95, sum by (le, action) (rate(pdp_evaluate_duration_milliseconds_bucket[$__rate_interval])))", "legendFormat": "{{action}}", "range": true } ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["cs24", "authz", "pdp", "performance"],
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Data source",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "PDP Performance",
+  "uid": "authz-pdp-performance",
+  "version": 1,
+  "weekStart": ""
+}

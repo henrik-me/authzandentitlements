@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AuthzEntitlements.Benchmarks</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    The "aspnet" engine adapter answers via genuine ASP.NET Core policy types
+    (Microsoft.AspNetCore.Authorization), so this console harness references the
+    ASP.NET Core shared framework the same way the Pdp test project does.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AuthzEntitlements.Authz.Pdp\AuthzEntitlements.Authz.Pdp.csproj" />
+  </ItemGroup>
+
+  <!-- Ship the committed baseline next to the app so the check flag resolves it by default. -->
+  <ItemGroup>
+    <Content Include="baseline\pdp-latency-baseline.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

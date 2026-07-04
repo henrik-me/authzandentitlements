@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "timestampUtc": "2026-07-04T00:00:00.0000000+00:00",
+  "gitSha": "baseline",
+  "machineName": "baseline",
+  "runtimeVersion": "baseline",
+  "iterations": 2000,
+  "warmup": 500,
+  "engines": [
+    {
+      "engineName": "reference",
+      "status": "measured",
+      "skipReason": null,
+      "scenarioCount": 22,
+      "coldMs": 0.0011,
+      "warm": {
+        "count": 1999,
+        "minMs": 0.0001,
+        "maxMs": 0.0039,
+        "meanMs": 0.0003929964982491307,
+        "p50Ms": 0.0002,
+        "p95Ms": 0.0023,
+        "p99Ms": 0.0032,
+        "throughputPerSec": 2544551.934826953
+      }
+    },
+    {
+      "engineName": "aspnet",
+      "status": "measured",
+      "skipReason": null,
+      "scenarioCount": 22,
+      "coldMs": 0.0004,
+      "warm": {
+        "count": 1999,
+        "minMs": 0.0001,
+        "maxMs": 0.029,
+        "meanMs": 0.0011118059029514883,
+        "p50Ms": 0.0008,
+        "p95Ms": 0.0035,
+        "p99Ms": 0.0043,
+        "throughputPerSec": 899437.5703037267
+      }
+    },
+    {
+      "engineName": "casbin",
+      "status": "measured",
+      "skipReason": null,
+      "scenarioCount": 22,
+      "coldMs": 0.0008,
+      "warm": {
+        "count": 1999,
+        "minMs": 0.0001,
+        "maxMs": 0.4178,
+        "meanMs": 0.0013602301150575228,
+        "p50Ms": 0.0007,
+        "p95Ms": 0.0035,
+        "p99Ms": 0.005,
+        "throughputPerSec": 735169.7252767526
+      }
+    },
+    {
+      "engineName": "cedar",
+      "status": "measured",
+      "skipReason": null,
+      "scenarioCount": 22,
+      "coldMs": 1.1672,
+      "warm": {
+        "count": 1999,
+        "minMs": 0.0004,
+        "maxMs": 3.9523,
+        "meanMs": 1.7117475737868932,
+        "p50Ms": 1.5508,
+        "p95Ms": 3.0665,
+        "p99Ms": 3.4257,
+        "throughputPerSec": 584.198286776422
+      }
+    }
+  ]
+}
