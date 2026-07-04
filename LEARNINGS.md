@@ -1041,6 +1041,73 @@ tags: [fail-closed, tenant-scoping, confused-deputy, governance, follow-up]
 
 **Disposition:** Harvest 2026-07-04 (CS28h): filed as planned **CS29** (governance tenant-scoping & fail-closed hardening) — `project/clickstops/planned/planned_cs29_governance-tenant-scoping-hardening.md`. Status stays `open` until CS29 closes.
 
+### LRN-050
+
+```yaml
+id: LRN-050
+date: 2026-07-04
+category: architectural
+source_cs: CS22
+status: open
+claim_area: compliance
+tags: [fail-closed, live-probe, evidence, cancellation, review]
+```
+
+**Problem:** CS22's compliance tool live-probes Governance.Service for certification/least-privilege evidence and self-skips when offline. The first implementation collapsed a REACHED-but-erroring service (HTTP 500/401/404) into the same "unreachable → self-skip" path as a transport failure, so a running-but-broken governance service would report `collected=false` (all-clear) with exit 0 — a fail-OPEN evidence gap. A self-report claimed the distinction was handled; the independent rubber-duck caught that it was not.
+
+**Finding:** Any evidence/probe tool that self-skips offline MUST classify three cases distinctly, never two: (a) transport failure / timeout → self-skip (`collected=false`); (b) service REACHED but non-success status OR malformed body → **fail closed** (clear error + non-zero exit); (c) genuine caller cancellation → **propagate** `OperationCanceledException`, not mask it as "offline". Collapsing (b) into (a) hides a broken service behind an all-clear report; collapsing (c) into (a) breaks cancellation. Because an HttpClient timeout and a caller cancellation both surface as `OperationCanceledException`, separate them with `catch (OperationCanceledException) when (!callerToken.IsCancellationRequested)` (timeout → self-skip) and let a genuinely-cancelled caller token propagate.
+
+**Evidence:** CS22 PR #83 — R1 GPT-5.5 review Needs-Fix on `HttpGovernanceClient` mapping non-2xx → `GovernanceUnreachableException` (fail-open); Copilot then caught the caller-cancellation-swallowed variant. Fixed + `HttpGovernanceClientTests` (reached 500/401/404/503 → fail closed; transport + timeout → self-skip; caller-cancel → propagates); Program maps the fail-closed exception → exit 1.
+
+**Implications carried forward:**
+- CS15 (playground/audit explorer), CS32 (observability-audit-enrichment), and any future live-probe/evidence tool: implement the three-way classification up front (transport→self-skip; reached-error/malformed→fail-closed; caller-cancel→propagate).
+
+**Disposition:** open — durable fail-closed pattern; candidate for consolidation into a project review-convention block by planned **CS33**.
+
+### LRN-051
+
+```yaml
+id: LRN-051
+date: 2026-07-04
+category: tooling
+source_cs: CS22
+status: open
+tags: [grafana, prometheus, otlp, metrics, dashboard, observability]
+```
+
+**Problem:** CS22's Grafana compliance dashboard queries custom governance/entitlements/gateway counters that no prior dashboard had exercised, so their exact Prometheus-exposed names could only be INFERRED from the OTLP→Prometheus mangling pattern, not confirmed against a live scrape.
+
+**Finding:** The shipped `pdp-performance.json` confirms the mangling: `pdp.decisions.total` → `pdp_decisions_total`; `pdp.evaluate.duration` (unit ms) → `pdp_evaluate_duration_milliseconds_bucket`. Applying the same rule (dots→underscores, `_total` suffix on counters), the governance counters SHOULD expose as `governance_decisions_total` (labels `type`/`outcome`), `governance_grants_issued_total`, `governance_grants_revoked_total`, `governance_reviews_run_total`; entitlements as `entitlements_decisions_total`; gateway as `gateway_decisions_total` — verified in the C# meter sources but NOT scrape-verified. The flagship SoD panel uses the unambiguous, well-established `pdp_decisions_total{action="governance.access.request",decision="Deny"}`; the non-SoD panels should be scrape-confirmed before being treated as audit-grade.
+
+**Evidence:** CS22 PR #83 — `GovernanceMetrics.cs:22-26`, `EntitlementsMetrics.cs:20-21`, `GatewayMetrics.cs:15` define the instrument names; `pdp-performance.json:48` confirms the mangling pattern. The cs22-dashboard sub-agent flagged the inference explicitly.
+
+**Implications carried forward:**
+- CS32 / CS15 / any live-run pass: `aspire run`, exercise governance + entitlements decisions, and confirm the `/metrics` names + label values resolve before relying on the non-SoD compliance panels.
+
+**Disposition:** open — verify under a live-run/observability CS (e.g. CS32).
+
+### LRN-052
+
+```yaml
+id: LRN-052
+date: 2026-07-04
+category: process
+source_cs: CS22
+status: open
+tags: [ci, pr-evidence, review-gates, admin-merge, private-free-tier]
+```
+
+**Problem:** On CS22's content PR #83, the CI `pr-evidence-lint` / `review-gates` jobs (`read-only-gates`, `review-log-evidence`, `copilot-review-attached`, `independence-invariant`, `review-threads-resolved`, `structural-gate`) repeatedly failed with **0 steps in ~3s** — a runner/job-provisioning flake, not gate-logic output — while an equivalent `harness-pr-check` run at the SAME sha succeeded, and `dotnet-ci/build-test` passed.
+
+**Finding:** When the CI evidence-gate jobs fail with zero steps, the authoritative substitute is the LOCAL aggregator: `harness pr-evidence --base <merge-base> --head <head> --pr-body <file> --repo <slug> --pr <n>` (identical B1 / A3+A4 / A6 / A5+A16 logic as CI `read-only-gates`). If it exits 0 with the current PR state (Copilot attached at HEAD + threads resolved + Review-log Go row at HEAD), the substance is verified. On this branch-protection-unenforceable private-free-tier repo the harness gates are advisory, so the solo-orchestrator content-PR admin-merge doctrine (OPERATIONS.md § Content/release-PR admin-merge) applies: `gh pr merge <pr> --admin --squash`, with a PR comment documenting the environmental failure + the local pass for traceability.
+
+**Evidence:** CS22 PR #83 — `read-only-gates` failed 0 steps/3s across two reruns; local `harness pr-evidence` = 4 passed / 0 failed; `build-test` green; admin-squash-merged (`6220a13`) with a documented merge note.
+
+**Implications carried forward:**
+- Future content-PR close-outs on this repo: do not block on the zero-step evidence-gate flake — run local `harness pr-evidence`, confirm `build-test` green, then admin-merge with a documented note.
+
+**Disposition:** open — process how-to; candidate for consolidation into the close-out procedure by planned **CS33**.
+
 ## Applied
 
 _(no entries yet)_
