@@ -37,7 +37,54 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
 
     public string Name => "reference";
 
-    public AccessDecision Evaluate(AccessRequest request) => request.Action.Name switch
+    // Constrained delegation (CS19). The public entry point computes the base (human) decision
+    // unchanged, then applies the on-behalf-of (OBO) constraint when the Subject carries an Actor:
+    //
+    //   * Actor == null            -> return the base decision byte-identical (direct human/service
+    //                                 path; the "human path unaffected" guarantee).
+    //   * Actor present, base Deny -> return the base Deny unchanged (the human is not permitted, so
+    //                                 the agent — which can never exceed the human — is not either;
+    //                                 the human reason is preserved so the denial is explained the
+    //                                 same way for the agent as for the user).
+    //   * Actor present, base Permit -> require the delegated scope for the action class. The agent
+    //                                 is authorized only at the INTERSECTION of the human's rights
+    //                                 and its own delegated scopes; a missing/unmapped delegated
+    //                                 scope denies DelegationScopeMissing (fail-closed).
+    public AccessDecision Evaluate(AccessRequest request)
+    {
+        var baseDecision = EvaluateCore(request);
+
+        if (request.Subject.Actor is null)
+        {
+            return baseDecision;
+        }
+
+        if (baseDecision.Decision == Decision.Deny)
+        {
+            return baseDecision;
+        }
+
+        var actor = request.Subject.Actor;
+        var required = AgentScopeNames.RequiredFor(request.Action.Name);
+
+        // Fail-closed: an action with no defined delegated scope, or an agent whose granted scopes
+        // do not include the required one, denies. A null/empty Scopes list satisfies nothing.
+        var satisfied = required is not null
+            && actor.Scopes is not null
+            && actor.Scopes.Any(s => string.Equals(s, required, StringComparison.Ordinal));
+
+        if (satisfied)
+        {
+            return baseDecision;
+        }
+
+        return Explain(AccessDecision.Deny(new Reason(
+            ReasonCodes.DelegationScopeMissing,
+            $"Agent '{actor.Id}' is not authorized to '{request.Action.Name}' on behalf of subject " +
+            $"'{request.Subject.Id}': missing delegated scope '{required ?? "(none defined)"}'.")));
+    }
+
+    private AccessDecision EvaluateCore(AccessRequest request) => request.Action.Name switch
     {
         ActionNames.AccountRead => EvaluateRead(request),
         ActionNames.AccountCreate => EvaluateAccountCreate(request),

@@ -169,6 +169,81 @@
           }
         }
       ]
+    },
+    {
+      "name": "agent.bank.read",
+      "description": "Delegated read capability for an agent acting on behalf of a user.",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "agent.bank.transactions.write",
+      "description": "Delegated create-transaction capability for an agent (OBO).",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "agent.bank.approvals.write",
+      "description": "Delegated approve/reject capability for an agent (OBO).",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "agent-claims",
+      "description": "Marks AI-agent tokens with subject_type=agent so a resource server can distinguish an agent caller from a human.",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "subject_type",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "subject_type",
+            "claim.value": "agent",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "service-claims",
+      "description": "Marks service-account / workload tokens with subject_type=service so a resource server can distinguish a non-human workload acting as itself from a human.",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "subject_type",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "subject_type",
+            "claim.value": "service",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "clients": [
@@ -233,9 +308,33 @@
       "fullScopeAllowed": true,
       "defaultClientScopes": [
         "bank-claims",
+        "service-claims",
         "bank.read"
       ],
       "optionalClientScopes": []
+    },
+    {
+      "clientId": "bank-agent",
+      "name": "Bank Agent (AI agent / MCP tool workload — client credentials)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "bank-agent-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "agent-claims",
+        "agent.bank.read"
+      ],
+      "optionalClientScopes": [
+        "agent.bank.transactions.write",
+        "agent.bank.approvals.write"
+      ]
     }
   ],
   "users": [

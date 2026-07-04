@@ -85,7 +85,10 @@ public sealed class PdpDecisionService
             DeterminingRule: explained.Explanation!.DeterminingRule,
             PolicyReferences: explained.Explanation!.PolicyReferences
                 .Select(p => $"{p.Kind}:{p.Reference}").ToArray(),
-            Narrative: explained.Explanation!.Narrative));
+            Narrative: explained.Explanation!.Narrative,
+            SubjectType: request.Subject.Type,
+            ActorId: request.Subject.Actor?.Id,
+            ActorType: request.Subject.Actor?.Type));
 
         return explained;
     }

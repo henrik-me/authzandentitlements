@@ -19,4 +19,13 @@ public sealed record PdpDecisionAuditEvent(
     // flattened as "kind:reference" strings (audit-ingestion-friendly), and the human narrative.
     string DeterminingRule,
     IReadOnlyList<string> PolicyReferences,
-    string Narrative);
+    string Narrative,
+    // CS19 agent/non-human access: the acting principal's kind and, for on-behalf-of (OBO) calls,
+    // the delegate's identity. SubjectType is the Subject's own type ("user" for a human, or
+    // "service"/"agent" for a non-human acting as itself). ActorId/ActorType are non-null ONLY on
+    // an OBO call (a human Subject acted for by an Actor); null otherwise. Additive with defaults so
+    // every existing positional construction keeps compiling and the forwarded JSON simply gains
+    // optional fields the Audit.Service tolerates.
+    string SubjectType = "user",
+    string? ActorId = null,
+    string? ActorType = null);

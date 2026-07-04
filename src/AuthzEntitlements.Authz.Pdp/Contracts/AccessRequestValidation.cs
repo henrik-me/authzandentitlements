@@ -37,6 +37,28 @@ public static class AccessRequestValidation
             return "subject.roles is required (an empty array is allowed).";
         }
 
+        // CS19 on-behalf-of (OBO): the Actor is optional (null => a direct call), but when present it
+        // must be structurally complete so the reference provider's delegation constraint reads a real
+        // delegate. Fail closed at the boundary rather than let a null delegated-scope list surface
+        // downstream. An empty Scopes array is allowed (it satisfies no delegated scope => deny).
+        if (request.Subject.Actor is { } actor)
+        {
+            if (string.IsNullOrWhiteSpace(actor.Type))
+            {
+                return "subject.actor.type is required when subject.actor is present.";
+            }
+
+            if (string.IsNullOrWhiteSpace(actor.Id))
+            {
+                return "subject.actor.id is required when subject.actor is present.";
+            }
+
+            if (actor.Scopes is null)
+            {
+                return "subject.actor.scopes is required when subject.actor is present (an empty array is allowed).";
+            }
+        }
+
         if (request.Action is null)
         {
             return "action is required.";

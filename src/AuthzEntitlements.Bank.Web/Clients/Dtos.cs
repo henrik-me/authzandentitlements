@@ -186,7 +186,16 @@ public sealed record PdpSubjectDto(
     string Id,
     IReadOnlyList<string> Roles,
     string? Tenant = null,
-    string? Branch = null);
+    string? Branch = null,
+    PdpActorDto? Actor = null);
+
+// The non-human on-behalf-of (OBO) delegate carried on PdpSubjectDto.Actor, mirroring the PDP
+// Authz.Pdp/Contracts/Actor.cs shape (Type "agent"|"service", Id, delegated agent.bank.* Scopes).
+// null Actor => a direct/human call; non-null => the human Subject is being acted for BY this
+// delegate, and the PDP constrains the decision to the intersection of the human's rights and
+// the delegate's scopes. Added as a trailing defaulted member so every existing positional
+// PdpSubjectDto construction keeps compiling and the direct/human wire shape is unchanged.
+public sealed record PdpActorDto(string Type, string Id, IReadOnlyList<string> Scopes);
 
 public sealed record PdpActionDto(string Name);
 

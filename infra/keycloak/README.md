@@ -52,7 +52,8 @@ Usernames must be realm-unique, so the Fabrikam teller is `teller1-fabrikam`
 |---|---|---|---|---|
 | `bank-web` | confidential | `bank-web-secret` | authorization-code + direct-access-grant | Login for the Bank.Web stub; the direct-access (password) grant lets the orchestrator fetch tokens for verification. |
 | `bank-api` | bearer-only resource server | — | none | Audience for the access token; validates only. |
-| `bank-workload` | confidential service account | `bank-workload-secret` | client-credentials | Non-human workload identity (used later by CS19); its service-account user carries `tenant=CONTOSO`. |
+| `bank-workload` | confidential service account | `bank-workload-secret` | client-credentials | Non-human workload identity; carries `subject_type=service` (CS19, via the `service-claims` default scope) so it is distinguishable as a non-human acting as itself; its service-account user carries `tenant=CONTOSO`. |
+| `bank-agent` | confidential service account | `bank-agent-secret` | client-credentials | AI agent / MCP tool workload identity (CS19). Carries `subject_type=agent`; default scope `agent.bank.read`, with the write/approval delegated scopes requested per token. |
 
 `bank-web` default client scopes include `bank.read` plus the `tenant`/`branch`/
 `roles` mappers; the write scopes (`bank.transactions.write`,
@@ -81,3 +82,61 @@ coarse-grained scope checks from that `scope` string; Bank.Api validates the
 `aud` and `roles` claims and enforces the `tenant` claim on every endpoint. The
 `branch` claim is carried for later branch-scoped (ABAC) authorization and is not
 yet enforced by Bank.Api.
+
+## Agent / non-human access (CS19)
+
+The realm also carries an **AI-agent / MCP-tool workload identity** so agents can be
+authorized alongside humans, with on-behalf-of (OBO) delegation. The design contract is in
+[agent-and-nonhuman-access](../../docs/authz/agent-and-nonhuman-access.md); this section
+covers only the realm surface.
+
+### The `bank-agent` client
+
+`bank-agent` is a **confidential service account** (secret `bank-agent-secret`) that uses the
+**client-credentials** grant — no interactive login, no user password. It mirrors
+`bank-workload`'s shape but is scoped for delegated agent capabilities and is **not**
+`fullScopeAllowed` (least privilege). Its token carries a hardcoded `subject_type=agent`
+claim (from the `agent-claims` default scope) so a resource server or PDP can distinguish a
+non-human caller from a human.
+
+### Delegated `agent.bank.*` scopes (default read; write/approvals optional)
+
+The delegated capability scopes are **distinct** from the human `bank.*` scopes: an agent
+holds them to act *for* a user, and it can never exceed the user's own rights.
+
+| scope | on `bank-agent` | grants (delegated) |
+|---|---|---|
+| `agent.bank.read` | **default** | read on behalf of a user |
+| `agent.bank.transactions.write` | optional | create account / transaction on behalf of a user |
+| `agent.bank.approvals.write` | optional | approve / reject on behalf of a user |
+
+Only `agent.bank.read` is a **default** client scope, so a plain agent token is read-only.
+The write and approval scopes are **optional** and must be requested per token — this is the
+"scoped, time-boxed agent tokens" property: an elevated capability is minted only for the
+call that needs it, not carried by default.
+
+### Obtaining an agent token
+
+Use the client-credentials grant against the realm token endpoint, requesting any optional
+delegated scopes needed for the action:
+
+```text
+POST /realms/authz-bank/protocol/openid-connect/token
+grant_type=client_credentials
+client_id=bank-agent
+client_secret=bank-agent-secret
+scope=agent.bank.transactions.write        # optional — omit for a read-only agent token
+```
+
+The resulting access token carries `subject_type=agent` and the requested `agent.bank.*`
+scopes in its `scope` string.
+
+### On-behalf-of (OBO)
+
+Production OBO uses **OAuth 2.0 Token Exchange (RFC 8693)**: the agent exchanges its token
+for one whose `sub` is the **user** it acts for and whose `act` / `on_behalf_of` names the
+**agent**, so the resource server sees both the effective user and the acting delegate. In
+this **offline, deterministic** lab the OBO binding is modeled at the app / PDP layer (see
+[agent-and-nonhuman-access](../../docs/authz/agent-and-nonhuman-access.md)); enabling
+Keycloak's preview token-exchange feature is therefore **not required** to run the demo.
+

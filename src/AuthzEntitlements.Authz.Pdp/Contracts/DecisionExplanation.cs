@@ -30,6 +30,7 @@ public static class DeterminingRules
     public const string Relationship = "relationship";                 // ReBAC NoRelationship
     public const string UnknownAction = "unknown-action";              // UnknownAction
     public const string EngineUnavailable = "engine-unavailable";      // provider-local fail-closed
+    public const string DelegationScope = "delegation-scope";          // DelegationScopeMissing (CS19 OBO)
 }
 
 // The kinds of engine-native policy artifacts surfaced in PolicyReference.Kind.
