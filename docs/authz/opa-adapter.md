@@ -29,7 +29,7 @@ without redeploying the PDP. The Rego policy itself is owned under
 This adapter runs OPA **out of process** as a REST decision server, which keeps the engine and its
 policies independently deployable and matches how OPA is most commonly operated. OPA also supports an
 **in-process** route: a Rego policy can be compiled to a WebAssembly module
-(e.g. `opa build -t wasm -e authz/bank/decision`, naming the decision entrypoint) and
+(e.g. `opa build -t wasm -e authz/bank/decision infra/opa/policy`, naming the decision entrypoint) and
 evaluated inside the PDP host via the OPA WASM SDK, trading the network hop and separate container for
 an in-proc dependency and a policy rebuild/redeploy step. The shipped `opa` provider uses the
 out-of-process REST path; the WASM in-process route is a documented alternative and is not wired here.
