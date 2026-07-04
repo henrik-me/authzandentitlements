@@ -6,6 +6,7 @@ namespace AuthzEntitlements.Governance.Service.Sod;
 public enum ApprovalDisposition
 {
     MakerCheckerDenied,
+    ApproverNotEligible,
     SodDenied,
     SodUnavailable,
     Approved,
@@ -19,11 +20,12 @@ public sealed record ApprovalOutcome(
     string Message,
     AccessGrant? Grant);
 
-// Pure decision service for approving an access request. It orchestrates the two
-// segregation-of-duties gates in order — maker-checker on the approval action, then the
-// PDP SoD check on the proposed role set — and constructs the grant on a permit. Its only
-// dependency is the injected IPdpSodClient, so (like Bank.Api's EntitlementsEnforcer) it
-// is directly testable with a fake client and never touches a DbContext or HTTP host.
+// Pure decision service for approving an access request. It orchestrates the approval-time
+// gates in order — maker-checker on the approval action, checker-eligibility of the
+// approver, then the PDP SoD check on the proposed role set — and constructs the grant on a
+// permit. Its only dependency is the injected IPdpSodClient, so (like Bank.Api's
+// EntitlementsEnforcer) it is directly testable with a fake client and never touches a
+// DbContext or HTTP host.
 //
 // Fail-closed: an Unavailable SoD result yields SodUnavailable (the endpoint maps it to a
 // 503 and leaves the request Pending), never an approval.
@@ -34,6 +36,7 @@ public sealed class AccessApprovalService(IPdpSodClient sod)
         Principal principal,
         AccessPackage package,
         string approverId,
+        Principal? approver,
         DateTimeOffset now,
         CancellationToken ct)
     {
@@ -43,12 +46,27 @@ public sealed class AccessApprovalService(IPdpSodClient sod)
         {
             return new ApprovalOutcome(
                 ApprovalDisposition.MakerCheckerDenied,
-                "MakerEqualsChecker",
-                "the checker (approver) must differ from the requester",
+                GovernanceRules.MakerEqualsCheckerCode,
+                GovernanceRules.MakerEqualsCheckerMessage,
                 null);
         }
 
-        // 2. SoD via the PDP over the proposed role set (baseline UNION package roles).
+        // 2. Checker eligibility: the approver must be a KNOWN governance principal that
+        // holds a checker-eligible (oversight) role. A null approver (an unknown or spoofed
+        // id that resolved to no principal) or a principal without an oversight role — a
+        // Teller or Auditor — cannot sign off, so maker-checker cannot be defeated by simply
+        // passing any different string. Gated before the PDP is consulted.
+        if (approver is null
+            || !GovernanceRules.IsCheckerEligible(approver.BaselineRoles.Select(r => r.RoleName)))
+        {
+            return new ApprovalOutcome(
+                ApprovalDisposition.ApproverNotEligible,
+                GovernanceRules.ApproverNotEligibleCode,
+                GovernanceRules.ApproverNotEligibleMessage,
+                null);
+        }
+
+        // 3. SoD via the PDP over the proposed role set (baseline UNION package roles).
         var proposedRoles = ProposedRoleSet.Compute(
             principal.BaselineRoles.Select(r => r.RoleName),
             package.Roles.Select(r => r.RoleName));

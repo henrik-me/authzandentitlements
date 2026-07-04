@@ -14,6 +14,17 @@ namespace AuthzEntitlements.Governance.Service.Endpoints;
 // concerns are handled in other CSs.
 public static class GovernanceEndpoints
 {
+    // Sentinel principal id for genuinely campaign-scoped audit events: a campaign run spans
+    // every active grant in the tenant, so there is no single subject principal. An explicit,
+    // documented token keeps downstream partitioning (which keys on tenant + principal) from
+    // seeing an empty string.
+    private const string CampaignScopePrincipal = "*campaign-scope*";
+
+    // Fallback tenant for the vanishingly rare case where a review item's owning campaign
+    // cannot be loaded (an integrity violation — the campaign FK is required). Prefer the
+    // real campaign/grant tenant; never emit an empty tenant, which would break partitioning.
+    private const string UnknownTenant = "*unknown-tenant*";
+
     public static IEndpointRouteBuilder MapGovernanceEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/governance");
@@ -171,8 +182,15 @@ public static class GovernanceEndpoints
                 StatusCodes.Status409Conflict);
         }
 
+        // Resolve the claimed approver from the trusted governance directory rather than
+        // taking the body field on faith: only a known, checker-eligible principal may sign
+        // off (enforced in AccessApprovalService). An unknown/spoofed id resolves to null and
+        // fails the eligibility gate.
+        var approver = await db.Principals.AsNoTracking().Include(p => p.BaselineRoles)
+            .FirstOrDefaultAsync(p => p.Id == body.ApproverId, ct);
+
         var now = DateTimeOffset.UtcNow;
-        var outcome = await approval.EvaluateAsync(request, principal, package, body.ApproverId, now, ct);
+        var outcome = await approval.EvaluateAsync(request, principal, package, body.ApproverId, approver, now, ct);
 
         switch (outcome.Disposition)
         {
@@ -181,7 +199,16 @@ public static class GovernanceEndpoints
                 // approve their own elevation. No state change; the request stays Pending.
                 EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
                     GovernanceDecisionType.Approval, request.AccessPackageCode,
-                    GovernanceOutcome.MakerCheckerDenied, outcome.Message, request.Id.ToString());
+                    GovernanceOutcome.MakerCheckerDenied, outcome.ReasonCode, request.Id.ToString());
+                return Problem(outcome.Message, StatusCodes.Status403Forbidden);
+
+            case ApprovalDisposition.ApproverNotEligible:
+                // The claimed approver is not a known checker-eligible principal (an unknown/
+                // spoofed id, or a principal without an oversight role). Reject the approval
+                // action; the request stays Pending so a legitimate checker can still decide.
+                EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
+                    GovernanceDecisionType.Approval, request.AccessPackageCode,
+                    GovernanceOutcome.ApproverNotEligible, outcome.ReasonCode, request.Id.ToString());
                 return Problem(outcome.Message, StatusCodes.Status403Forbidden);
 
             case ApprovalDisposition.SodUnavailable:
@@ -189,7 +216,7 @@ public static class GovernanceEndpoints
                 // return a transient 503 (not a business decision) so nothing is granted.
                 EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
                     GovernanceDecisionType.Approval, request.AccessPackageCode,
-                    GovernanceOutcome.Unavailable, outcome.Message, request.Id.ToString());
+                    GovernanceOutcome.Unavailable, outcome.ReasonCode, request.Id.ToString());
                 return Problem("the PDP is unavailable; retry the approval",
                     StatusCodes.Status503ServiceUnavailable);
 
@@ -206,7 +233,7 @@ public static class GovernanceEndpoints
 
                 EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
                     GovernanceDecisionType.Approval, request.AccessPackageCode,
-                    GovernanceOutcome.SodDeny, outcome.Message, request.Id.ToString());
+                    GovernanceOutcome.SodDeny, outcome.ReasonCode, request.Id.ToString());
                 return Problem($"segregation-of-duties conflict: {outcome.Message}",
                     StatusCodes.Status409Conflict);
 
@@ -260,13 +287,17 @@ public static class GovernanceEndpoints
                 StatusCodes.Status409Conflict);
         }
 
-        if (!GovernanceRules.CheckerDiffersFromRequester(request.PrincipalId, body.ApproverId))
+        // A reject is a checker action too: the rejector must be a known checker-eligible
+        // principal that differs from the requester — the same gate as approve, so a reject
+        // cannot be spoofed by an unknown or ineligible id either.
+        var rejector = await db.Principals.AsNoTracking().Include(p => p.BaselineRoles)
+            .FirstOrDefaultAsync(p => p.Id == body.ApproverId, ct);
+        if (ValidateChecker(request.PrincipalId, body.ApproverId, rejector) is { } checkerError)
         {
             EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
                 GovernanceDecisionType.Rejection, request.AccessPackageCode,
-                GovernanceOutcome.MakerCheckerDenied, "checker must differ from requester", request.Id.ToString());
-            return Problem("the checker (approver) must differ from the requester",
-                StatusCodes.Status403Forbidden);
+                checkerError.Outcome, checkerError.ReasonCode, request.Id.ToString());
+            return Problem(checkerError.Message, StatusCodes.Status403Forbidden);
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -465,7 +496,10 @@ public static class GovernanceEndpoints
         await db.SaveChangesAsync(ct);
 
         metrics.RecordReviewRun();
-        EmitDecision(audit, metrics, campaign.TenantCode, principalId: string.Empty,
+        // Campaign-scoped event: a run has no single subject principal (it spans every active
+        // grant in the tenant), so record the campaign tenant with the campaign-scope sentinel
+        // principal rather than an empty string.
+        EmitDecision(audit, metrics, campaign.TenantCode, CampaignScopePrincipal,
             GovernanceDecisionType.Campaign, campaign.Id.ToString(),
             GovernanceOutcome.CampaignRun, reason: null, campaign.Id.ToString());
         return TypedResults.Ok(new CampaignRunResponse(campaign.Id, items.Count));
@@ -500,6 +534,11 @@ public static class GovernanceEndpoints
             return Problem($"review item is already {item.Decision}", StatusCodes.Status409Conflict);
         }
 
+        // Load the owning campaign up front (tracked): its TenantCode is the review item's
+        // tenant — all items in a campaign share it — needed to partition the audit event
+        // below, and it is the entity whose status may flip to Completed.
+        var campaign = await db.AccessReviewCampaigns.FirstOrDefaultAsync(c => c.Id == item.CampaignId, ct);
+
         var now = DateTimeOffset.UtcNow;
 
         // Load the linked grant only when a Revoke could act on it. The pure planner mutates
@@ -522,18 +561,18 @@ public static class GovernanceEndpoints
         var pendingRemaining = await db.AccessReviewItems
             .CountAsync(i => i.CampaignId == item.CampaignId && i.Id != item.Id
                              && i.Decision == ReviewDecision.Pending, ct);
-        if (pendingRemaining == 0)
+        if (pendingRemaining == 0 && campaign is not null)
         {
-            var campaign = await db.AccessReviewCampaigns.FirstOrDefaultAsync(c => c.Id == item.CampaignId, ct);
-            if (campaign is not null)
-            {
-                campaign.Status = CampaignStatus.Completed;
-            }
+            campaign.Status = CampaignStatus.Completed;
         }
 
         await db.SaveChangesAsync(ct);
 
-        EmitDecision(audit, metrics, tenantCode: string.Empty, item.PrincipalId,
+        // Partition the review event by the item's real tenant + principal. Prefer the
+        // campaign tenant (authoritative), fall back to the revoked grant's tenant, and only
+        // then a documented sentinel — never an empty string.
+        var reviewTenant = campaign?.TenantCode ?? linkedGrant?.TenantCode ?? UnknownTenant;
+        EmitDecision(audit, metrics, reviewTenant, item.PrincipalId,
             GovernanceDecisionType.Review, item.Id.ToString(),
             GovernanceOutcome.ReviewDecided, decision.ToString().ToLowerInvariant(), item.CampaignId.ToString());
 
@@ -578,6 +617,31 @@ public static class GovernanceEndpoints
 
     private static IResult Problem(string detail, int statusCode) =>
         TypedResults.Problem(detail, statusCode: statusCode);
+
+    // Validates a checker action (approve/reject): the checker must differ from the requester
+    // AND be a known, checker-eligible principal (an oversight role). Returns null when the
+    // checker is valid, otherwise the stable audit CODE, the human message, and the audit
+    // outcome to record. Keeps the reject path's gate identical to the approve path (which
+    // enforces the same two rules inside AccessApprovalService); the rule itself lives once
+    // in GovernanceRules.
+    private static (GovernanceOutcome Outcome, string ReasonCode, string Message)? ValidateChecker(
+        string requesterId, string checkerId, Principal? checker)
+    {
+        if (!GovernanceRules.CheckerDiffersFromRequester(requesterId, checkerId))
+        {
+            return (GovernanceOutcome.MakerCheckerDenied,
+                GovernanceRules.MakerEqualsCheckerCode, GovernanceRules.MakerEqualsCheckerMessage);
+        }
+
+        if (checker is null
+            || !GovernanceRules.IsCheckerEligible(checker.BaselineRoles.Select(r => r.RoleName)))
+        {
+            return (GovernanceOutcome.ApproverNotEligible,
+                GovernanceRules.ApproverNotEligibleCode, GovernanceRules.ApproverNotEligibleMessage);
+        }
+
+        return null;
+    }
 
     private static bool TryParseReviewDecision(string? value, out ReviewDecision decision)
     {

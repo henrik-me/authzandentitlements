@@ -83,6 +83,41 @@ public sealed class AccessApprovalServiceTests
         Assert.Equal(GovernanceTestData.Contoso, fake.LastTenantCode);
     }
 
+    [Fact]
+    public async Task Evaluate_ApproverUnknown_IsApproverNotEligible_WithoutCallingPdp()
+    {
+        var fake = new FakePdpSodClient { Result = SodCheckResult.Permit };
+        var request = GovernanceTestData.Request("user-teller1", GovernanceTestData.Contoso, "quarter-end-close");
+
+        // An unknown/spoofed approver id resolves to no principal: a caller must not be able
+        // to defeat maker-checker by passing any different string.
+        var outcome = await Evaluate(fake, request, approverId: "user-ghost", approver: null);
+
+        Assert.Equal(ApprovalDisposition.ApproverNotEligible, outcome.Disposition);
+        Assert.Equal("ApproverNotEligible", outcome.ReasonCode);
+        Assert.Null(outcome.Grant);
+        // Eligibility is gated before the PDP is consulted.
+        Assert.Equal(0, fake.Calls);
+    }
+
+    [Theory]
+    [InlineData("Teller")]
+    [InlineData("Auditor")]
+    public async Task Evaluate_ApproverNotCheckerEligible_IsApproverNotEligible(string approverRole)
+    {
+        var fake = new FakePdpSodClient { Result = SodCheckResult.Permit };
+        var request = GovernanceTestData.Request("user-teller1", GovernanceTestData.Contoso, "quarter-end-close");
+        // A known principal without an oversight role — a maker Teller or the independent
+        // Auditor — cannot sign off, even though it differs from the requester.
+        var approver = GovernanceTestData.Principal("user-other1", GovernanceTestData.Contoso, approverRole);
+
+        var outcome = await Evaluate(fake, request, approverId: "user-other1", approver);
+
+        Assert.Equal(ApprovalDisposition.ApproverNotEligible, outcome.Disposition);
+        Assert.Null(outcome.Grant);
+        Assert.Equal(0, fake.Calls);
+    }
+
     private static Task<ApprovalOutcome> Evaluate(
         FakePdpSodClient fake, string requesterId, string approverId)
     {
@@ -93,10 +128,19 @@ public sealed class AccessApprovalServiceTests
     private static Task<ApprovalOutcome> Evaluate(
         FakePdpSodClient fake, AccessGrantRequest request, string approverId)
     {
+        // Default to a checker-eligible approver (BranchManager) so tests focused on a later
+        // gate (maker-checker or SoD) are not tripped by the new eligibility gate.
+        var approver = GovernanceTestData.Principal(approverId, GovernanceTestData.Contoso, "BranchManager");
+        return Evaluate(fake, request, approverId, approver);
+    }
+
+    private static Task<ApprovalOutcome> Evaluate(
+        FakePdpSodClient fake, AccessGrantRequest request, string approverId, Principal? approver)
+    {
         var principal = GovernanceTestData.Principal(request.PrincipalId, GovernanceTestData.Contoso, "ComplianceOfficer");
         var package = GovernanceTestData.Package("quarter-end-close", 480, "BranchManager", "ComplianceOfficer");
         var service = new AccessApprovalService(fake);
-        return service.EvaluateAsync(request, principal, package, approverId, Now, CancellationToken.None);
+        return service.EvaluateAsync(request, principal, package, approverId, approver, Now, CancellationToken.None);
     }
 
     private sealed class FakePdpSodClient : IPdpSodClient

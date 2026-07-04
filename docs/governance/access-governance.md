@@ -84,15 +84,28 @@ The end-to-end path from a request to an expired grant:
    `NotEvaluated`. The principal and package must already exist (unknown ids fail closed with 404).
 2. **Maker-checker** — `POST /requests/{id}/approve` (or `/reject`) with an `approverId`. The approver
    **must differ from the requester** (the trusted `principalId` on the stored request, never a body
-   field) — a self-approval is denied `403` and leaves the request `Pending`. This is the SoD gate on
-   the *approval action itself*
-   ([`GovernanceRules.CheckerDiffersFromRequester`](../../src/AuthzEntitlements.Governance.Service/Domain/GovernanceRules.cs)).
+   field) **and must be a known, checker-eligible principal** — one that exists in the governance
+   directory and holds an oversight role (`BranchManager` or `ComplianceOfficer`), mirroring the
+   Bank.Api checker-eligibility. A self-approval, an unknown or spoofed `approverId`, or an approver
+   without an oversight role (a `Teller` or `Auditor`) is denied `403` and leaves the request
+   `Pending`. This is the SoD gate on the *approval action itself*
+   ([`GovernanceRules`](../../src/AuthzEntitlements.Governance.Service/Domain/GovernanceRules.cs)).
+
+   > **Deferred — binding the claimed approver to an authenticated caller.** The service enforces that
+   > the approver is a *known checker-eligible principal distinct from the requester*, but it does
+   > **not** yet cryptographically bind the *claimed* `approverId` to an authenticated caller identity,
+   > so it cannot by itself stop one real checker from naming another. That binding — tying the
+   > approver to the token `sub` — is a cross-cutting authN concern owned by the calling/gateway layer,
+   > exactly as `Bank.Api` binds maker/checker to the JWT `sub` while this service stays anonymous
+   > intra-cluster (see [The service](#the-service)). It is deferred alongside the `Bank.Api` grant
+   > enforcement already noted in
+   > [What CS11 ships](#what-cs11-ships-and-what-it-does-not).
 3. **SoD via the PDP** — the approver having cleared maker-checker, the service computes the
    **proposed resulting role set** (the principal's baseline roles ∪ the package's roles) and asks the
    PDP whether that set is internally compatible (see [below](#segregation-of-duties-via-the-pdp)).
-   The call is **fail-closed**: if the PDP cannot be reached the request stays `Pending` and the
-   endpoint returns `503`; a genuine SoD conflict rejects the request (`409`, outcome `SodConflict`);
-   only a permit proceeds.
+   The call is **fail-closed**: if the PDP cannot be reached — or denies for a non-SoD reason such as
+   its own engine being down — the request stays `Pending` and the endpoint returns `503`; a genuine
+   SoD conflict rejects the request (`409`, outcome `SodConflict`); only a permit proceeds.
 4. **Time-bound grant** — on a permit the request becomes `Approved` and a grant is issued. Its roles
    are a **snapshot** of the package's roles at grant time, and its `expiresAt` is
    `grantedAt + effectiveDuration`, where the effective duration is `requestedDurationMinutes` when it
@@ -159,9 +172,13 @@ An independent set permits (`{ "decision": "Permit", "reasons": [ { "code": "Per
 
 The client maps this decision to a local
 [`SodCheckResult`](../../src/AuthzEntitlements.Governance.Service/Sod/SodCheckResult.cs): a `Permit`
-is a permit; an explicit `Deny` carries the PDP's primary reason code; **anything else** — a
-transport error, timeout, non-success status, empty body, unknown decision, or a deny with no reason
-— fails closed as `Unavailable`, which the approval endpoint maps to a `503` (never a permit).
+is a permit; a `Deny` **whose primary reason is exactly `SodConflict`** is a genuine SoD business
+denial and carries that code; **anything else** — a transport error, timeout, non-success status,
+empty body, unknown decision, a deny with no reason, or a `Deny` with a *non-SoD* reason (e.g. the
+PDP's own OPA engine being down — `ProviderUnavailable` — or an `UnknownAction`) — fails closed as
+`Unavailable`, which the approval endpoint maps to a `503` (never a permit; the request stays
+`Pending`, so it is retryable). This keeps a PDP/OPA outage from being mistaken for a business denial
+and permanently rejecting the request.
 
 ### The incompatible role pairs
 
@@ -265,7 +282,8 @@ stack alongside the runtime metrics.
 `BranchManager`):
 
 1. `POST /requests` → `Pending`.
-2. A *different* principal approves via `POST /requests/{id}/approve` — maker-checker passes.
+2. `user-compliance1` (baseline `ComplianceOfficer`, a checker-eligible role) approves via
+   `POST /requests/{id}/approve` — maker-checker and checker-eligibility both pass.
 3. SoD runs over the proposed set `["Auditor", "BranchManager"]` → the PDP returns
    `Deny SodConflict` (the `Auditor` / `BranchManager` pair).
 4. The request becomes `Rejected` with `sodOutcome = Deny`; the endpoint returns `409`. No grant is
@@ -275,7 +293,8 @@ stack alongside the runtime metrics.
 `quarter-end-close` (grants `BranchManager` + `ComplianceOfficer`):
 
 1. `POST /requests` with a justification → `Pending`.
-2. Another principal (e.g. `user-compliance1`) approves — maker-checker passes.
+2. `user-compliance1` (baseline `ComplianceOfficer`, a checker-eligible role) approves — maker-checker
+   and checker-eligibility both pass.
 3. SoD runs over the proposed set `["BranchManager", "ComplianceOfficer"]` → **Permit** (two oversight
    roles are allowed together).
 4. A grant is issued for `["BranchManager", "ComplianceOfficer"]`, expiring 480 minutes after it was

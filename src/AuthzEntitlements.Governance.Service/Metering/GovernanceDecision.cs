@@ -23,6 +23,7 @@ public enum GovernanceOutcome
     SodDeny,
     Unavailable,
     MakerCheckerDenied,
+    ApproverNotEligible,
     GrantIssued,
     GrantRevoked,
     CampaignRun,

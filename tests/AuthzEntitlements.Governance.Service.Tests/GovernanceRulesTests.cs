@@ -27,6 +27,38 @@ public sealed class GovernanceRulesTests
         Assert.True(GovernanceRules.CheckerDiffersFromRequester("user-teller1", "USER-TELLER1"));
     }
 
+    [Theory]
+    [InlineData("BranchManager")]
+    [InlineData("ComplianceOfficer")]
+    public void IsCheckerEligible_OversightRole_IsTrue(string role)
+    {
+        // Only an oversight role may act as the checker on an elevation.
+        Assert.True(GovernanceRules.IsCheckerEligible([role]));
+    }
+
+    [Theory]
+    [InlineData("Teller")]
+    [InlineData("Auditor")]
+    public void IsCheckerEligible_NonOversightRole_IsFalse(string role)
+    {
+        // A maker (Teller) or the independent Auditor may not sign off on an elevation.
+        Assert.False(GovernanceRules.IsCheckerEligible([role]));
+    }
+
+    [Fact]
+    public void IsCheckerEligible_EmptyRoleSet_IsFalse()
+    {
+        // An unknown principal (no baseline roles) is never checker-eligible.
+        Assert.False(GovernanceRules.IsCheckerEligible([]));
+    }
+
+    [Fact]
+    public void IsCheckerEligible_MixedRoles_IsTrueWhenAnyEligible()
+    {
+        // Holding at least one oversight role is sufficient.
+        Assert.True(GovernanceRules.IsCheckerEligible(["Teller", "ComplianceOfficer"]));
+    }
+
     [Fact]
     public void EffectiveDurationMinutes_NullRequested_UsesPackageDefault()
     {

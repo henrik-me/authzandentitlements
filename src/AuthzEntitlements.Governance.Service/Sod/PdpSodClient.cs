@@ -25,6 +25,13 @@ public sealed class PdpSodClient(HttpClient httpClient) : IPdpSodClient
     private const string PermitDecision = "Permit";
     private const string DenyDecision = "Deny";
 
+    // The one PDP reason code that is a genuine SoD business denial. Any other Deny reason
+    // is an infrastructure/config fault (e.g. the PDP's own OPA engine down -> the PDP's
+    // "ProviderUnavailable", or an "UnknownAction"), which must fail closed as Unavailable
+    // rather than permanently rejecting the request. Kept as a local string — the governance
+    // service never references the PDP project.
+    private const string SodConflictReason = "SodConflict";
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() },
@@ -61,9 +68,12 @@ public sealed class PdpSodClient(HttpClient httpClient) : IPdpSodClient
         }
     }
 
-    // Maps a parsed decision to the local result. A permit is a permit; an explicit deny
-    // carries the PDP's primary reason; anything else (null body, unknown decision, or a
-    // deny with no reason) fails closed as unavailable rather than being read as a permit.
+    // Maps a parsed decision to the local result. A permit is a permit; a deny is a genuine
+    // SoD business denial ONLY when its primary reason is exactly "SodConflict" — any other
+    // deny reason (the PDP's own engine being unavailable, an unknown action, or anything
+    // unexpected) is an outage/misconfiguration, so it fails closed as unavailable rather
+    // than being read as a permanent SoD rejection. A null body, unknown decision, or a deny
+    // with no reason likewise fails closed rather than being read as a permit.
     private static SodCheckResult Map(PdpAccessDecision? decision)
     {
         if (decision?.Decision is null)
@@ -82,6 +92,12 @@ public sealed class PdpSodClient(HttpClient httpClient) : IPdpSodClient
             if (primary is null)
             {
                 return SodCheckResult.Unavailable("pdp denied the SoD check without a reason");
+            }
+
+            if (!string.Equals(primary.Code, SodConflictReason, StringComparison.Ordinal))
+            {
+                return SodCheckResult.Unavailable(
+                    $"pdp denied with a non-SoD reason '{primary.Code}'");
             }
 
             return SodCheckResult.Deny(primary.Code, primary.Message);

@@ -39,6 +39,35 @@ public sealed class PdpSodClientTests
     }
 
     [Fact]
+    public async Task Evaluate_DenyProviderUnavailable_FailsClosed()
+    {
+        // The PDP's own OPA engine being down surfaces as Deny/ProviderUnavailable. That is
+        // an infrastructure outage, not an SoD business denial, so it must fail closed
+        // (Unavailable -> 503, request stays Pending/retryable) — never a permanent reject.
+        var client = ClientWith(_ => Json(HttpStatusCode.OK,
+            """{"decision":"Deny","reasons":[{"code":"ProviderUnavailable","message":"opa unreachable"}],"obligations":[]}"""));
+
+        var result = await Evaluate(client);
+
+        Assert.True(result.IsUnavailable);
+        Assert.False(result.IsDeny);
+    }
+
+    [Fact]
+    public async Task Evaluate_DenyNonSodReason_FailsClosed()
+    {
+        // Any Deny whose primary reason is not exactly "SodConflict" (here UnknownAction) is
+        // not a business SoD denial; fail closed rather than permanently rejecting.
+        var client = ClientWith(_ => Json(HttpStatusCode.OK,
+            """{"decision":"Deny","reasons":[{"code":"UnknownAction","message":"unknown action"}],"obligations":[]}"""));
+
+        var result = await Evaluate(client);
+
+        Assert.True(result.IsUnavailable);
+        Assert.False(result.IsDeny);
+    }
+
+    [Fact]
     public async Task Evaluate_NonSuccessStatus_FailsClosed()
     {
         var client = ClientWith(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
