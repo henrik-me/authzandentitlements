@@ -1,9 +1,9 @@
 # CS19 — Agent + non-agent access
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae
+**Branch:** cs19/content
+**Started:** 2026-07-04
 **Closed:** —
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
@@ -37,7 +37,23 @@ Authorize AI agents / MCP tools / workload identities alongside humans, with on-
 | On-behalf-of flow | pending | — | |
 | PDP non-human scenarios | pending | — | |
 | Product showcase | pending | — | |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae |
+| Reviewer agent | rubber-duck |
+| Notes | Planned intent at claim time; finalized at close-out with the models/agents actually used. |
+
+## Plan-vs-implementation review
+
+_Pending — completed via the GPT-5.5 close-out gate before the `active → done` rename (see OPERATIONS.md § Plan-vs-implementation review). NEEDS-FIX blocks close-out._
