@@ -260,4 +260,45 @@ public sealed class BreakGlassGrantStoreTests
         Assert.Equal(grant.Action, fetched.Action);
         Assert.Equal(grant.ExpiresAt, fetched.ExpiresAt);
     }
+
+    [Fact]
+    public void Issue_BoundsStoreToMaxGrants()
+    {
+        var store = new BreakGlassGrantStore(maxGrants: 3);
+
+        // Issue well over the cap (all long-lived, so all still-active); the store must stay
+        // bounded by evicting the oldest on every over-cap write — no unbounded growth.
+        for (var i = 0; i < 10; i++)
+        {
+            store.Issue(Principal, Tenant, Action, Justification, 120, Now.AddMinutes(i));
+        }
+
+        Assert.Equal(3, store.ListAll().Count);
+    }
+
+    [Fact]
+    public void Issue_OverCap_EvictsTerminalBeforeActive()
+    {
+        var store = new BreakGlassGrantStore(maxGrants: 3);
+        var expired = store.Issue(Principal, Tenant, Action, Justification, 10, Now);   // expires Now+10
+        var activeB = store.Issue(Principal, Tenant, Action, Justification, 120, Now);
+        var activeC = store.Issue(Principal, Tenant, Action, Justification, 120, Now);
+
+        // Fourth issue 30 minutes on pushes the store over the cap. At that instant only the
+        // 10-minute grant is terminal (expired), so it is evicted before any still-active grant.
+        var activeD = store.Issue(Principal, Tenant, Action, Justification, 120, Now.AddMinutes(30));
+
+        Assert.Equal(3, store.ListAll().Count);
+        Assert.Null(store.Get(expired.Id));
+        Assert.NotNull(store.Get(activeB.Id));
+        Assert.NotNull(store.Get(activeC.Id));
+        Assert.NotNull(store.Get(activeD.Id));
+    }
+
+    [Fact]
+    public void Constructor_FailsClosed_OnNonPositiveCap()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new BreakGlassGrantStore(maxGrants: 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new BreakGlassGrantStore(maxGrants: -1));
+    }
 }

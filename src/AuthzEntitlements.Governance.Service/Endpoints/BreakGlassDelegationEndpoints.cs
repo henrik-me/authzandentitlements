@@ -68,7 +68,7 @@ public static class BreakGlassDelegationEndpoints
             body.PrincipalId, body.TenantCode, body.Action, body.Justification, body.DurationMinutes, now);
 
         metrics.RecordGrantIssued();
-        EmitDecision(audit, metrics, grant.TenantCode, grant.PrincipalId,
+        GovernanceDecisionEmitter.Emit(audit, metrics, grant.TenantCode, grant.PrincipalId,
             GovernanceDecisionType.Grant, grant.Action, GovernanceOutcome.GrantIssued,
             reason: null, grant.Id.ToString());
 
@@ -134,7 +134,7 @@ public static class BreakGlassDelegationEndpoints
             return Problem(ex.Message, StatusCodes.Status409Conflict);
         }
 
-        EmitDecision(audit, metrics, grant.TenantCode, grant.PrincipalId,
+        GovernanceDecisionEmitter.Emit(audit, metrics, grant.TenantCode, grant.PrincipalId,
             GovernanceDecisionType.Review, grant.Id.ToString(), GovernanceOutcome.ReviewDecided,
             grant.ReviewOutcome, grant.Id.ToString());
 
@@ -184,7 +184,7 @@ public static class BreakGlassDelegationEndpoints
         }
 
         metrics.RecordGrantIssued();
-        EmitDecision(audit, metrics, grant.TenantCode, grant.ManagerId,
+        GovernanceDecisionEmitter.Emit(audit, metrics, grant.TenantCode, grant.ManagerId,
             GovernanceDecisionType.Grant, grant.DelegateId, GovernanceOutcome.GrantIssued,
             reason: null, grant.Id.ToString());
 
@@ -240,7 +240,7 @@ public static class BreakGlassDelegationEndpoints
         }
 
         metrics.RecordGrantRevoked();
-        EmitDecision(audit, metrics, grant.TenantCode, grant.ManagerId,
+        GovernanceDecisionEmitter.Emit(audit, metrics, grant.TenantCode, grant.ManagerId,
             GovernanceDecisionType.Grant, grant.DelegateId, GovernanceOutcome.GrantRevoked,
             reason: null, grant.Id.ToString());
 
@@ -248,24 +248,6 @@ public static class BreakGlassDelegationEndpoints
     }
 
     // ---- Shared helpers ----
-
-    // Mirrors GovernanceEndpoints.EmitDecision: emit the audit-ready decision event and bump the
-    // low-cardinality decision counter for the same governance metric stream.
-    private static void EmitDecision(
-        IGovernanceAuditSink audit,
-        GovernanceMetrics metrics,
-        string tenantCode,
-        string principalId,
-        GovernanceDecisionType type,
-        string target,
-        GovernanceOutcome outcome,
-        string? reason,
-        string? correlationId)
-    {
-        audit.Record(new GovernanceDecision(
-            tenantCode, principalId, type, target, outcome, reason, correlationId, DateTimeOffset.UtcNow));
-        metrics.RecordDecision(GovernanceWire.Token(type), GovernanceWire.Token(outcome));
-    }
 
     private static IResult Problem(string detail, int statusCode) =>
         TypedResults.Problem(detail, statusCode: statusCode);

@@ -150,7 +150,7 @@ public static class GovernanceEndpoints
         await db.SaveChangesAsync(ct);
 
         metrics.RecordRequest();
-        EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId, GovernanceDecisionType.Request,
+        GovernanceDecisionEmitter.Emit(audit, metrics, request.TenantCode, request.PrincipalId, GovernanceDecisionType.Request,
             request.AccessPackageCode, GovernanceOutcome.Pending, reason: null, correlationId: request.Id.ToString());
 
         return TypedResults.Created($"/api/governance/requests/{request.Id}", ToRequestResponse(request));
@@ -258,7 +258,7 @@ public static class GovernanceEndpoints
             case ApprovalDisposition.MakerCheckerDenied:
                 // Segregation of duties on the approval action: the requester cannot
                 // approve their own elevation. No state change; the request stays Pending.
-                EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
+                GovernanceDecisionEmitter.Emit(audit, metrics, request.TenantCode, request.PrincipalId,
                     GovernanceDecisionType.Approval, request.AccessPackageCode,
                     GovernanceOutcome.MakerCheckerDenied, outcome.ReasonCode, request.Id.ToString());
                 return Problem(outcome.Message, StatusCodes.Status403Forbidden);
@@ -267,7 +267,7 @@ public static class GovernanceEndpoints
                 // The claimed approver is not a known checker-eligible principal (an unknown/
                 // spoofed id, or a principal without an oversight role). Reject the approval
                 // action; the request stays Pending so a legitimate checker can still decide.
-                EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
+                GovernanceDecisionEmitter.Emit(audit, metrics, request.TenantCode, request.PrincipalId,
                     GovernanceDecisionType.Approval, request.AccessPackageCode,
                     GovernanceOutcome.ApproverNotEligible, outcome.ReasonCode, request.Id.ToString());
                 return Problem(outcome.Message, StatusCodes.Status403Forbidden);
@@ -285,7 +285,7 @@ public static class GovernanceEndpoints
                     return unavailableConflict;
                 }
 
-                EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
+                GovernanceDecisionEmitter.Emit(audit, metrics, request.TenantCode, request.PrincipalId,
                     GovernanceDecisionType.Approval, request.AccessPackageCode,
                     GovernanceOutcome.Unavailable, outcome.ReasonCode, request.Id.ToString());
                 return Problem("the PDP is unavailable; retry the approval",
@@ -302,7 +302,7 @@ public static class GovernanceEndpoints
                     return denyConflict;
                 }
 
-                EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
+                GovernanceDecisionEmitter.Emit(audit, metrics, request.TenantCode, request.PrincipalId,
                     GovernanceDecisionType.Approval, request.AccessPackageCode,
                     GovernanceOutcome.SodDeny, outcome.ReasonCode, request.Id.ToString());
                 return Problem($"segregation-of-duties conflict: {outcome.Message}",
@@ -322,11 +322,11 @@ public static class GovernanceEndpoints
                     return approveConflict;
                 }
 
-                EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
+                GovernanceDecisionEmitter.Emit(audit, metrics, request.TenantCode, request.PrincipalId,
                     GovernanceDecisionType.Approval, request.AccessPackageCode,
                     GovernanceOutcome.Approved, reason: null, request.Id.ToString());
                 metrics.RecordGrantIssued();
-                EmitDecision(audit, metrics, grant.TenantCode, grant.PrincipalId,
+                GovernanceDecisionEmitter.Emit(audit, metrics, grant.TenantCode, grant.PrincipalId,
                     GovernanceDecisionType.Grant, grant.AccessPackageCode,
                     GovernanceOutcome.GrantIssued, reason: null, grant.Id.ToString());
                 return TypedResults.Ok(ToGrantResponse(grant, now));
@@ -375,7 +375,7 @@ public static class GovernanceEndpoints
             .FirstOrDefaultAsync(p => p.Id == body.ApproverId, ct);
         if (ValidateChecker(request.PrincipalId, body.ApproverId, rejector) is { } checkerError)
         {
-            EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
+            GovernanceDecisionEmitter.Emit(audit, metrics, request.TenantCode, request.PrincipalId,
                 GovernanceDecisionType.Rejection, request.AccessPackageCode,
                 checkerError.Outcome, checkerError.ReasonCode, request.Id.ToString());
             return Problem(checkerError.Message, StatusCodes.Status403Forbidden);
@@ -391,7 +391,7 @@ public static class GovernanceEndpoints
         }
 
         var reason = string.IsNullOrWhiteSpace(body.Reason) ? null : body.Reason;
-        EmitDecision(audit, metrics, request.TenantCode, request.PrincipalId,
+        GovernanceDecisionEmitter.Emit(audit, metrics, request.TenantCode, request.PrincipalId,
             GovernanceDecisionType.Rejection, request.AccessPackageCode,
             GovernanceOutcome.Rejected, reason, request.Id.ToString());
         return TypedResults.Ok(ToRequestResponse(request));
@@ -490,7 +490,7 @@ public static class GovernanceEndpoints
         await db.SaveChangesAsync(ct);
 
         metrics.RecordGrantRevoked();
-        EmitDecision(audit, metrics, grant.TenantCode, grant.PrincipalId,
+        GovernanceDecisionEmitter.Emit(audit, metrics, grant.TenantCode, grant.PrincipalId,
             GovernanceDecisionType.Grant, grant.AccessPackageCode,
             GovernanceOutcome.GrantRevoked, reason: null, grant.Id.ToString());
         return TypedResults.Ok(ToGrantResponse(grant, now));
@@ -602,7 +602,7 @@ public static class GovernanceEndpoints
         // Campaign-scoped event: a run has no single subject principal (it spans every active
         // grant in the tenant), so record the campaign tenant with the campaign-scope sentinel
         // principal rather than an empty string.
-        EmitDecision(audit, metrics, campaign.TenantCode, CampaignScopePrincipal,
+        GovernanceDecisionEmitter.Emit(audit, metrics, campaign.TenantCode, CampaignScopePrincipal,
             GovernanceDecisionType.Campaign, campaign.Id.ToString(),
             GovernanceOutcome.CampaignRun, reason: null, campaign.Id.ToString());
         return TypedResults.Ok(new CampaignRunResponse(campaign.Id, items.Count));
@@ -671,7 +671,7 @@ public static class GovernanceEndpoints
         if (grantRevoked && linkedGrant is not null)
         {
             metrics.RecordGrantRevoked();
-            EmitDecision(audit, metrics, linkedGrant.TenantCode, linkedGrant.PrincipalId,
+            GovernanceDecisionEmitter.Emit(audit, metrics, linkedGrant.TenantCode, linkedGrant.PrincipalId,
                 GovernanceDecisionType.Grant, linkedGrant.AccessPackageCode,
                 GovernanceOutcome.GrantRevoked, "revoked by access review", linkedGrant.Id.ToString());
         }
@@ -696,7 +696,7 @@ public static class GovernanceEndpoints
         // campaign tenant (authoritative), fall back to the revoked grant's tenant, and only
         // then a documented sentinel — never an empty string.
         var reviewTenant = campaign?.TenantCode ?? linkedGrant?.TenantCode ?? UnknownTenant;
-        EmitDecision(audit, metrics, reviewTenant, item.PrincipalId,
+        GovernanceDecisionEmitter.Emit(audit, metrics, reviewTenant, item.PrincipalId,
             GovernanceDecisionType.Review, item.Id.ToString(),
             GovernanceOutcome.ReviewDecided, decision.ToString().ToLowerInvariant(), item.CampaignId.ToString());
 
@@ -739,22 +739,6 @@ public static class GovernanceEndpoints
             return Problem("the request was decided concurrently; reload and retry",
                 StatusCodes.Status409Conflict);
         }
-    }
-
-    private static void EmitDecision(
-        IGovernanceAuditSink audit,
-        GovernanceMetrics metrics,
-        string tenantCode,
-        string principalId,
-        GovernanceDecisionType type,
-        string target,
-        GovernanceOutcome outcome,
-        string? reason,
-        string? correlationId)
-    {
-        audit.Record(new GovernanceDecision(
-            tenantCode, principalId, type, target, outcome, reason, correlationId, DateTimeOffset.UtcNow));
-        metrics.RecordDecision(GovernanceWire.Token(type), GovernanceWire.Token(outcome));
     }
 
     private static IResult Problem(string detail, int statusCode) =>

@@ -205,4 +205,63 @@ public sealed class DelegationGrantStoreTests
 
         Assert.Null(store.Get(Guid.NewGuid()));
     }
+
+    [Fact]
+    public void Create_BoundsStoreToMaxGrants()
+    {
+        var store = new DelegationGrantStore(maxGrants: 3);
+
+        // Create well over the cap (all long-lived, so all still-active); the store must stay
+        // bounded by evicting the oldest on every over-cap write — no unbounded growth.
+        for (var i = 0; i < 10; i++)
+        {
+            store.Create(Manager, $"user-delegate{i}", Tenant, Scopes, 120, Now.AddMinutes(i));
+        }
+
+        Assert.Equal(3, store.ListAll().Count);
+    }
+
+    [Fact]
+    public void Create_OverCap_EvictsExpiredBeforeActive()
+    {
+        var store = new DelegationGrantStore(maxGrants: 3);
+        var expired = store.Create(Manager, "user-delegate1", Tenant, Scopes, 10, Now);   // expires Now+10
+        var activeB = store.Create(Manager, "user-delegate2", Tenant, Scopes, 120, Now);
+        var activeC = store.Create(Manager, "user-delegate3", Tenant, Scopes, 120, Now);
+
+        // Fourth create 30 minutes on pushes the store over the cap. At that instant only the
+        // 10-minute grant is terminal (expired), so it is evicted before any still-active grant.
+        var activeD = store.Create(Manager, "user-delegate4", Tenant, Scopes, 120, Now.AddMinutes(30));
+
+        Assert.Equal(3, store.ListAll().Count);
+        Assert.Null(store.Get(expired.Id));
+        Assert.NotNull(store.Get(activeB.Id));
+        Assert.NotNull(store.Get(activeC.Id));
+        Assert.NotNull(store.Get(activeD.Id));
+    }
+
+    [Fact]
+    public void Create_OverCap_EvictsRevokedBeforeActive()
+    {
+        var store = new DelegationGrantStore(maxGrants: 2);
+        var revoked = store.Create(Manager, "user-delegate1", Tenant, Scopes, 120, Now);
+        var active = store.Create(Manager, "user-delegate2", Tenant, Scopes, 120, Now);
+        store.Revoke(revoked.Id, "user-manager1", Now.AddMinutes(5));   // now terminal (revoked)
+
+        // The next create pushes the store over the cap; the revoked (terminal) grant is the
+        // least-valuable candidate and is evicted before the still-active grant.
+        var activeC = store.Create(Manager, "user-delegate3", Tenant, Scopes, 120, Now.AddMinutes(10));
+
+        Assert.Equal(2, store.ListAll().Count);
+        Assert.Null(store.Get(revoked.Id));
+        Assert.NotNull(store.Get(active.Id));
+        Assert.NotNull(store.Get(activeC.Id));
+    }
+
+    [Fact]
+    public void Constructor_FailsClosed_OnNonPositiveCap()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new DelegationGrantStore(maxGrants: 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new DelegationGrantStore(maxGrants: -1));
+    }
 }

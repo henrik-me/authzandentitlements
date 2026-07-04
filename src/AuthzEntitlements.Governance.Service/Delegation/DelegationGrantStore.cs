@@ -15,6 +15,23 @@ public sealed class DelegationGrantStore
 {
     private readonly object _gate = new();
     private readonly Dictionary<Guid, DelegationGrant> _grants = [];
+    private readonly int _maxGrants;
+
+    // Bounded-retention cap. There is no background sweeper, so the store is capped on write:
+    // once the map exceeds _maxGrants, the least-valuable grants are evicted (terminal ones —
+    // revoked or expired — oldest-first, then the oldest still-active grant). This keeps the
+    // anonymous ListAll() footprint bounded (memory / payload-size / DoS guard). The DI singleton
+    // uses the parameterless default; tests can pass a small cap.
+    public DelegationGrantStore(int maxGrants = 5000)
+    {
+        if (maxGrants <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxGrants), maxGrants, "maxGrants must be positive");
+        }
+
+        _maxGrants = maxGrants;
+    }
 
     // Creates a delegation authorising delegateId to act on behalf of managerId for the given
     // scopes until now + durationMinutes. Rejects blank ids/tenant, a non-positive duration, a
@@ -63,6 +80,7 @@ public sealed class DelegationGrantStore
         lock (_gate)
         {
             _grants[grant.Id] = grant;
+            EvictIfOverCap(now);
         }
 
         return Copy(grant);
@@ -106,6 +124,36 @@ public sealed class DelegationGrantStore
             return Copy(grant);
         }
     }
+
+    // Enforces the bounded-retention cap; MUST be called under _gate. Evicts (Count - _maxGrants)
+    // grants, taking terminal grants (revoked or expired at 'now') before still-active ones and,
+    // within each group, the oldest by GrantedAt first. No-op while at or under the cap. Uses the
+    // same 'now' as the triggering write so "terminal" matches read-time expiry semantics.
+    private void EvictIfOverCap(DateTimeOffset now)
+    {
+        var overflow = _grants.Count - _maxGrants;
+        if (overflow <= 0)
+        {
+            return;
+        }
+
+        var victims = _grants.Values
+            .OrderBy(g => IsTerminal(g, now) ? 0 : 1)
+            .ThenBy(g => g.GrantedAt)
+            .Take(overflow)
+            .Select(g => g.Id)
+            .ToList();
+
+        foreach (var id in victims)
+        {
+            _grants.Remove(id);
+        }
+    }
+
+    // Terminal = lifecycle over: revoked, or past its expiry window. These carry the least
+    // residual value, so they are evicted first when the store is over its cap.
+    private static bool IsTerminal(DelegationGrant grant, DateTimeOffset now) =>
+        grant.RevokedAt is not null || now >= grant.ExpiresAt;
 
     private IReadOnlyList<DelegationGrant> Snapshot(
         Func<DelegationGrant, DateTimeOffset, bool> predicate, DateTimeOffset now)
