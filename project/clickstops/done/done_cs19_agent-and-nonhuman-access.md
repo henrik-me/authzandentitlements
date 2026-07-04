@@ -1,10 +1,10 @@
 # CS19 — Agent + non-agent access
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae
 **Branch:** cs19/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
 **Depends on:** CS03, CS05, CS13, CS14
