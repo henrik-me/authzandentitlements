@@ -34,7 +34,7 @@ public class PlaygroundAndAuditClientTests
               "engine": "reference",
               "decision": "Permit",
               "reasons": [ { "code": "Permit", "message": "allowed" } ],
-              "obligations": [ { "id": "require_approval" } ],
+              "obligations": [ { "id": "require_approval", "properties": { "threshold": "10000" } } ],
               "explanation": {
                 "engine": "reference",
                 "determiningRule": "all-rules-satisfied",
@@ -85,7 +85,9 @@ public class PlaygroundAndAuditClientTests
         Assert.Equal("all-rules-satisfied", reference.Explanation!.DeterminingRule);
         Assert.Equal(0.42, reference.LatencyMs);
         Assert.True(reference.Available);
-        Assert.Equal("require_approval", Assert.Single(reference.Obligations!).Id);
+        var obligation = Assert.Single(reference.Obligations);
+        Assert.Equal("require_approval", obligation.Id);
+        Assert.Equal("10000", obligation.Properties!["threshold"]);
     }
 
     [Fact]

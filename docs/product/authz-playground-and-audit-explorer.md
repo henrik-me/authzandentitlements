@@ -155,14 +155,17 @@ Replay is **"open in Playground"**, not a one-click re-run. The Audit Explorer
 pre-fills the Playground with the **captured** audit fields — subject, action,
 resource type/id, and tenant — and shows the **recorded decision** alongside the
 live cross-engine fan-out for comparison. A banner on the pre-filled page states
-the audit log does not capture the ABAC inputs (`amount`, `maker`, `status`,
-subject `roles`, context `scopes`), which the user must complete to reproduce
-the original decision.
+the audit log captures only a single `tenant` value (mapped to the subject) and
+none of the ABAC inputs (`amount`, `maker`, `status`, subject `roles`, context
+`scopes`, or the resource `tenant`/`branch`), which the user must complete to
+reproduce the original decision — a cross-tenant `TenantMismatch` needs a resource
+tenant distinct from the subject.
 
 This is a deliberate choice, not a hidden limitation. The CS13 tamper-evident
-row stores `subject / action / resource / tenant / decision / reason / trace`
-but **not** the ABAC inputs. A naïve auto-replay would re-run with those inputs
-missing and spuriously diverge from the recorded verdict, which would mislead.
+row stores `subject id / action / resource type+id / a single tenant / decision /
+reason / trace` but **not** the ABAC inputs (amount, maker, status, roles, scopes,
+or a distinct resource tenant/branch). A naïve auto-replay would re-run with those
+inputs missing and spuriously diverge from the recorded verdict, which would mislead.
 Pre-filling the Playground keeps the security-critical audit store untouched
 while still making replay useful.
 

@@ -209,7 +209,9 @@ public sealed record PdpAccessRequestDto(
 
 public sealed record PdpReasonDto(string Code, string Message);
 
-public sealed record PdpObligationDto(string Id);
+public sealed record PdpObligationDto(
+    string Id,
+    IReadOnlyDictionary<string, string>? Properties = null);
 
 // Decision is the AuthZEN verdict string, "Permit" or "Deny".
 public sealed record PdpDecisionDto(
@@ -245,7 +247,7 @@ public sealed record EngineDecisionResultDto(
     string Engine,
     string Decision,
     IReadOnlyList<PdpReasonDto> Reasons,
-    IReadOnlyList<PdpObligationDto>? Obligations,
+    IReadOnlyList<PdpObligationDto> Obligations,
     PdpExplanationDto? Explanation,
     double LatencyMs,
     string? TraceId,

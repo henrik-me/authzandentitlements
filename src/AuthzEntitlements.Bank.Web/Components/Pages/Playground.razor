@@ -25,9 +25,10 @@
 {
     <p class="notice" role="note">
         Reconstructed from audit entry <strong>#@_replaySequence</strong> — recorded decision:
-        <strong>@_recordedDecision</strong> (@_recordedReason). The audit log does not capture ABAC
-        inputs (amount, maker, status, roles, scopes); complete them below to reproduce the original
-        decision.
+        <strong>@_recordedDecision</strong> (@_recordedReason). The audit log captures only a single
+        tenant (mapped to the subject) and none of the ABAC inputs (amount, maker, status, roles,
+        scopes, resource tenant/branch); complete them below to reproduce the original decision — a
+        cross-tenant <code>TenantMismatch</code> needs a Resource tenant distinct from the subject.
     </p>
 }
 
@@ -103,6 +104,7 @@
                 <th>Decision</th>
                 <th>Reason(s)</th>
                 <th>Explanation</th>
+                <th>Obligations</th>
                 <th class="num">Latency (ms)</th>
                 <th>Trace</th>
             </tr>
@@ -143,6 +145,19 @@
                             @foreach (var reference in explanation.PolicyReferences)
                             {
                                 <div class="hint"><code>@reference.Kind</code>: @reference.Reference</div>
+                            }
+                        }
+                        else
+                        {
+                            <span class="hint">—</span>
+                        }
+                    </td>
+                    <td>
+                        @if (result.Available && result.Obligations.Count > 0)
+                        {
+                            @foreach (var obligation in result.Obligations)
+                            {
+                                <div><code>@obligation.Id</code>@FormatObligationProperties(obligation.Properties)</div>
                             }
                         }
                         else
@@ -306,4 +321,9 @@
 
     private static string DecisionClass(string decision) =>
         string.Equals(decision, "Permit", StringComparison.OrdinalIgnoreCase) ? "permit" : "deny";
+
+    private static string FormatObligationProperties(IReadOnlyDictionary<string, string>? properties) =>
+        properties is { Count: > 0 }
+            ? " — " + string.Join(", ", properties.Select(p => $"{p.Key}={p.Value}"))
+            : string.Empty;
 }
