@@ -4,6 +4,7 @@ using AuthzEntitlements.Governance.Service.Domain;
 using AuthzEntitlements.Governance.Service.Metering;
 using AuthzEntitlements.Governance.Service.Sod;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace AuthzEntitlements.Governance.Service.Endpoints;
 
@@ -495,13 +496,16 @@ public static class GovernanceEndpoints
 
         // The Items.Count guard above is only a fast-path: two concurrent runs can both observe
         // zero items. The unique {CampaignId, AccessGrantId} index is the durable backstop — the
-        // loser's insert violates it and SaveChanges throws a DbUpdateException, which we surface
-        // as 409 (not a 500). The audit/metric below run only for the run that actually won.
+        // loser's insert violates it and SaveChanges throws a unique-violation (SQLSTATE 23505),
+        // which we surface as 409 (not a 500). Any OTHER persistence failure (outage, timeout,
+        // unrelated constraint) propagates unchanged so a real fault is never masked as "already
+        // generated". The audit/metric below run only for the run that actually won.
         try
         {
             await db.SaveChangesAsync(ct);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
             db.ChangeTracker.Clear();
             return Problem("campaign items are already being generated", StatusCodes.Status409Conflict);
