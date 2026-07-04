@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
 
 namespace AuthzEntitlements.Authz.Pdp.Migration;
@@ -21,9 +22,14 @@ public static class RbacToRebacTranslator
     private const string ResourceType = "resource";
     private const string ResourceObjectId = "core";
 
-    // OpenFGA caps relation names at 50 characters; a permission that sanitizes past this is
-    // rejected fail-closed rather than emitted into an invalid model.
-    private const int MaxRelationLength = 50;
+    // OpenFGA relation identifiers must match ^[a-z][a-z0-9_]{0,62}$ — start with a lowercase
+    // letter, then lowercase letters / digits / underscores, up to 63 characters. A permission
+    // that cannot sanitize to this shape is rejected fail-closed rather than emitted into an
+    // invalid model.
+    private const int MaxRelationLength = 63;
+
+    private static readonly Regex RelationNamePattern =
+        new("^[a-z][a-z0-9_]{0,62}$", RegexOptions.Compiled);
 
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
@@ -78,10 +84,7 @@ public static class RbacToRebacTranslator
                 nameof(permission));
         }
 
-        // OpenFGA relation names are limited to [a-z0-9_]. Collapse EVERY other character
-        // (including '.', ':', '#', '@', '/', '-', whitespace, and non-ASCII) to '_' so the
-        // emitted model is always valid rather than silently malformed; a distinct-permission
-        // collision after this normalization is caught fail-closed by BuildRelationMap.
+        // Collapse every character outside [a-z0-9_] (after lowercasing) to '_'.
         var builder = new StringBuilder(permission.Length);
         foreach (var ch in permission)
         {
@@ -90,11 +93,12 @@ public static class RbacToRebacTranslator
         }
 
         var relation = builder.ToString();
-        if (relation.Length > MaxRelationLength)
+        if (!RelationNamePattern.IsMatch(relation))
         {
             throw new ArgumentException(
-                $"Permission '{permission}' sanitizes to a {relation.Length}-character relation, " +
-                $"exceeding OpenFGA's {MaxRelationLength}-character relation-name limit.",
+                $"Permission '{permission}' sanitizes to '{relation}', which is not a valid OpenFGA " +
+                $"relation name (must match ^[a-z][a-z0-9_]{{0,62}}$ — start with a lowercase letter, " +
+                $"max {MaxRelationLength} characters).",
                 nameof(permission));
         }
 

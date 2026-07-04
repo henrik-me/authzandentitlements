@@ -108,7 +108,7 @@ public sealed class RbacToRebacTranslatorTests
         Assert.Equal("bank_transaction_approve", graph.PermissionToRelation[ActionNames.TransactionApprove]);
         foreach (var (permission, relation) in graph.PermissionToRelation)
         {
-            Assert.Matches("^[a-z0-9_]{1,50}$", relation);
+            Assert.Matches("^[a-z][a-z0-9_]{0,62}$", relation);
             Assert.Equal(permission, graph.RelationToPermission[relation]);
         }
     }
@@ -120,7 +120,7 @@ public sealed class RbacToRebacTranslatorTests
 
         var relation = graph.PermissionToRelation["read/write-Thing"];
         Assert.Equal("read_write_thing", relation);
-        Assert.Matches("^[a-z0-9_]{1,50}$", relation);
+        Assert.Matches("^[a-z][a-z0-9_]{0,62}$", relation);
         Assert.True(graph.Check("user:u", "read/write-Thing", ResourceObject));
     }
 
@@ -133,11 +133,23 @@ public sealed class RbacToRebacTranslatorTests
     [Fact]
     public void Translate_Throws_OnPermissionExceedingRelationLengthLimit()
     {
-        var tooLong = new string('a', 51);
+        // 64 characters — one past OpenFGA's 63-character relation-name limit.
+        var tooLong = new string('a', 64);
 
         var ex = Assert.Throws<ArgumentException>(
             () => RbacToRebacTranslator.Translate(DeclaredPermissionsPolicy(tooLong)));
-        Assert.Contains("50", ex.Message);
+        Assert.Contains("63", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("9lives")]  // sanitizes to "9lives" — starts with a digit
+    [InlineData("-hidden")] // sanitizes to "_hidden" — starts with '_'
+    public void Translate_Throws_WhenSanitizedRelationHasInvalidLeadingChar(string permission)
+    {
+        // OpenFGA relation identifiers must start with a lowercase letter; a name that sanitizes to
+        // a leading digit/underscore is rejected fail-closed rather than emitted as an invalid model.
+        Assert.Throws<ArgumentException>(
+            () => RbacToRebacTranslator.Translate(DeclaredPermissionsPolicy(permission)));
     }
 
     [Fact]
