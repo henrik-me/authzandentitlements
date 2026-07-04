@@ -1,9 +1,9 @@
 # CS32 — Observability & audit-event enrichment; aspire-run 500 triage
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c3
+**Branch:** cs32/content
+**Started:** 2026-07-04
 **Closed:** —
 **Filed by:** yoga-ae-c3 — 2026-07-04, LRN harvest (CS28h): dispositioning open learnings into fix CSs.
 **Depends on:** CS04, CS12, CS13
@@ -60,11 +60,25 @@ None — but note that the 500 may be an Aspire/RC environmental issue not fully
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Triage/repro the aspire-run empty-body 500 | pending | — | Full `aspire run` with collector ready (WaitFor(observability)); fix or document root cause (LRN-014) |
+| Edge-denial event RouteId/RequiredScope enrichment | pending | — | Capture matched route metadata pre-short-circuit (not IReverseProxyFeature, unset on short-circuit) (LRN-013) |
+| Uniform non-authz (404/405) audit skip | pending | — | Both GatewayAuditMiddleware + BankAuthorizationAuditMiddleware skip unmatched 404 / method-mismatch 405 (LRN-013) |
+| Tests | pending | — | 401/403 edge-deny carry route/scope; 404/405 not audited on either gate |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, feature docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | Flip LRN-014/013 to applied; file/disposition learnings; open follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c3 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
