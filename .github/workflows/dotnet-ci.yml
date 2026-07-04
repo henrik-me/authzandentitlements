@@ -12,8 +12,9 @@
 #                          require-up-to-date / strict_required_status_checks_policy
 #                          or a merge queue; these are not currently enabled.
 #
-# This public repo's "push to main" ruleset enforces `build-test` as a required
-# status check, so a red build/test blocks merge for non-bypass actors.
+# This public repo's "push to main" ruleset enforces `build-test` (and the
+# harness `structural-gate` check) as required status checks, so a red
+# build/test blocks merge for non-bypass actors.
 #
 # Actions are pinned to commit SHAs (harness workflow-pins gate). The
 # Docker-dependent OPA/OpenFGA live tests self-skip, so no services are needed.
