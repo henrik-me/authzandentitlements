@@ -69,6 +69,10 @@ public sealed class GovernanceClient(HttpClient http) : IGovernanceClient
         {
             return [];
         }
+        catch (System.Text.Json.JsonException)
+        {
+            return [];
+        }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested)
         {
             return [];
@@ -89,6 +93,10 @@ public sealed class GovernanceClient(HttpClient http) : IGovernanceClient
             return await response.Content.ReadFromJsonAsync<T>(BankJson.Options, ct);
         }
         catch (HttpRequestException)
+        {
+            return null;
+        }
+        catch (System.Text.Json.JsonException)
         {
             return null;
         }
@@ -121,6 +129,10 @@ public sealed class GovernanceClient(HttpClient http) : IGovernanceClient
         catch (HttpRequestException ex)
         {
             return ApiResult<TResponse>.Failure(503, $"The service is unavailable: {ex.Message}");
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return ApiResult<TResponse>.Failure(502, "The service returned a malformed response.");
         }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested)
         {

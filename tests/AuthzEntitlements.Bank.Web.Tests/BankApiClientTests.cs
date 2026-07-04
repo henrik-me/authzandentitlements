@@ -196,4 +196,30 @@ public class BankApiClientTests
         Assert.False(result.IsSuccess);
         Assert.Equal(409, result.StatusCode);
     }
+
+    [Fact]
+    public async Task GetAccountsAsync_fails_closed_on_malformed_success_body()
+    {
+        // A 2xx whose body is not the expected JSON (e.g. an HTML error page) must fail
+        // closed to an empty list, not surface an unhandled JsonException.
+        var handler = new StubHttpMessageHandler(HttpStatusCode.OK, "<html>not json</html>");
+        var client = new BankApiClient(Client(handler));
+
+        var accounts = await client.GetAccountsAsync();
+
+        Assert.Empty(accounts);
+    }
+
+    [Fact]
+    public async Task CreateTransactionAsync_maps_malformed_success_body_as_failure()
+    {
+        var handler = new StubHttpMessageHandler(HttpStatusCode.OK, "<html>not json</html>");
+        var client = new BankApiClient(Client(handler));
+
+        var result = await client.CreateTransactionAsync(
+            new CreateTransactionRequest(Guid.NewGuid(), TransactionType.Debit, 100m, Guid.NewGuid(), null));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(502, result.StatusCode);
+    }
 }

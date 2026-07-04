@@ -31,6 +31,10 @@ public sealed class PdpClient(HttpClient http) : IPdpClient
         {
             return null;
         }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested)
         {
             return null;

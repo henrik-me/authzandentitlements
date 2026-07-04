@@ -42,6 +42,10 @@ public sealed class EntitlementsClient(HttpClient http) : IEntitlementsClient
         {
             return null;
         }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested)
         {
             return null;
