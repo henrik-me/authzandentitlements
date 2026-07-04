@@ -814,6 +814,26 @@ tags: [ci, dotnet, merge, multi-agent, main-green]
 - Every orchestrator: run the whole-solution `dotnet build`/`dotnet test` against the latest-`main`-merged HEAD immediately before merging a content PR; do not rely on CI to catch .NET breaks.
 - Consider (as a future CS, mindful of the deliberate process-only-CI posture + `workflow-pins` gate — see the CS17 learning) whether a SHA-pinned .NET build/test CI job is worth adding to catch cross-CS contract breaks automatically.
 
+### LRN-041
+
+```yaml
+id: LRN-041
+date: 2026-07-04
+category: tooling
+source_cs: CS13
+status: open
+tags: [dotnet, channels, concurrency, testing]
+```
+
+**Problem:** The PDP audit-forwarding sink hands each decision to a bounded `Channel<T>` via the non-blocking `ChannelWriter.TryWrite` and must COUNT dropped events (a backpressure signal) without ever blocking the decision hot path. The intuitive `BoundedChannelFullMode.DropWrite` did not work for this.
+
+**Finding:** With `BoundedChannelFullMode.DropWrite`, `TryWrite` ALWAYS returns `true` and drops silently inside the channel, so the writer cannot observe or count drops. Use `BoundedChannelFullMode.Wait` instead: `TryWrite` still never blocks (only `WriteAsync` would await), but it returns `false` when the buffer is full, giving the sink an observable, countable drop. Verified empirically: DropWrite → first=true, second=true; Wait → first=true, second=false.
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Audit/PdpAuditSinkServiceCollectionExtensions.cs` (FullMode=Wait) + `HttpForwardingPdpDecisionAuditSink.cs` (TryWrite → dropped counter); `HttpForwardingAuditSinkTests` drop-count test; CS13 review-fix `cs13-fix` finding.
+
+**Implications carried forward:**
+- Any future non-blocking, drop-counting channel producer should use `FullMode=Wait` + `TryWrite`, not `DropWrite`.
+
 ## Applied
 
 _(no entries yet)_
