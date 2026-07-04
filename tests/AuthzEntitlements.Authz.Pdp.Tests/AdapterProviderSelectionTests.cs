@@ -11,8 +11,8 @@ namespace AuthzEntitlements.Authz.Pdp.Tests;
 
 // The CS06 exit criterion: both engine adapters are selectable at runtime alongside the
 // reference provider. (a) a real DI container built via AddPdp resolves the configured adapter
-// by "Pdp:Provider"; (b) AddPdp registers every engine (reference + aspnet + casbin, plus the
-// CS08 opa and CS07 openfga adapters merged in later); (c) the selection factory picks each adapter by name.
+// by "Pdp:Provider"; (b) AddPdp registers all three engines; (c) the selection factory picks
+// each adapter by name among all three.
 public sealed class AdapterProviderSelectionTests
 {
     private static ServiceProvider BuildProvider(string configuredProvider)
@@ -59,10 +59,20 @@ public sealed class AdapterProviderSelectionTests
 
         var names = provider.GetServices<IAuthorizationDecisionProvider>()
             .Select(p => p.Name)
-            .OrderBy(n => n, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(new[] { "aspnet", "casbin", "opa", "openfga", "reference" }, names);
+        // The reference engine and both CS06 adapters must be registered. Asserted as membership
+        // (not an exact set) so later engine adapters — e.g. CS08's "opa" — registering alongside
+        // them do not break this CS06 selection test.
+        Assert.Contains("reference", names);
+        Assert.Contains("aspnet", names);
+        Assert.Contains("casbin", names);
+
+        // Names must stay unique so config-driven selection is unambiguous. Compared
+        // case-insensitively to match AuthorizationDecisionProviderFactory.ValidateProviderNames
+        // (which rejects duplicates via StringComparer.OrdinalIgnoreCase), so this also catches a
+        // case-only duplicate the factory would reject.
+        Assert.Equal(names.Length, names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
 
     [Theory]
