@@ -23,6 +23,8 @@ Primary grounding sources:
   the cross-engine fan-out that produces the qualitative parity evidence (`allAgree`).
 - [Migration & portability (CS20)](../authz/migration-and-portability.md) — config-driven engine
   swap, RBAC→ReBAC translation, and the shadow / dual-run gate.
+- [Managed-vs-self-host TCO + cloud move (CS25)](managed-vs-selfhost-tco.md) — the cost /
+  operational-economics and Azure cloud-move view that complements this feature matrix.
 
 ## How to read
 
