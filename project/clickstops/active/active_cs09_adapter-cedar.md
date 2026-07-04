@@ -1,9 +1,9 @@
 # CS09 — Adapter: Cedar (policy / ABAC)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c4
+**Branch:** cs09/content
+**Started:** 2026-07-04
 **Closed:** —
 **Phase:** 2 — Fine-grained AuthZ
 **Lane:** Engines
@@ -37,7 +37,22 @@ Integrate Cedar (in-process via MonoCloud Cedar for .NET) as a second policy eng
 | Author schema + policies | pending | — | |
 | Implement adapter | pending | — | |
 | Verify parity with OPA scenarios | pending | — | |
+| Close-out: docs + restart state | pending | yoga-ae-c4 | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | yoga-ae-c4 | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c4 |
+| Reviewer agent | copilot |
+
+## Plan-vs-implementation review
+
+_Pending — completed at close-out per OPERATIONS.md § Plan-vs-implementation review (close-out gate). The GO/NEEDS-FIX outcome is recorded here before the active → done rename._
