@@ -15,11 +15,11 @@
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.1.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.1.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.1.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.14.0" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.14.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.14.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.14.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.14.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.16.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
   </ItemGroup>
 
   <!--
@@ -49,10 +49,28 @@
     release on the same minor line. This REMEDIATES (not suppresses) the advisory, per
     LRN-003's guidance to pin patched versions via CPM. Drop when EF Core Design ships a
     build referencing patched MSBuild packages.
+    Re-confirmed 2026-07-04 (CS30): still required — EF Core Design 10.0.0-rc.1 still
+    resolves Microsoft.Build.Tasks.Core / Utilities.Core to 17.14.8 without this pin
+    (verified: GHSA-w3q9-fxm7-j8fq High reappears). Drop once the EF Core stack moves off
+    rc.1 to a GA build referencing patched MSBuild.
   -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.Build.Tasks.Core" Version="17.14.28" />
     <PackageVersion Include="Microsoft.Build.Utilities.Core" Version="17.14.28" />
+  </ItemGroup>
+
+  <!--
+    CS30 (2026-07-04): patched-version transitive pin for the MessagePack advisories
+    (GHSA-hv8m-jj95-wg3x, GHSA-vh6j-jc39-fggf, GHSA-2f33-pr97-265q, GHSA-v72x-2h86-7f8m,
+    GHSA-2x83-8g95-xh59, GHSA-cj9g-3mj2-g8vv, GHSA-wfr3-xj75-pfwh, GHSA-w567-gjr2-hm5j,
+    GHSA-cxmj-83gh-fp49, GHSA-q2h6-ghwm-5qm8, GHSA-qhmf-xw27-6rqr). MessagePack arrives
+    transitively via Aspire.AppHost.Sdk (dashboard/DCP) at 2.5.192; 2.5.301 is the first
+    patched 2.x release. 2.5.302 is the latest 2.x. This REMEDIATES (not suppresses) the
+    advisories, per LRN-003's guidance to pin patched versions via CPM (same pattern as the
+    Microsoft.Build.* pins above). Drop when a stable Aspire ships a patched MessagePack.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="MessagePack" Version="2.5.302" />
   </ItemGroup>
 
   <!--
