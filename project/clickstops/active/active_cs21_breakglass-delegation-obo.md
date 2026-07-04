@@ -1,9 +1,9 @@
 # CS21 — Break-glass, delegation & on-behalf-of
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae
+**Branch:** cs21/content
+**Started:** 2026-07-04
 **Closed:** —
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
@@ -37,7 +37,22 @@ Provide emergency break-glass access and delegation with full mechanism AND proc
 | Delegation model | pending | — | |
 | OBO enforcement | pending | — | |
 | UX + runbook | pending | — | |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and the break-glass/delegation docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; open follow-up CSs for unresolved break-glass/delegation/OBO gaps |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae |
+| Reviewer agent | rubber-duck |
+
+## Plan-vs-implementation review
+
+> _(filled at close-out per the gate)_
