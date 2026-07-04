@@ -1,14 +1,16 @@
 using AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
+using OpenFga.Sdk.Exceptions;
 
 namespace AuthzEntitlements.Authz.Pdp.Endpoints;
 
 // The OpenFGA (ReBAC) surface, grouped under /api/authz/rebac. These sit alongside the
 // AuthZEN evaluate endpoints and expose the relationship-native queries the sync decision
 // contract can't: a scenario self-check and the two reverse-index directions. All three talk
-// to a live OpenFGA server, so they require the "openfga" container running and the endpoint
-// injected (Pdp:OpenFga:ApiUrl) — otherwise the service throws and the endpoints translate it
-// into a 503 ProblemDetails (this host adds no exception-handling middleware). Bad query input
-// is a 400. Anonymous, consistent with the CS05 in-process reference host.
+// to a live OpenFGA server (the "openfga" container running + Pdp:OpenFga:ApiUrl injected).
+// Failure modes (this host adds no exception-handling middleware): bad query input → 400;
+// OpenFGA unavailable — not configured (blank ApiUrl → InvalidOperationException) OR the SDK
+// failing to reach the server (ApiException / HttpRequestException) → 503 ProblemDetails (see
+// IsOpenFgaUnavailable). Anonymous, consistent with the CS05 in-process reference host.
 public static class RebacEndpoints
 {
     public static IEndpointRouteBuilder MapRebacEndpoints(this IEndpointRouteBuilder app)
@@ -24,9 +26,11 @@ public static class RebacEndpoints
             {
                 await fga.EnsureBootstrappedAsync();
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex) when (IsOpenFgaUnavailable(ex))
             {
-                // OpenFGA not configured (blank ApiUrl) — an actionable 503 rather than a raw 500.
+                // OpenFGA unavailable (not configured, or the server unreachable during bootstrap) —
+                // an actionable 503 rather than a raw 500. Bootstrap is the first OpenFGA call, so a
+                // connection failure surfaces here before the scenario loops run.
                 return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
             }
 
@@ -119,7 +123,7 @@ public static class RebacEndpoints
                 var users = await fga.WhoCanAccessAsync(type!, id!, relation!);
                 return Results.Ok(new { @object = $"{type}:{id}", relation, users });
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex) when (IsOpenFgaUnavailable(ex))
             {
                 return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
             }
@@ -140,7 +144,7 @@ public static class RebacEndpoints
                 var objects = await fga.WhatCanUserAccessAsync(user!, relation!, type!);
                 return Results.Ok(new { user = $"{RebacTypes.User}:{user}", relation, type, objects });
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex) when (IsOpenFgaUnavailable(ex))
             {
                 return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
             }
@@ -188,4 +192,10 @@ public static class RebacEndpoints
 
         return null;
     }
+
+    // OpenFGA is "unavailable" when it is not configured (blank ApiUrl → InvalidOperationException
+    // from the service) or the SDK cannot reach the server (its ApiException base, or a raw
+    // HttpRequestException). These map to a 503; anything else (a genuine bug) stays a 500.
+    private static bool IsOpenFgaUnavailable(Exception ex) =>
+        ex is InvalidOperationException or ApiException or HttpRequestException;
 }
