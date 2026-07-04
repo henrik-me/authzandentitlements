@@ -24,13 +24,14 @@
     unaffected by delegation, and every decision is audited with the acting agent recorded.
 </p>
 
-@foreach (var scenario in AgentAccessModel.Scenarios)
+@for (var i = 0; i < AgentAccessModel.Scenarios.Count; i++)
 {
-    var state = _states[scenario.Title];
+    var scenario = AgentAccessModel.Scenarios[i];
+    var state = _states[i];
     <div class="notice" role="group" aria-label="@scenario.Title">
         <h2>@scenario.Title</h2>
         <p>@scenario.Explanation</p>
-        <button type="button" class="button" @onclick="() => EvaluateAsync(scenario)"
+        <button type="button" class="button" @onclick="() => EvaluateAsync(scenario, state)"
                 disabled="@state.Evaluating">
             @(state.Evaluating ? "Evaluating…" : "Evaluate both paths")
         </button>
@@ -68,12 +69,13 @@
         public AgentAccessModel.DecisionView? Agent { get; set; }
     }
 
-    private readonly Dictionary<string, ScenarioState> _states =
-        AgentAccessModel.Scenarios.ToDictionary(s => s.Title, _ => new ScenarioState());
+    // Parallel to AgentAccessModel.Scenarios by position — index-keyed so it never throws even if
+    // two scenarios ever share a (user-facing, non-unique) Title, and needs no stable id.
+    private readonly List<ScenarioState> _states =
+        AgentAccessModel.Scenarios.Select(_ => new ScenarioState()).ToList();
 
-    private async Task EvaluateAsync(AgentAccessModel.Scenario scenario)
+    private async Task EvaluateAsync(AgentAccessModel.Scenario scenario, ScenarioState state)
     {
-        var state = _states[scenario.Title];
         state.Evaluating = true;
         try
         {
