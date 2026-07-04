@@ -13,10 +13,14 @@ namespace AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
 // bootstrap runs once per process. Everything here is async; OpenFgaProvider.Evaluate bridges
 // with GetAwaiter().GetResult() because the CS05 IAuthorizationDecisionProvider contract is sync.
 //
+// Implements IOpenFgaCheckClient (LRN-038): OpenFgaProvider depends on that narrow forward-Check
+// seam, not this concrete type, so the ReBAC permit/deny explanation is unit-testable offline via a
+// test double. The reverse-index queries stay on the concrete service (used by RebacEndpoints).
+//
 // Fails closed on configuration: the client is built only on first actual use, and if ApiUrl is
 // blank the first call throws a clear "start the openfga container / set Pdp:Provider=openfga"
 // error — DI registration and the default deterministic run never touch a server.
-public sealed class OpenFgaRebacService
+public sealed class OpenFgaRebacService : IOpenFgaCheckClient
 {
     private readonly OpenFgaOptions _options;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -51,7 +55,7 @@ public sealed class OpenFgaRebacService
 
             var client = BuildClient();
             await EnsureStoreAsync(client, cancellationToken).ConfigureAwait(false);
-            await WriteModelAsync(client, cancellationToken).ConfigureAwait(false);
+            await EnsureModelAsync(client, cancellationToken).ConfigureAwait(false);
             await WriteMissingTuplesAsync(client, cancellationToken).ConfigureAwait(false);
 
             _client = client;
@@ -153,10 +157,20 @@ public sealed class OpenFgaRebacService
         client.StoreId = storeId;
     }
 
-    private static async Task WriteModelAsync(OpenFgaClient client, CancellationToken cancellationToken)
+    // Resolve the authorization model the store's checks run against. When an AuthorizationModelId is
+    // configured (LRN-031) we PIN it — set it on the client and skip the write — so a persistent
+    // shared store does not accrue a new immutable model VERSION on every boot. Unset (the default)
+    // preserves the original write-then-pin: write the exact embedded CS07 model and pin the id the
+    // server returns, so a fresh store is always bootstrapped to the CS07 model even if an older
+    // version exists.
+    private async Task EnsureModelAsync(OpenFgaClient client, CancellationToken cancellationToken)
     {
-        // Authorization models are immutable/versioned; writing our exact model and pinning its id
-        // guarantees checks run against the CS07 model even if an older version exists in the store.
+        if (ResolvePinnedModelId(_options) is { } pinnedModelId)
+        {
+            client.AuthorizationModelId = pinnedModelId;
+            return;
+        }
+
         var request = JsonSerializer.Deserialize<ClientWriteAuthorizationModelRequest>(RebacModel.Json)
             ?? throw new InvalidOperationException("The embedded ReBAC authorization model failed to parse.");
         var response = await client.WriteAuthorizationModel(request, cancellationToken: cancellationToken)
@@ -164,17 +178,33 @@ public sealed class OpenFgaRebacService
         client.AuthorizationModelId = response.AuthorizationModelId;
     }
 
+    // The configured authorization-model id to PIN (skip the per-boot model write), or null to
+    // write-then-pin the embedded model. A blank/whitespace-only value is treated as unset so a
+    // misconfigured empty string falls back to write-then-pin (fail-safe — never pins a bogus id).
+    // Pure and static so the pin decision is unit-testable without a live server.
+    public static string? ResolvePinnedModelId(OpenFgaOptions options) =>
+        string.IsNullOrWhiteSpace(options.AuthorizationModelId) ? null : options.AuthorizationModelId.Trim();
+
     private static async Task WriteMissingTuplesAsync(OpenFgaClient client, CancellationToken cancellationToken)
     {
-        var existing = await ReadAllTupleKeysAsync(client, cancellationToken).ConfigureAwait(false);
-
-        // Explicit loop rather than a side-effecting LINQ Where: existing.Add returns false when the
-        // key is already present (in the store or an earlier seed tuple), so only genuinely-new
-        // tuples are queued — OpenFGA's Write is not idempotent and errors on a duplicate.
+        // Targeted existence reconciliation (LRN-031): probe each seed tuple by its exact
+        // (user, relation, object) key rather than paging the ENTIRE store into memory. On a
+        // persistent shared store this stays O(seed) small reads of at most one tuple each instead of
+        // scanning every unrelated tuple that may have accumulated.
+        //
+        // The `queued` set dedups within the seed list as well as against the store: OpenFGA's Write
+        // is not idempotent and errors on a duplicate, so a key already queued (a duplicate seed row)
+        // is skipped before it is probed or written a second time.
+        var queued = new HashSet<string>(StringComparer.Ordinal);
         var missing = new List<ClientTupleKey>();
         foreach (var t in RebacSeedTuples.Tuples)
         {
-            if (existing.Add(TupleKey(t.User, t.Relation, t.Object)))
+            if (!queued.Add(TupleKey(t.User, t.Relation, t.Object)))
+            {
+                continue;
+            }
+
+            if (!await TupleExistsAsync(client, t, cancellationToken).ConfigureAwait(false))
             {
                 missing.Add(new ClientTupleKey { User = t.User, Relation = t.Relation, Object = t.Object });
             }
@@ -189,26 +219,15 @@ public sealed class OpenFgaRebacService
             .ConfigureAwait(false);
     }
 
-    private static async Task<HashSet<string>> ReadAllTupleKeysAsync(
-        OpenFgaClient client, CancellationToken cancellationToken)
+    private static async Task<bool> TupleExistsAsync(
+        OpenFgaClient client, RebacTuple tuple, CancellationToken cancellationToken)
     {
-        var keys = new HashSet<string>(StringComparer.Ordinal);
-        string? continuationToken = null;
-        do
-        {
-            var options = new ClientReadOptions { ContinuationToken = continuationToken };
-            var page = await client.Read(new ClientReadRequest(), options, cancellationToken)
-                .ConfigureAwait(false);
-            foreach (var tuple in page.Tuples)
-            {
-                keys.Add(TupleKey(tuple.Key.User, tuple.Key.Relation, tuple.Key.Object));
-            }
-
-            continuationToken = string.IsNullOrEmpty(page.ContinuationToken) ? null : page.ContinuationToken;
-        }
-        while (continuationToken is not null);
-
-        return keys;
+        // A fully-specified Read (user + relation + object) returns the matching tuple if present and
+        // an empty page otherwise — a targeted existence check, not a full-store scan.
+        var response = await client.Read(
+            new ClientReadRequest { User = tuple.User, Relation = tuple.Relation, Object = tuple.Object },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return response.Tuples.Count > 0;
     }
 
     private static string TupleKey(string user, string relation, string @object) =>

@@ -24,9 +24,13 @@ public static class PdpServiceCollectionExtensions
         // CS07 — OpenFGA (ReBAC) adapter. Bound + registered unconditionally so the factory can
         // select it by name, but its live client is built lazily (only on first use) so registration
         // never needs a running server: the default deterministic run stays engine-free. The service
-        // is a singleton so the store/model bootstrap runs once and its ids are cached.
+        // is a singleton so the store/model bootstrap runs once and its ids are cached. It is also
+        // exposed as IOpenFgaCheckClient — the narrow forward-Check seam OpenFgaProvider depends on
+        // (LRN-038) — resolved from the SAME singleton so the provider and the reverse-index
+        // RebacEndpoints (which inject the concrete service) share one bootstrap.
         services.Configure<OpenFgaOptions>(configuration.GetSection(OpenFgaOptions.SectionName));
         services.AddSingleton<OpenFgaRebacService>();
+        services.AddSingleton<IOpenFgaCheckClient>(sp => sp.GetRequiredService<OpenFgaRebacService>());
         services.AddSingleton<IAuthorizationDecisionProvider, OpenFgaProvider>();
 
         // Cedar adapter (CS09): a genuine in-process Cedar policy engine (MonoCloud.Cedar native
