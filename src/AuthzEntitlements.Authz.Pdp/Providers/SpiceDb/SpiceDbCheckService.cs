@@ -90,7 +90,8 @@ public sealed class SpiceDbCheckService : ISpiceDbCheckClient
                     Object = new ObjectReference { ObjectType = RebacTypes.User, ObjectId = subjectId },
                 },
                 // Fully-consistent reads: the freshly-seeded relationships must be visible to the very
-                // first check (no stale-cache false negative), matching the deterministic OpenFGA path.
+                // first check (no stale-cache false negative). Only SpiceDB pins consistency here; the
+                // OpenFGA adapter uses the SDK/server default.
                 Consistency = new Consistency { FullyConsistent = true },
             },
             cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -108,13 +109,20 @@ public sealed class SpiceDbCheckService : ISpiceDbCheckClient
                 "once the 'spicedb' container is started.");
         }
 
-        // The preshared key travels as an "Authorization: Bearer <key>" gRPC metadata header on every
+        if (_options.Endpoint.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "SpiceDB Endpoint uses https:// but this adapter only speaks cleartext h2c (http://). " +
+                "TLS (SslCredentials) is a documented follow-on; configure an http:// endpoint.");
+        }
+
+        // The preshared key travels as an "authorization: Bearer <key>" gRPC metadata header on every
         // call (SpiceDB's `serve --grpc-preshared-key` auth). The interceptor lambda runs per request.
         var callCredentials = CallCredentials.FromInterceptor((_, metadata) =>
         {
             if (!string.IsNullOrEmpty(_options.PresharedKey))
             {
-                metadata.Add("Authorization", $"Bearer {_options.PresharedKey}");
+                metadata.Add("authorization", $"Bearer {_options.PresharedKey}");
             }
 
             return Task.CompletedTask;
