@@ -24,88 +24,91 @@ public static class RebacEndpoints
         {
             try
             {
+                // Bootstrap AND the scenario Check/reverse-index calls are all inside this catch: the
+                // service is a bootstrapped-once singleton, so a later /verify (or an OpenFGA outage
+                // after bootstrap) reaches the network calls below with bootstrap a no-op — those must
+                // still fail closed to a 503, not surface a raw 500.
                 await fga.EnsureBootstrappedAsync();
+
+                var results = new List<object>();
+                var allPassed = true;
+                var passedCount = 0;
+
+                foreach (var s in RebacScenarioCatalog.Forward)
+                {
+                    var allowed = await fga.CheckAsync(
+                        $"{RebacTypes.User}:{s.UserId}", s.Relation, $"{s.ObjectType}:{s.ObjectId}");
+                    var passed = allowed == s.ExpectAllowed;
+                    allPassed &= passed;
+                    if (passed) { passedCount++; }
+                    results.Add(new
+                    {
+                        kind = "forward",
+                        s.Id,
+                        s.Description,
+                        expected = s.ExpectAllowed,
+                        actual = allowed,
+                        passed,
+                    });
+                }
+
+                foreach (var s in RebacScenarioCatalog.WhoCanAccess)
+                {
+                    var users = await fga.WhoCanAccessAsync(s.ObjectType, s.ObjectId, s.Relation);
+                    // Exact-set oracle: the returned users must match ExpectedUserIds with no missing AND
+                    // no extra, so an engine that over-grants (leaks a viewer) is caught, not just one
+                    // that under-grants.
+                    var missing = s.ExpectedUserIds.Where(u => !users.Contains(u)).ToList();
+                    var unexpected = users.Where(u => !s.ExpectedUserIds.Contains(u)).ToList();
+                    var passed = missing.Count == 0 && unexpected.Count == 0;
+                    allPassed &= passed;
+                    if (passed) { passedCount++; }
+                    results.Add(new
+                    {
+                        kind = "who-can-access",
+                        s.Id,
+                        s.Description,
+                        expectedExactly = s.ExpectedUserIds,
+                        actual = users,
+                        missing,
+                        unexpected,
+                        passed,
+                    });
+                }
+
+                foreach (var s in RebacScenarioCatalog.WhatCanUserAccess)
+                {
+                    var objects = await fga.WhatCanUserAccessAsync(s.UserId, s.Relation, s.ObjectType);
+                    var missing = s.ExpectedObjectIds.Where(o => !objects.Contains(o)).ToList();
+                    var leaked = s.ExcludedObjectIds.Where(objects.Contains).ToList();
+                    var passed = missing.Count == 0 && leaked.Count == 0;
+                    allPassed &= passed;
+                    if (passed) { passedCount++; }
+                    results.Add(new
+                    {
+                        kind = "what-can-user-access",
+                        s.Id,
+                        s.Description,
+                        expectedSupersetOf = s.ExpectedObjectIds,
+                        expectedToExclude = s.ExcludedObjectIds,
+                        actual = objects,
+                        missing,
+                        leaked,
+                        passed,
+                    });
+                }
+
+                var body = new { allPassed, passed = passedCount, total = results.Count, results };
+                return allPassed
+                    ? Results.Ok(body)
+                    : Results.Json(body, statusCode: StatusCodes.Status500InternalServerError);
             }
             catch (Exception ex) when (IsOpenFgaUnavailable(ex))
             {
-                // OpenFGA unavailable (not configured, or the server unreachable during bootstrap) —
-                // an actionable 503 rather than a raw 500. Bootstrap is the first OpenFGA call, so a
-                // connection failure surfaces here before the scenario loops run.
+                // OpenFGA unavailable (not configured, or unreachable at any point in the flow) — a
+                // stable 503 rather than a raw 500.
                 return UnavailableProblem(ex);
             }
-
-            var results = new List<object>();
-            var allPassed = true;
-            var passedCount = 0;
-
-            foreach (var s in RebacScenarioCatalog.Forward)
-            {
-                var allowed = await fga.CheckAsync(
-                    $"{RebacTypes.User}:{s.UserId}", s.Relation, $"{s.ObjectType}:{s.ObjectId}");
-                var passed = allowed == s.ExpectAllowed;
-                allPassed &= passed;
-                if (passed) { passedCount++; }
-                results.Add(new
-                {
-                    kind = "forward",
-                    s.Id,
-                    s.Description,
-                    expected = s.ExpectAllowed,
-                    actual = allowed,
-                    passed,
-                });
-            }
-
-            foreach (var s in RebacScenarioCatalog.WhoCanAccess)
-            {
-                var users = await fga.WhoCanAccessAsync(s.ObjectType, s.ObjectId, s.Relation);
-                // Exact-set oracle: the returned users must match ExpectedUserIds with no missing AND
-                // no extra, so an engine that over-grants (leaks a viewer) is caught, not just one
-                // that under-grants.
-                var missing = s.ExpectedUserIds.Where(u => !users.Contains(u)).ToList();
-                var unexpected = users.Where(u => !s.ExpectedUserIds.Contains(u)).ToList();
-                var passed = missing.Count == 0 && unexpected.Count == 0;
-                allPassed &= passed;
-                if (passed) { passedCount++; }
-                results.Add(new
-                {
-                    kind = "who-can-access",
-                    s.Id,
-                    s.Description,
-                    expectedExactly = s.ExpectedUserIds,
-                    actual = users,
-                    missing,
-                    unexpected,
-                    passed,
-                });
-            }
-
-            foreach (var s in RebacScenarioCatalog.WhatCanUserAccess)
-            {
-                var objects = await fga.WhatCanUserAccessAsync(s.UserId, s.Relation, s.ObjectType);
-                var missing = s.ExpectedObjectIds.Where(o => !objects.Contains(o)).ToList();
-                var leaked = s.ExcludedObjectIds.Where(objects.Contains).ToList();
-                var passed = missing.Count == 0 && leaked.Count == 0;
-                allPassed &= passed;
-                if (passed) { passedCount++; }
-                results.Add(new
-                {
-                    kind = "what-can-user-access",
-                    s.Id,
-                    s.Description,
-                    expectedSupersetOf = s.ExpectedObjectIds,
-                    expectedToExclude = s.ExcludedObjectIds,
-                    actual = objects,
-                    missing,
-                    leaked,
-                    passed,
-                });
-            }
-
-            var body = new { allPassed, passed = passedCount, total = results.Count, results };
-            return allPassed
-                ? Results.Ok(body)
-                : Results.Json(body, statusCode: StatusCodes.Status500InternalServerError);
         });
 
         // Reverse index — who can access an object: /who-can-access?type=account&id=acme-checking&relation=can_view
