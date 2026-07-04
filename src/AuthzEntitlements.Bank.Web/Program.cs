@@ -101,8 +101,10 @@ builder.Services.AddTransient<AccessTokenHandler>();
 
 // Typed clients. All base addresses use Aspire service discovery; AddServiceDefaults
 // already added the resilience + discovery handlers. Bank.Api traffic is routed THROUGH
-// the coarse edge gateway so that layer is exercised, and only that client forwards the
-// user's token. The entitlements/governance/pdp services are anonymous (no token).
+// the coarse edge gateway so that layer is exercised. Both the bank-api client and the
+// governance client forward the signed-in user's token: CS29 made the governance access-
+// request endpoints (create/list/decide) tenant-scoped and token-bound, so the user's
+// bearer must reach governance-service. The entitlements/pdp services are anonymous (no token).
 builder.Services.AddHttpClient<IBankApiClient, BankApiClient>(client =>
         client.BaseAddress = new Uri("https+http://edge-gateway"))
     .AddHttpMessageHandler<AccessTokenHandler>();
@@ -111,7 +113,8 @@ builder.Services.AddHttpClient<IEntitlementsClient, EntitlementsClient>(client =
     client.BaseAddress = new Uri("https+http://entitlements-service"));
 
 builder.Services.AddHttpClient<IGovernanceClient, GovernanceClient>(client =>
-    client.BaseAddress = new Uri("https+http://governance-service"));
+        client.BaseAddress = new Uri("https+http://governance-service"))
+    .AddHttpMessageHandler<AccessTokenHandler>();
 
 builder.Services.AddHttpClient<IPdpClient, PdpClient>(client =>
     client.BaseAddress = new Uri("https+http://authz-pdp"));

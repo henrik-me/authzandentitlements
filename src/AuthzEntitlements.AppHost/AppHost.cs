@@ -222,6 +222,15 @@ var governanceService = builder.AddProject<Projects.AuthzEntitlements_Governance
     .WithReference(governanceDb)
     .WaitFor(governanceDb)
     .WithReference(authzPdp)
+    // CS29 — the access-request endpoints (create/list/decide) are tenant-scoped and validate
+    // a Keycloak access token: the forwarded Bank.Web user token, which Keycloak stamps with
+    // the "bank-api" audience. Share the same stable Keycloak authority/audience as bank-api
+    // and wait for Keycloak, mirroring the bank-api wiring. Every other governance endpoint
+    // stays anonymous, so this does not disturb the intra-cluster read paths or Compliance.
+    .WithReference(keycloak)
+    .WaitFor(keycloak)
+    .WithEnvironment("Keycloak__Authority", keycloakAuthority)
+    .WithEnvironment("Keycloak__Audience", "bank-api")
     .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
     .WaitFor(observability);
 

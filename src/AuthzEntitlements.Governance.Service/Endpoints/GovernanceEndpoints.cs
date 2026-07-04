@@ -1,3 +1,4 @@
+using AuthzEntitlements.Governance.Service.Auth;
 using AuthzEntitlements.Governance.Service.Contracts;
 using AuthzEntitlements.Governance.Service.Data;
 using AuthzEntitlements.Governance.Service.Domain;
@@ -5,14 +6,23 @@ using AuthzEntitlements.Governance.Service.Metering;
 using AuthzEntitlements.Governance.Service.Sod;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using System.Security.Claims;
 
 namespace AuthzEntitlements.Governance.Service.Endpoints;
 
 // The access-governance API: access packages, JIT grant requests with a maker-checker +
 // SoD approval workflow, time-bound grants whose expiry is enforced at read time, and
 // access-review campaigns. Every governance decision emits an audit-ready event and a
-// metric. Endpoints are anonymous: this service is called intra-cluster; edge/token
-// concerns are handled in other CSs.
+// metric.
+//
+// CS29: the access-request endpoints (POST/GET /requests, GET /requests/{id}, approve,
+// reject) require an authenticated Keycloak token and are TENANT-SCOPED — the caller's
+// tenant is read from the validated token's "tenant" claim, the list is filtered to it, and
+// a decide/read against another tenant's request returns 404 (never leaking cross-tenant
+// existence). This closes the confused-deputy gap (LRN-049): a UI-only guard is insufficient
+// because the posted request id is untrusted. Every OTHER endpoint stays anonymous: this
+// service is called intra-cluster and the Compliance service reads review-campaigns,
+// access-packages, and principal grants without a token.
 public static class GovernanceEndpoints
 {
     // Sentinel principal id for genuinely campaign-scoped audit events: a campaign run spans
@@ -33,11 +43,13 @@ public static class GovernanceEndpoints
         group.MapGet("/access-packages", GetAccessPackagesAsync);
         group.MapGet("/access-packages/{code}", GetAccessPackageAsync);
 
-        group.MapPost("/requests", CreateRequestAsync);
-        group.MapGet("/requests", ListRequestsAsync);
-        group.MapGet("/requests/{id:guid}", GetRequestAsync);
-        group.MapPost("/requests/{id:guid}/approve", ApproveRequestAsync);
-        group.MapPost("/requests/{id:guid}/reject", RejectRequestAsync);
+        // CS29: the access-request endpoints require an authenticated token and are tenant-
+        // scoped inside each handler (see RequireTenant + GovernanceTenantClaims.BelongsToTenant).
+        group.MapPost("/requests", CreateRequestAsync).RequireAuthorization();
+        group.MapGet("/requests", ListRequestsAsync).RequireAuthorization();
+        group.MapGet("/requests/{id:guid}", GetRequestAsync).RequireAuthorization();
+        group.MapPost("/requests/{id:guid}/approve", ApproveRequestAsync).RequireAuthorization();
+        group.MapPost("/requests/{id:guid}/reject", RejectRequestAsync).RequireAuthorization();
 
         group.MapGet("/principals/{id}/grants", GetPrincipalGrantsAsync);
         group.MapGet("/principals/{id}/access", GetPrincipalAccessAsync);
@@ -78,11 +90,17 @@ public static class GovernanceEndpoints
 
     private static async Task<IResult> CreateRequestAsync(
         CreateAccessRequestBody? body,
+        ClaimsPrincipal user,
         GovernanceDbContext db,
         IGovernanceAuditSink audit,
         GovernanceMetrics metrics,
         CancellationToken ct)
     {
+        if (RequireTenant(user, out var callerTenant) is { } tenantDenied)
+        {
+            return tenantDenied;
+        }
+
         if (body is null
             || string.IsNullOrWhiteSpace(body.PrincipalId)
             || string.IsNullOrWhiteSpace(body.AccessPackageCode))
@@ -95,9 +113,14 @@ public static class GovernanceEndpoints
             return Problem("a justification is required", StatusCodes.Status400BadRequest);
         }
 
+        // CS29: bind the request's tenant to the caller's validated token, never a caller-
+        // supplied field. A principal in another tenant is reported as "unknown" (the same
+        // 404 as a genuinely-missing principal) so a caller can neither raise a request for
+        // another tenant's principal nor probe cross-tenant principal existence.
         var principal = await db.Principals.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == body.PrincipalId, ct);
-        if (principal is null)
+        if (principal is null
+            || !GovernanceTenantClaims.BelongsToTenant(callerTenant, principal.TenantCode))
         {
             return Problem($"unknown principal '{body.PrincipalId}'", StatusCodes.Status404NotFound);
         }
@@ -113,7 +136,7 @@ public static class GovernanceEndpoints
         {
             Id = Guid.NewGuid(),
             PrincipalId = principal.Id,
-            TenantCode = principal.TenantCode,
+            TenantCode = callerTenant,
             AccessPackageCode = package.Code,
             Justification = body.Justification,
             RequestedDurationMinutes = body.RequestedDurationMinutes,
@@ -132,37 +155,68 @@ public static class GovernanceEndpoints
         return TypedResults.Created($"/api/governance/requests/{request.Id}", ToRequestResponse(request));
     }
 
-    private static async Task<IResult> ListRequestsAsync(GovernanceDbContext db, CancellationToken ct)
+    private static async Task<IResult> ListRequestsAsync(
+        ClaimsPrincipal user, GovernanceDbContext db, CancellationToken ct)
     {
+        if (RequireTenant(user, out var callerTenant) is { } tenantDenied)
+        {
+            return tenantDenied;
+        }
+
+        // CS29: tenant-scoped — a caller sees only its own tenant's requests. The predicate is
+        // pushed into the query so cross-tenant rows are never materialised.
         var requests = await db.AccessGrantRequests.AsNoTracking()
+            .Where(r => r.TenantCode == callerTenant)
             .OrderByDescending(r => r.RequestedAt)
             .ToListAsync(ct);
 
         return TypedResults.Ok(requests.Select(ToRequestResponse).ToArray());
     }
 
-    private static async Task<IResult> GetRequestAsync(Guid id, GovernanceDbContext db, CancellationToken ct)
+    private static async Task<IResult> GetRequestAsync(
+        Guid id, ClaimsPrincipal user, GovernanceDbContext db, CancellationToken ct)
     {
+        if (RequireTenant(user, out var callerTenant) is { } tenantDenied)
+        {
+            return tenantDenied;
+        }
+
         var request = await db.AccessGrantRequests.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct);
-        return request is null ? TypedResults.NotFound() : TypedResults.Ok(ToRequestResponse(request));
+        // CS29: a request owned by another tenant is reported as NotFound — do not leak
+        // cross-tenant existence via a 200/403 distinction.
+        if (request is null || !GovernanceTenantClaims.BelongsToTenant(callerTenant, request.TenantCode))
+        {
+            return TypedResults.NotFound();
+        }
+
+        return TypedResults.Ok(ToRequestResponse(request));
     }
 
     private static async Task<IResult> ApproveRequestAsync(
         Guid id,
         ApproveRequestBody? body,
+        ClaimsPrincipal user,
         GovernanceDbContext db,
         AccessApprovalService approval,
         IGovernanceAuditSink audit,
         GovernanceMetrics metrics,
         CancellationToken ct)
     {
+        if (RequireTenant(user, out var callerTenant) is { } tenantDenied)
+        {
+            return tenantDenied;
+        }
+
         if (body is null || string.IsNullOrWhiteSpace(body.ApproverId))
         {
             return Problem("approverId is required", StatusCodes.Status400BadRequest);
         }
 
         var request = await db.AccessGrantRequests.FirstOrDefaultAsync(r => r.Id == id, ct);
-        if (request is null)
+        // CS29: a cross-tenant decide is a confused-deputy escalation — treat another tenant's
+        // request as NotFound BEFORE the status check, so cross-tenant existence is never
+        // leaked (neither via a 200 nor via a 409 "already decided").
+        if (request is null || !GovernanceTenantClaims.BelongsToTenant(callerTenant, request.TenantCode))
         {
             return TypedResults.NotFound();
         }
@@ -276,18 +330,26 @@ public static class GovernanceEndpoints
     private static async Task<IResult> RejectRequestAsync(
         Guid id,
         RejectRequestBody? body,
+        ClaimsPrincipal user,
         GovernanceDbContext db,
         IGovernanceAuditSink audit,
         GovernanceMetrics metrics,
         CancellationToken ct)
     {
+        if (RequireTenant(user, out var callerTenant) is { } tenantDenied)
+        {
+            return tenantDenied;
+        }
+
         if (body is null || string.IsNullOrWhiteSpace(body.ApproverId))
         {
             return Problem("approverId is required", StatusCodes.Status400BadRequest);
         }
 
         var request = await db.AccessGrantRequests.FirstOrDefaultAsync(r => r.Id == id, ct);
-        if (request is null)
+        // CS29: as with approve, a cross-tenant reject is reported as NotFound before the
+        // status check so cross-tenant existence is never leaked.
+        if (request is null || !GovernanceTenantClaims.BelongsToTenant(callerTenant, request.TenantCode))
         {
             return TypedResults.NotFound();
         }
@@ -634,6 +696,24 @@ public static class GovernanceEndpoints
     }
 
     // ---- Shared helpers ----
+
+    // CS29: resolves the caller's tenant from the validated token for the tenant-scoped request
+    // endpoints. RequireAuthorization already rejects an unauthenticated caller (401); a token
+    // that authenticated but carries no "tenant" claim is forbidden (403, sanitized message)
+    // rather than being allowed to see or decide another tenant's data — fail closed. Returns
+    // null on success (tenant set via the out param), or the 403 result to return.
+    private static IResult? RequireTenant(ClaimsPrincipal user, out string tenant)
+    {
+        var code = user.GetTenant();
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            tenant = string.Empty;
+            return Problem("a tenant context is required", StatusCodes.Status403Forbidden);
+        }
+
+        tenant = code;
+        return null;
+    }
 
     // Saves a decide-once mutation (approve/reject). A concurrent second decision on the
     // same request loses the xmin optimistic-concurrency check; surface that as a 409

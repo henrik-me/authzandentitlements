@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using AuthzEntitlements.Governance.Service.Auth;
 using AuthzEntitlements.Governance.Service.Data;
 using AuthzEntitlements.Governance.Service.Endpoints;
 using AuthzEntitlements.Governance.Service.Metering;
@@ -28,6 +29,15 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddSingleton<GovernanceMetrics>();
 builder.Services.AddSingleton<IGovernanceAuditSink, LoggingGovernanceAuditSink>();
 
+// CS29 — JWT bearer authentication for the tenant-scoped access-request endpoints. Those
+// endpoints bind their tenant boundary to the caller's validated token (never a caller-
+// supplied field), so they require an authenticated Keycloak access token; the AppHost
+// injects the Keycloak authority + audience (see GovernanceAuthenticationSetup for the
+// config-key contract). Every OTHER governance endpoint stays anonymous so the intra-cluster
+// read paths and the Compliance service keep working (see GovernanceEndpoints).
+builder.Services.AddGovernanceJwtAuthentication(builder.Configuration, builder.Environment);
+builder.Services.AddAuthorization();
+
 // Segregation-of-duties checks go through the PDP over HTTP (per the CS11 plan review,
 // SoD is evaluated by the PDP's OpaProvider, not by coupling directly to OPA). The
 // "https+http://authz-pdp" scheme is resolved by Aspire service discovery and
@@ -48,6 +58,12 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
     await GovernanceSeeder.SeedAsync(db);
 }
+
+// CS29 — AuthN/AuthZ middleware. Endpoints without RequireAuthorization (access packages,
+// principals, grants, review campaigns, the "/" info endpoint, and health checks) remain
+// anonymous; only the access-request endpoints are gated (see GovernanceEndpoints).
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapDefaultEndpoints();
 
