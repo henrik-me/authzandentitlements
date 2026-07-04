@@ -1,9 +1,9 @@
 # CS29 — Governance service tenant-scoping & fail-closed hardening
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c3
+**Branch:** cs29/content
+**Started:** 2026-07-04
 **Closed:** —
 **Filed by:** yoga-ae-c3 — 2026-07-04, LRN harvest (CS28h): dispositioning open learnings into fix CSs.
 **Depends on:** CS11, CS14
@@ -62,11 +62,27 @@ LRN-044 (CS20): `RbacPolicy.Create` validates cross-references between roles and
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Decide authn model (JwtBearer vs validated-tenant-header) from code | pending | — | Assess Governance.Service exposure + Bank.Web client before choosing |
+| Server-side tenant scoping: list/approve/reject | pending | — | List filtered by caller tenant; approve/reject re-check target tenant |
+| Principal/tenant binding to authenticated context | pending | — | Fail closed on missing/unknown tenant; mirror Bank.Api token-bound contract (LRN-011) |
+| RbacPolicy.Create non-empty/distinct validation | pending | — | Fail closed on empty/duplicate roles/permissions (LRN-044) |
+| Tests | pending | — | Cross-tenant decide → 403/404; tenant-scoped list; RbacPolicy.Create empty/dup → throws |
+| Governance doc update | pending | — | Document the tenant-scoping + principal-binding contract |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and feature docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | Flip LRN-049/LRN-044 to applied; file/disposition learnings; open follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c3 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
