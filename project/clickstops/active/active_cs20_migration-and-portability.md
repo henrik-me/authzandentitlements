@@ -33,10 +33,10 @@ Demonstrate extensibility — swap engines behind the abstraction and translate 
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Config-driven provider selection | pending | — | |
-| RBAC->ReBAC translator | pending | — | |
-| Dual-run compare | pending | — | |
-| Author adapter guide | pending | — | |
+| Config-driven provider selection | complete | yoga-ae-c4 | agent-id=yoga-ae-c4/cs20-code \| role=implementer \| report-status=complete \| learnings=0; D1 demonstrated (no app-code change) via EngineSwapPortabilityTests over existing CS05 factory |
+| RBAC->ReBAC translator | complete | yoga-ae-c4 | agent-id=yoga-ae-c4/cs20-code \| role=implementer \| report-status=complete \| learnings=0; new Migration/ translator + in-process parity resolver (roles-as-usersets); PDP tests 512->537 |
+| Dual-run compare | complete | yoga-ae-c4 | agent-id=yoga-ae-c4/cs20-code \| role=implementer \| report-status=complete \| learnings=0; D3 zero-divergence parity gate via CS17 ShadowRunner.RunCatalog + non-vacuous divergence-caught test |
+| Author adapter guide | complete | yoga-ae-c4 | agent-id=yoga-ae-c4/cs20-docs \| role=implementer \| report-status=complete \| learnings=1; docs/authz/migration-and-portability.md + adding-an-engine-adapter.md |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD.md, CONTEXT.md, and relevant docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md and create planned follow-up CSs for unresolved issues |
 
