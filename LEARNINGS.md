@@ -313,6 +313,63 @@ tags: [ci, github, ruleset, codeql, copilot, merge, public-repo]
 
 **Disposition:** open — surface at the next harvest; re-disposition LRN-035/LRN-040 now that required-status-check enforcement exists on the (public) repo.
 
+### LRN-061
+
+```yaml
+id: LRN-061
+date: 2026-07-04
+category: process
+source_cs: CS23
+status: open
+tags: [sub-agents, parallel, lint, text-encoding, windows]
+```
+
+**Problem:** CS23 fanned out 5–6 parallel background documentation sub-agents sharing one working tree; several reported a red `harness lint` self-check even though their own file was verified LF/no-BOM.
+
+**Finding:** `harness lint`'s text-encoding gate scans the whole cwd/git tree, so one sub-agent's transiently-CRLF (mid-write) file fails the aggregate lint for *every* concurrently-running sub-agent. A per-deliverable "lint exit 0" self-check is therefore unreliable during a parallel doc wave. Mitigate by: (1) the orchestrator normalizes all new files to LF + re-runs `harness lint` at wave end (authoritative gate); and (2) brief parallel sub-agents that a *sibling-owned* file failing the aggregate encoding gate is expected — surface it as an escalation, never edit a file outside your ownership to fix it.
+
+**Evidence:** cs23-survey-rebac and cs23-survey-policy each reported `harness lint` fail citing sibling files (`docs/eval/survey/entitlements-and-flags.md` CRLF; `docs/adr/*.md` CRLF) they did not own; both were LF by the time those siblings finished; the orchestrator's wave-end `harness lint` was 22/0.
+
+**Disposition:** open — surface at next harvest; candidate to fold into CS33 doc consolidation (sub-agent dispatch self-check guidance).
+
+### LRN-062
+
+```yaml
+id: LRN-062
+date: 2026-07-04
+category: process
+source_cs: CS23
+status: open
+tags: [adr, conventions, docs]
+```
+
+**Problem:** CS23 authored the repo's first ADRs. CONVENTIONS.md fixes ADR structure to "title, date, status, context, decision, consequences" and forbids sections outside that "without updating this file", yet the CS23 plan explicitly required per-engine "when-to-use" guidance in the ADRs.
+
+**Finding:** Resolve the conflict by *extending* the format in the CONVENTIONS.md project-local block, not by trimming the deliverable: project ADRs add `## Alternatives considered` + `## When to use / when not` after `## Consequences`. This satisfies both the plan and the "don't add sections without updating this file" rule. A sub-agent that hits this kind of doc-standard-vs-plan conflict should escalate it (cs23-adr did) rather than silently choosing.
+
+**Evidence:** CONVENTIONS.md project-local block "Architecture Decision Records (ADRs)"; `docs/adr/README.md` "Authoring a new ADR"; the cs23-adr escalation. The convention edit shipped in PR #111.
+
+**Disposition:** open — CONVENTIONS.md already updated (PR #111); flip to `applied` at the next harvest.
+
+### LRN-063
+
+```yaml
+id: LRN-063
+date: 2026-07-04
+category: process
+source_cs: CS23
+status: open
+tags: [copilot, review, docs, merge]
+```
+
+**Problem:** A small CS23 follow-up docs PR (#117, two matrix rows) took several review rounds: each push produced a fresh Copilot review that surfaced one more minor wording-consistency nit (canonical enum names, a license cell, "port" vs "native .NET bindings", one cell's phrasing vs another table).
+
+**Finding:** On a docs/prose PR, Copilot review tends to surface successive minor wording-consistency suggestions, and each new commit requires a fresh Copilot review at the new HEAD (A16) plus a fresh local Go (A5) — so "push a one-line fix, re-engage, repeat" can loop. Fix the *substantive/factual* comments, but for genuinely non-blocking "consider aligning" style suggestions on already-accurate text, **resolve the thread with a rationale** (the `review-threads-resolved` gate needs threads resolved, not zero comments) rather than pushing another commit and re-spinning the review+engage cycle.
+
+**Evidence:** PR #117 HEADs 78676d6 → 826dd67 → d998d01, each with a new Copilot COMMENTED review adding one nit; the final non-blocking OPA-phrasing suggestion was resolved-with-rationale (both phrasings accurate) to terminate the loop at a HEAD already carrying a GPT-5.5 Go + Copilot review.
+
+**Disposition:** open — surface at next harvest; candidate for CS33 (review-loop guidance for docs PRs).
+
 ## Applied
 
 ### LRN-013
