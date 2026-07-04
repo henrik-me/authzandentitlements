@@ -35,4 +35,16 @@ public sealed class SpiceDbCheckServiceConfigTests
 
         Assert.Contains("h2c", ex.Message);
     }
+
+    [Fact]
+    public void UnencryptedHttp2Support_IsEnabled_SoTheCleartextH2cChannelCanConnect()
+    {
+        // Touch the type so its static constructor runs (idempotent — other tests may already have).
+        _ = Service("http://localhost:50051");
+
+        Assert.True(
+            AppContext.TryGetSwitch(
+                "System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", out var enabled) && enabled,
+            "SpiceDB serves gRPC over cleartext HTTP/2; without this switch every live check fails closed.");
+    }
 }

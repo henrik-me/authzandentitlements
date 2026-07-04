@@ -36,6 +36,17 @@ public sealed class SpiceDbCheckService : ISpiceDbCheckClient
     private volatile PermissionsService.PermissionsServiceClient? _permissions;
     private volatile bool _bootstrapped;
 
+    static SpiceDbCheckService()
+    {
+        // SpiceDB's dev container serves gRPC over cleartext HTTP/2 (h2c). Grpc.Net.Client requires the
+        // process to opt into unencrypted HTTP/2 before any h2c call — without it every call to the
+        // http:// endpoint throws and the provider fail-closes even when the container is running
+        // (grpc-dotnet: "SocketsHttpHandler.Http2UnencryptedSupport"). Set once, process-wide; it only
+        // ENABLES h2c for callers that request it (TLS / HTTP-1.1 clients are unaffected). This adapter
+        // is the only h2c consumer, and the switch is set before its lazily-built channel is ever used.
+        AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+    }
+
     public SpiceDbCheckService(IOptions<SpiceDbOptions> options)
     {
         _options = options.Value;
