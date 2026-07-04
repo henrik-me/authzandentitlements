@@ -3,10 +3,11 @@ using System.Text.Json;
 namespace AuthzEntitlements.Compliance;
 
 // The HTTP-backed IGovernanceClient. Each call GETs a Governance endpoint under a short,
-// cancellation-bounded timeout. A transport failure or non-success status becomes a
-// GovernanceUnreachableException (the caller self-skips offline); a REACHED-but-malformed body
-// becomes a ComplianceDataException (fail-closed parse — surfaces as a non-zero exit). Never
-// returns a silent default for a response it could not parse.
+// cancellation-bounded timeout. A transport failure or timeout becomes a
+// GovernanceUnreachableException (the caller self-skips offline); a REACHED response that is a
+// non-success status OR a malformed body becomes a ComplianceDataException (fail-closed —
+// surfaces as a non-zero exit). Never returns a silent default for a response it could not parse,
+// and never treats a reached-but-erroring service as "offline".
 public sealed class HttpGovernanceClient : IGovernanceClient, IDisposable
 {
     private const string CampaignsPath = "/api/governance/review-campaigns";
@@ -55,7 +56,10 @@ public sealed class HttpGovernanceClient : IGovernanceClient, IDisposable
             using var response = await _http.GetAsync(path, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                throw new GovernanceUnreachableException(
+                // The service WAS reached but returned an error (500/401/404/...). Fail closed —
+                // this is NOT an offline self-skip: a running-but-erroring governance service must
+                // surface as a non-zero exit, never as silently-absent evidence.
+                throw new ComplianceDataException(
                     $"GET {path} returned HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).");
             }
 

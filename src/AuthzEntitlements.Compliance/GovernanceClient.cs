@@ -30,10 +30,10 @@ public sealed record AccessGrantDto(
     DateTimeOffset ExpiresAt);
 
 // Signals that a live Governance probe could not REACH the service (connection refused, DNS
-// failure, timeout, or a non-success HTTP status). The live-probe reporters treat this as a
-// self-skip (collected=false), never a run failure — mirroring the repo's "live-engine tests
-// self-skip offline" convention. It is distinct from ComplianceDataException, which a REACHED but
-// malformed response raises (fail-closed, surfaces as a non-zero exit).
+// failure, or timeout). The live-probe reporters treat this as a self-skip (collected=false),
+// never a run failure — mirroring the repo's "live-engine tests self-skip offline" convention. It
+// is distinct from ComplianceDataException, which a REACHED service raises for a non-success HTTP
+// status or a malformed response (fail-closed, surfaces as a non-zero exit).
 public sealed class GovernanceUnreachableException : Exception
 {
     public GovernanceUnreachableException(string message)
