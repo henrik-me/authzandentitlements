@@ -129,9 +129,9 @@ public sealed class BreakGlassGrantStore
     }
 
     // Enforces the bounded-retention cap; MUST be called under _gate. Evicts (Count - _maxGrants)
-    // grants, taking terminal grants (reviewed or expired at 'now') before still-active ones and,
-    // within each group, the oldest by GrantedAt first. No-op while at or under the cap. Uses the
-    // same 'now' as the triggering write so "terminal" matches read-time expiry semantics.
+    // grants in ascending EvictionRank (reviewed first, then still-active, and expired-but-UNREVIEWED
+    // grants LAST) and, within each rank, the oldest by GrantedAt first. No-op while at or under the
+    // cap. Uses the same 'now' as the triggering write so expiry matches read-time semantics.
     private void EvictIfOverCap(DateTimeOffset now)
     {
         var overflow = _grants.Count - _maxGrants;
@@ -141,7 +141,7 @@ public sealed class BreakGlassGrantStore
         }
 
         var victims = _grants.Values
-            .OrderBy(g => IsTerminal(g, now) ? 0 : 1)
+            .OrderBy(g => EvictionRank(g, now))
             .ThenBy(g => g.GrantedAt)
             .Take(overflow)
             .Select(g => g.Id)
@@ -153,10 +153,15 @@ public sealed class BreakGlassGrantStore
         }
     }
 
-    // Terminal = lifecycle over: reviewed, or past its expiry window. These carry the least
-    // residual value, so they are evicted first when the store is over its cap.
-    private static bool IsTerminal(BreakGlassGrant grant, DateTimeOffset now) =>
-        grant.ReviewedAt is not null || now >= grant.ExpiresAt;
+    // Eviction priority (lower = evicted first). A REVIEWED grant is lifecycle-complete, so it carries
+    // the least residual value. A still-ACTIVE grant may yet be used. An EXPIRED-but-UNREVIEWED grant
+    // still owes its mandatory post-review (it is in the pending-review queue and holds the audit
+    // correlation an operator must close out), so it is preserved LONGEST — evicted only as a last
+    // resort so the retention cap can never silently drop a grant that still requires review.
+    private static int EvictionRank(BreakGlassGrant grant, DateTimeOffset now) =>
+        grant.ReviewedAt is not null ? 0   // reviewed => lifecycle-complete, evict first
+        : now < grant.ExpiresAt ? 1        // still active
+        : 2;                               // expired + unreviewed => owes mandatory review, evict last
 
     private IReadOnlyList<BreakGlassGrant> Snapshot(
         Func<BreakGlassGrant, DateTimeOffset, bool> predicate, DateTimeOffset now)

@@ -277,22 +277,39 @@ public sealed class BreakGlassGrantStoreTests
     }
 
     [Fact]
-    public void Issue_OverCap_EvictsTerminalBeforeActive()
+    public void Issue_OverCap_EvictsReviewedBeforeActive()
     {
-        var store = new BreakGlassGrantStore(maxGrants: 3);
-        var expired = store.Issue(Principal, Tenant, Action, Justification, 10, Now);   // expires Now+10
-        var activeB = store.Issue(Principal, Tenant, Action, Justification, 120, Now);
-        var activeC = store.Issue(Principal, Tenant, Action, Justification, 120, Now);
+        var store = new BreakGlassGrantStore(maxGrants: 2);
+        var reviewed = store.Issue(Principal, Tenant, Action, Justification, 10, Now); // expires Now+10
+        store.Review(reviewed.Id, "auditor", "approved", Now.AddMinutes(20));          // reviewed post-expiry
+        var activeB = store.Issue(Principal, Tenant, Action, Justification, 120, Now.AddMinutes(20));
 
-        // Fourth issue 30 minutes on pushes the store over the cap. At that instant only the
-        // 10-minute grant is terminal (expired), so it is evicted before any still-active grant.
-        var activeD = store.Issue(Principal, Tenant, Action, Justification, 120, Now.AddMinutes(30));
+        // Third issue pushes the store over the cap. The reviewed grant is lifecycle-complete, so it is
+        // evicted before any still-active grant.
+        var activeC = store.Issue(Principal, Tenant, Action, Justification, 120, Now.AddMinutes(21));
 
-        Assert.Equal(3, store.ListAll().Count);
-        Assert.Null(store.Get(expired.Id));
+        Assert.Equal(2, store.ListAll().Count);
+        Assert.Null(store.Get(reviewed.Id));
         Assert.NotNull(store.Get(activeB.Id));
         Assert.NotNull(store.Get(activeC.Id));
-        Assert.NotNull(store.Get(activeD.Id));
+    }
+
+    [Fact]
+    public void Issue_OverCap_PreservesExpiredUnreviewedOverActive()
+    {
+        var store = new BreakGlassGrantStore(maxGrants: 2);
+        var expiredUnreviewed = store.Issue(Principal, Tenant, Action, Justification, 10, Now); // expires Now+10
+        var activeB = store.Issue(Principal, Tenant, Action, Justification, 120, Now);
+
+        // Third issue (30 min on, so the first is expired-but-UNREVIEWED) pushes over the cap. That grant
+        // still owes a mandatory post-review, so it is preserved and the OLDEST ACTIVE is evicted instead —
+        // the retention cap must never silently drop a grant that still requires review.
+        var activeC = store.Issue(Principal, Tenant, Action, Justification, 120, Now.AddMinutes(30));
+
+        Assert.Equal(2, store.ListAll().Count);
+        Assert.NotNull(store.Get(expiredUnreviewed.Id)); // preserved (pending mandatory review)
+        Assert.Null(store.Get(activeB.Id));              // oldest active evicted instead
+        Assert.NotNull(store.Get(activeC.Id));
     }
 
     [Fact]
