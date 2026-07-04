@@ -14,6 +14,12 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+  # #424 (ADR4-8): Copilot's review pipeline is asynchronous (~3 min), so it
+  # lands AFTER the push-triggered read-only-gates run and A5+A16 fail on the
+  # first attempt. Re-run read-only-gates when a review is submitted so A5+A16
+  # auto-pass on the now-present Copilot review — no manual `gh run rerun`.
+  pull_request_review:
+    types: [submitted]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -23,7 +29,10 @@ on:
 
 jobs:
   read-only-gates:
-    if: github.event_name == 'pull_request'
+    # #424: the pull_request_review trigger has no top-level branches: filter,
+    # so gate the review-triggered run on base.ref == 'main' to keep parity with
+    # the pull_request: branches: [main] filter above.
+    if: github.event_name == 'pull_request' || (github.event_name == 'pull_request_review' && github.event.pull_request.base.ref == 'main')
     runs-on: ubuntu-latest
     permissions:
       contents: read
