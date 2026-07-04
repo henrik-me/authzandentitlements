@@ -875,6 +875,47 @@ tags: [recon, verification, multi-agent, citations]
 **Implications carried forward:**
 - Treat recon (especially from a cheap model) as a lead, not a fact. Sub-agent briefings must instruct: verify every current-state claim against source before citing; surface corrections in the report.
 
+### LRN-044
+
+```yaml
+id: LRN-044
+date: 2026-07-04
+category: architectural
+source_cs: CS20
+status: open
+tags: [rebac, openfga, rbac, translation, fail-closed]
+```
+
+**Problem:** CS20's RBAC→ReBAC translator had to decide what an RBAC policy can *faithfully* become in ReBAC, and what constraints a mechanically-generated OpenFGA model must satisfy to be valid.
+
+**Finding:** (1) The "roles as usersets" translation faithfully carries ONLY the pure **role→permission** dimension; contextual/ABAC gates (scope, tenant, subject==maker, pending status, the maker-checker threshold, SoD) are structurally outside the RBAC projection and must stay with the ABAC engines (reference/Cedar/OPA) or be modeled as ReBAC contextual/relationship tuples — never smuggled into the flat role→permission matrix (`bank.account.read` is scope-gated, so it is intentionally absent from the permission set). (2) OpenFGA relation identifiers must match `^[a-z][a-z0-9_]{0,62}$` (start with a lowercase letter, `[a-z0-9_]`, max 63); a mechanical translator must **fail closed** — reject any permission that sanitizes to a leading digit/underscore, empty, or >63 chars — rather than emit an invalid model. The **Copilot** review (not the GPT-5.5 rounds) caught the initial sanitizer using the wrong limit (50) and allowing invalid leading chars; verify engine-identifier rules against the engine's own model-syntax docs.
+
+**Evidence:** PR #71 (`a57475e`); `RbacToRebacTranslator.Sanitize` regex `^[a-z][a-z0-9_]{0,62}$` + `MaxRelationLength=63`; the in-process `TranslatedRebacGraph.Check` parity resolver proving translated-ReBAC == RBAC across the full user×permission grid with no live OpenFGA server; OpenFGA authorization-model-syntax identifier rules.
+
+**Implications carried forward:**
+- CS26 (expansion engines) / any ReBAC-model work: reuse the roles-as-usersets pattern + the `^[a-z][a-z0-9_]{0,62}$` fail-closed relation rule; keep ABAC/context out of the RBAC projection.
+- **Open follow-up:** `RbacPolicy.Create` validates cross-references but not that its `roles`/`permissions` lists are non-empty and distinct (Copilot R3, non-blocking); harden it fail-closed when the migration surface is next touched.
+
+### LRN-045
+
+```yaml
+id: LRN-045
+date: 2026-07-04
+category: process
+source_cs: CS20
+status: open
+tags: [ci, copilot, review-gates, github-actions]
+```
+
+**Problem:** The CS20 content PR's `read-only-gates` job kept failing on the A5+A16 Copilot gate even after Copilot had reviewed an earlier HEAD, and the `pull_request_review`-triggered re-run did not clear it automatically.
+
+**Finding:** The A5+A16 gate requires a Copilot review whose commit == the **current PR HEAD**; every new commit (including review-fix commits) needs Copilot to **re-review the new HEAD** — re-request via `gh api --method POST repos/<o>/<r>/pulls/<n>/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"`. The auto re-run of `pr-evidence-lint` triggered by Copilot's review submission lands in **`action_required`** status (bot-triggered workflow runs need approval on this repo) and will NOT self-clear; once Copilot's current-HEAD review exists, re-run the previously-failed job (`gh run rerun <id> --failed`) or approve the pending run. Copilot re-scans the whole diff on every engage and re-emits its full comment set (REVIEWS.md § 2.4.3) — resolve those re-raises with a disposition, don't re-fix.
+
+**Evidence:** PR #71 — Copilot reviewed `3f3952b` twice (9 comments) but not the later HEADs; A5+A16 failed at `bccb868` until Copilot was re-requested (reviewed `bccb868` @ 05:39:55Z) and run `28696430589` was re-run `--failed`; the review-triggered run `28696547030` sat in `action_required`.
+
+**Implications carried forward:**
+- Every .NET content-PR (CS22/CS24/CS14/CS15…): after the final fix commit, re-request Copilot at the merge HEAD, then re-run the failed `read-only-gates` job once Copilot's current-HEAD review lands; expect the review-triggered re-run to need a manual nudge.
+
 ## Applied
 
 _(no entries yet)_

@@ -237,11 +237,26 @@ follow-on (R1 plan-review amendment — drift detection ≠ signature). `dotnet 
 **784/784**; `build-test` CI green. GPT-5.5 rubber-duck R1+R2 (Go) + Copilot (4 comments → explicit `ValidateIssuerSigningKey`
 + test hygiene, all addressed) + plan-vs-impl GO. New learnings LRN-042..043.
 
-**Next claimable:** with **CS11, CS13, CS16, CS17, CS18, and CS28 DONE** — and **CS14** (Blazor product UI) + **CS20**
-(migration & portability) now **active** under other orchestrators — the ready-and-unowned queue includes **CS24**
-(perf benchmark; needs engines + CS12), **CS22** (compliance mapping; needs CS11+CS12+CS13), and **CS15** (playground +
-audit explorer; needs engines + CS13). All five engine adapters + the unified explanation model are DONE; `harness lint`
-is green and the remaining CSs carry an independent GPT-5.5 `## Plan review` attestation.
+**CS20 (migration & portability — extensibility) complete** (PR #71, squash-merged 2026-07-04 as `a57475e`). Demonstrates
+engine extensibility on the existing seams as a **library + tests + docs** change (no new HTTP surface): (D1) a config-driven
+engine swap needs **no app-code change** — one unchanged `DecideVia` call site routes to `reference`/`casbin`/`cedar`/`aspnet`
+purely by `Pdp:Provider` (CS05 `AuthorizationDecisionProviderFactory`); (D2) a new `AuthzEntitlements.Authz.Pdp.Migration`
+**RBAC→ReBAC translator** mechanically converts an RBAC policy (`RbacPolicy`/`FintechRbacPolicy`, grant matrix mirroring
+`ReferenceDecisionProvider`'s role eligibility) into an OpenFGA schema-1.1 "roles as usersets" model + `RebacTuple`s
+(`RbacToRebacTranslator` → `TranslatedRebacGraph`), with an **in-process `Check` parity resolver** proving translated-ReBAC ==
+RBAC across the full user×permission grid — **no live OpenFGA server**; the relation-name sanitizer is **fail-closed to the
+OpenFGA identifier rule** `^[a-z][a-z0-9_]{0,62}$`; and (D3) a **dual-run/shadow parity gate** (CS17 `ShadowRunner.RunCatalog`)
+proves `reference` vs `casbin`/`cedar`/`aspnet` = zero divergences (plus a non-vacuous divergence-caught test). Docs at
+`docs/authz/migration-and-portability.md` + `docs/authz/adding-an-engine-adapter.md`. Only the pure role→permission dimension
+translates; contextual/ABAC gates stay with the ABAC engines (documented). `dotnet build` 0/0, PDP `dotnet test` 512→**544**,
+`build-test` CI green, `harness lint` 22/0. GPT-5.5 rubber-duck R1–R4 (Go) + 3 Copilot rounds (OpenFGA relation-rule
+correctness + nits, all resolved) + plan-vs-impl GO. New learnings LRN-044..045.
+
+**Next claimable:** with **CS11, CS13, CS16, CS17, CS18, CS20, and CS28 DONE** — and **CS14** (Blazor product UI) + **CS24**
+(perf benchmark) now **active** under other orchestrators — the ready-and-unowned queue includes **CS22**
+(compliance mapping; needs CS11+CS12+CS13) and **CS15** (playground + audit explorer; needs engines + CS13). All five engine
+adapters + the unified explanation model are DONE; `harness lint` is green and the remaining CSs carry an independent GPT-5.5
+`## Plan review` attestation.
 
 ## Constraints
 
