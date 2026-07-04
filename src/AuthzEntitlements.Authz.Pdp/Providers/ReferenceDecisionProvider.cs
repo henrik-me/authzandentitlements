@@ -1,4 +1,5 @@
 using AuthzEntitlements.Authz.Pdp.Contracts;
+using AuthzEntitlements.Authz.Pdp.Providers.Sod;
 
 namespace AuthzEntitlements.Authz.Pdp.Providers;
 
@@ -43,6 +44,7 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
         ActionNames.TransactionCreate => EvaluateTransactionCreate(request),
         ActionNames.TransactionApprove or ActionNames.TransactionReject =>
             EvaluateApprovalDecision(request),
+        ActionNames.GovernanceAccessRequest => EvaluateGovernanceAccessRequest(request),
         // Fail closed: an action outside the known vocabulary is denied, never permitted.
         _ => Explain(AccessDecision.Deny(new Reason(
             ReasonCodes.UnknownAction,
@@ -173,6 +175,25 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
             DeterminingRule: rule,
             PolicyReferences: [new PolicyReference(PolicyReferenceKinds.Rule, rule)],
             Narrative: reason.Message));
+    }
+
+    // governance.access.request: a pure segregation-of-duties check over the PROPOSED resulting
+    // role set carried on subject.roles. Unlike the bank actions it has NO tenant/scope/maker gate
+    // — it asks only whether the role set is internally incompatible. A toxic combination denies
+    // SodConflict; an independent set permits with no obligation. Encodes the SAME rule as the
+    // OPA/Rego policy (GovernanceSodPolicy mirrors authz.rego), so the reference and OPA engines
+    // return the same verdict.
+    private static AccessDecision EvaluateGovernanceAccessRequest(AccessRequest request)
+    {
+        if (GovernanceSodPolicy.FindConflict(request.Subject.Roles) is { } pair)
+        {
+            return Explain(AccessDecision.Deny(new Reason(
+                GovernanceSodPolicy.SodConflictReasonCode,
+                $"Segregation of duties: the roles '{pair.First}' and '{pair.Second}' " +
+                "may not be held together.")));
+        }
+
+        return Explain(Permitted());
     }
 
     private static bool HasScope(AccessRequest request, string scope) =>

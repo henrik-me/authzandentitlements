@@ -50,7 +50,9 @@ public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
     // The bounded reason vocabulary the adapter accepts from OPA. OPA is out-of-process and could
     // return an arbitrary string; anything outside this set fails closed so an unknown or
     // attacker-influenced code cannot reach callers or inflate audit/metric (pdp.reason) cardinality.
-    // Mirrors the shared ReasonCodes exactly (incl. the declared-but-unemitted BranchNotInTenant).
+    // Mirrors the shared ReasonCodes exactly (incl. the declared-but-unemitted BranchNotInTenant and
+    // the CS11 governance SodConflict verdict), so a governance SoD denial surfaces its real reason
+    // through the OPA path instead of degrading to ProviderUnavailable.
     private static readonly HashSet<string> KnownReasonCodes = new(StringComparer.Ordinal)
     {
         ReasonCodes.Permit,
@@ -61,6 +63,7 @@ public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
         ReasonCodes.MakerEqualsChecker,
         ReasonCodes.NotPending,
         ReasonCodes.BranchNotInTenant,
+        ReasonCodes.SodConflict,
         ReasonCodes.UnknownAction,
     };
 
