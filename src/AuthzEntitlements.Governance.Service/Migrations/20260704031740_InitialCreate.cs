@@ -189,9 +189,10 @@ namespace AuthzEntitlements.Governance.Service.Migrations
                 column: "Status");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AccessGrantRole_AccessGrantId",
+                name: "IX_AccessGrantRole_AccessGrantId_RoleName",
                 table: "AccessGrantRole",
-                column: "AccessGrantId");
+                columns: new[] { "AccessGrantId", "RoleName" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_AccessGrants_PrincipalId",

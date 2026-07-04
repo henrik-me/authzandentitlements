@@ -152,7 +152,8 @@ namespace AuthzEntitlements.Governance.Service.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AccessGrantId");
+                    b.HasIndex("AccessGrantId", "RoleName")
+                        .IsUnique();
 
                     b.ToTable("AccessGrantRole");
                 });

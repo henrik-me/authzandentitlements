@@ -19,8 +19,8 @@ public sealed record CreateAccessRequestBody(
 // request's requester (maker-checker).
 public sealed record ApproveRequestBody(string ApproverId);
 
-// Body for POST /requests/{id}/reject.
-public sealed record RejectRequestBody(string ApproverId, string Reason);
+// Body for POST /requests/{id}/reject. Reason is optional — null/blank means no reason recorded.
+public sealed record RejectRequestBody(string ApproverId, string? Reason);
 
 // Body for POST /grants/{id}/revoke.
 public sealed record RevokeGrantBody(string RevokedBy);

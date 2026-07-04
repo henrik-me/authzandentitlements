@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AuthzEntitlements.Governance.Service.Migrations
 {
     [DbContext(typeof(GovernanceDbContext))]
-    [Migration("20260704030101_InitialCreate")]
+    [Migration("20260704031740_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -155,7 +155,8 @@ namespace AuthzEntitlements.Governance.Service.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AccessGrantId");
+                    b.HasIndex("AccessGrantId", "RoleName")
+                        .IsUnique();
 
                     b.ToTable("AccessGrantRole");
                 });

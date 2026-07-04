@@ -103,6 +103,10 @@ public sealed class GovernanceDbContext(DbContextOptions<GovernanceDbContext> op
         {
             e.HasKey(r => r.Id);
             e.Property(r => r.RoleName).IsRequired().HasMaxLength(50);
+            // A role appears at most once per grant — matching the AccessPackageRole /
+            // PrincipalRole uniqueness. Grants are write-once snapshots (AccessGrantFactory
+            // dedupes at creation), so this is a durable backstop for that invariant.
+            e.HasIndex(r => new { r.AccessGrantId, r.RoleName }).IsUnique();
         });
 
         modelBuilder.Entity<AccessReviewCampaign>(e =>
