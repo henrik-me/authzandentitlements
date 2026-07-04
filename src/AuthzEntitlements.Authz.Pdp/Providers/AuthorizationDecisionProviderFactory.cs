@@ -89,13 +89,16 @@ public sealed class AuthorizationDecisionProviderFactory
     }
 
     // Non-throwing lookup so a request-boundary caller (endpoint) can return a 400 for an unknown
-    // engine name instead of surfacing a 500. A blank name never matches (fail closed).
+    // engine name instead of surfacing a 500. The name is trimmed so accidental surrounding
+    // whitespace (from env/secret/query sources) still resolves — consistent with the constructor
+    // trimming PdpOptions.Provider. A blank name never matches (fail closed).
     public bool TryGetProvider(string name, out IAuthorizationDecisionProvider provider)
     {
-        provider = string.IsNullOrWhiteSpace(name)
+        var trimmed = name?.Trim();
+        provider = string.IsNullOrEmpty(trimmed)
             ? null!
             : _providers.FirstOrDefault(
-                p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))!;
+                p => string.Equals(p.Name, trimmed, StringComparison.OrdinalIgnoreCase))!;
         return provider is not null;
     }
 

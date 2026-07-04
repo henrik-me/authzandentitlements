@@ -57,10 +57,16 @@ public static class GoldenDecisionSnapshot
 
     private static string ComputeVersion(IReadOnlyList<GoldenDecision> golden)
     {
+        // Canonicalize (sort entries by id, and obligation ids within each entry) so the hash is a
+        // true CONTENT hash — reordering the Golden list or an entry's obligations must not change
+        // the version.
         var canonical = string.Join(
             "\n",
-            golden.Select(g =>
-                $"{g.ScenarioId}|{g.Decision}|{g.ReasonCode}|{string.Join(",", g.ObligationIds)}"));
+            golden
+                .OrderBy(g => g.ScenarioId, StringComparer.Ordinal)
+                .Select(g =>
+                    $"{g.ScenarioId}|{g.Decision}|{g.ReasonCode}|" +
+                    $"{string.Join(",", g.ObligationIds.OrderBy(id => id, StringComparer.Ordinal))}"));
         var hash = System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(canonical));
         return Convert.ToHexString(hash).ToLowerInvariant();

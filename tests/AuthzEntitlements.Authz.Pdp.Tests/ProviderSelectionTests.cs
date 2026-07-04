@@ -84,4 +84,29 @@ public sealed class ProviderSelectionTests
     {
         Assert.Equal("Pdp", PdpOptions.SectionName);
     }
+
+    [Fact]
+    public void TryGetProvider_TrimsSurroundingWhitespace()
+    {
+        var factory = Factory("reference", new ReferenceDecisionProvider());
+
+        Assert.True(factory.TryGetProvider("  reference  ", out var provider));
+        Assert.Equal("reference", provider.Name);
+    }
+
+    [Fact]
+    public void TryGetProvider_BlankName_FailsClosed()
+    {
+        var factory = Factory("reference", new ReferenceDecisionProvider());
+
+        Assert.False(factory.TryGetProvider("   ", out _));
+    }
+
+    [Fact]
+    public void ProviderNames_ListsAllRegisteredProviders()
+    {
+        var factory = Factory("reference", new ReferenceDecisionProvider(), new StubProvider("casbin"));
+
+        Assert.Equal(new[] { "reference", "casbin" }, factory.ProviderNames);
+    }
 }

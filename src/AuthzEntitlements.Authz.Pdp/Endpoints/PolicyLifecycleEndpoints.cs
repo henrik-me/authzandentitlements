@@ -66,8 +66,9 @@ public static class PolicyLifecycleEndpoints
             var primary = string.IsNullOrWhiteSpace(body.Primary) ? active.ProviderName : body.Primary.Trim();
             var requested = body.Shadows is { Count: > 0 } ? body.Shadows : ShadowRunner.DeterministicRbacFamily;
             var shadows = requested
-                .Where(name => !string.IsNullOrWhiteSpace(name)
-                    && !string.Equals(name, primary, StringComparison.OrdinalIgnoreCase))
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name.Trim())
+                .Where(name => !string.Equals(name, primary, StringComparison.OrdinalIgnoreCase))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 

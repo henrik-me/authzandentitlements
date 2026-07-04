@@ -155,4 +155,15 @@ public sealed class ShadowRunnerTests
             new[] { "reference", "aspnet", "casbin", "cedar" },
             ShadowRunner.DeterministicRbacFamily);
     }
+
+    [Fact]
+    public void Run_ResolvesEngineNames_IgnoringSurroundingWhitespace()
+    {
+        var runner = new ShadowRunner(LifecycleTestSupport.RbacFactory());
+
+        var result = runner.Run("reference", ["  cedar  ", " casbin "], LifecycleTestSupport.PermitLargeTxn());
+
+        Assert.True(result.AllAgree);
+        Assert.Equal(new[] { "cedar", "casbin" }, result.Comparisons.Select(c => c.Shadow.Engine));
+    }
 }
