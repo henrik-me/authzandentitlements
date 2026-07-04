@@ -33,8 +33,10 @@ public sealed class DelegationGrantTests
     private static Resource Account(string tenant = "CONTOSO") => new("account", Tenant: tenant);
 
     private static DelegationGrant Grant(
-        string managerId, string delegateId, DateTimeOffset? expiresAt = null) =>
-        new("del-1", managerId, delegateId, expiresAt ?? Active);
+        string managerId, string delegateId, DateTimeOffset? expiresAt = null,
+        params string[] scopes) =>
+        new("del-1", managerId, delegateId, expiresAt ?? Active,
+            scopes.Length > 0 ? scopes : [AgentScopeNames.Read]);
 
     private static AccessDecision Evaluate(
         Subject subject, string action, Resource resource,
@@ -67,7 +69,8 @@ public sealed class DelegationGrantTests
         var decision = Evaluate(
             DelegatedManager(Delegate(AgentScopeNames.Read)),
             ActionNames.AccountRead, Account(),
-            new DelegationGrant(blankId, Manager1, Delegate1, Active), Now, ScopeNames.Read);
+            new DelegationGrant(blankId, Manager1, Delegate1, Active, [AgentScopeNames.Read]),
+            Now, ScopeNames.Read);
 
         Assert.Equal(Decision.Deny, decision.Decision);
         Assert.Equal(ReasonCodes.DelegationNotActive, decision.Reasons[0].Code);
@@ -172,6 +175,23 @@ public sealed class DelegationGrantTests
             DelegatedManager(Delegate()), // delegate holds no delegated scope
             ActionNames.AccountRead, Account(),
             Grant(Manager1, Delegate1, Expired), Now, ScopeNames.Read);
+
+        Assert.Equal(Decision.Deny, decision.Decision);
+        Assert.Equal(ReasonCodes.DelegationScopeMissing, decision.Reasons[0].Code);
+    }
+
+    // ---- The manager's grant Scopes bound the delegate, even when the Actor's own token would allow ----
+
+    [Fact]
+    public void Delegation_ActiveGrant_ButGrantScopesOmitRequired_Denies_DelegationScopeMissing()
+    {
+        // The delegate's OWN token holds the read scope, but the manager's grant delegated only a
+        // different scope (approvals.write). The grant bounds the delegate, so the read must deny
+        // DelegationScopeMissing — the delegate can exceed neither its token nor the manager's grant.
+        var decision = Evaluate(
+            DelegatedManager(Delegate(AgentScopeNames.Read)),
+            ActionNames.AccountRead, Account(),
+            Grant(Manager1, Delegate1, Active, AgentScopeNames.ApprovalsWrite), Now, ScopeNames.Read);
 
         Assert.Equal(Decision.Deny, decision.Decision);
         Assert.Equal(ReasonCodes.DelegationScopeMissing, decision.Reasons[0].Code);

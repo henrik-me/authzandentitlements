@@ -96,22 +96,33 @@ public static class BreakGlassDelegationScenarioCatalog
                 "A delegate holding the delegated scope acts for a manager under an active grant: permit.",
                 DelegatedManager(Manager1, Contoso, Delegate1, AgentScopeNames.Read),
                 ActionNames.AccountRead, Account(Contoso),
-                DelegationContext([ScopeNames.Read], Delegation(Manager1, Delegate1, Active)),
+                DelegationContext([ScopeNames.Read], Delegation(Manager1, Delegate1, Active, AgentScopeNames.Read)),
                 Decision.Permit, ReasonCodes.Permit),
 
             Scenario("delegation-expired-grant-denies",
                 "An expired delegation grant denies even when the delegate holds the delegated scope.",
                 DelegatedManager(Manager1, Contoso, Delegate1, AgentScopeNames.Read),
                 ActionNames.AccountRead, Account(Contoso),
-                DelegationContext([ScopeNames.Read], Delegation(Manager1, Delegate1, Expired)),
+                DelegationContext([ScopeNames.Read], Delegation(Manager1, Delegate1, Expired, AgentScopeNames.Read)),
                 Decision.Deny, ReasonCodes.DelegationNotActive),
 
             Scenario("delegation-mismatched-delegate-denies",
                 "A delegation grant naming a different delegate denies (the grant must match the Actor).",
                 DelegatedManager(Manager1, Contoso, Delegate1, AgentScopeNames.Read),
                 ActionNames.AccountRead, Account(Contoso),
-                DelegationContext([ScopeNames.Read], Delegation(Manager1, Stranger1, Active)),
+                DelegationContext([ScopeNames.Read], Delegation(Manager1, Stranger1, Active, AgentScopeNames.Read)),
                 Decision.Deny, ReasonCodes.DelegationNotActive),
+
+            // ---- The manager's grant Scopes bound the delegate even when its own token would allow ----
+            Scenario("delegation-grant-scope-omits-required-denies",
+                "An active grant whose Scopes omit the action's required scope denies even though the " +
+                "delegate's own token holds it: the manager's grant bounds the delegate.",
+                DelegatedManager(Manager1, Contoso, Delegate1, AgentScopeNames.Read),
+                ActionNames.AccountRead, Account(Contoso),
+                DelegationContext(
+                    [ScopeNames.Read],
+                    Delegation(Manager1, Delegate1, Active, AgentScopeNames.ApprovalsWrite)),
+                Decision.Deny, ReasonCodes.DelegationScopeMissing),
 
             // ---- Control: the human / no-context path is unchanged ----
             Scenario("human-no-context-path-unchanged",
@@ -138,8 +149,9 @@ public static class BreakGlassDelegationScenarioCatalog
     private static BreakGlassGrant BreakGlass(string subjectId, string action, DateTimeOffset expiresAt) =>
         new($"bg-{subjectId}-{action}", subjectId, action, expiresAt, "Emergency access for incident.");
 
-    private static DelegationGrant Delegation(string managerId, string delegateId, DateTimeOffset expiresAt) =>
-        new($"del-{managerId}-{delegateId}", managerId, delegateId, expiresAt);
+    private static DelegationGrant Delegation(
+        string managerId, string delegateId, DateTimeOffset expiresAt, params string[] scopes) =>
+        new($"del-{managerId}-{delegateId}", managerId, delegateId, expiresAt, scopes);
 
     private static EvaluationContext BreakGlassContext(string[] scopes, BreakGlassGrant grant) =>
         new(scopes, BreakGlass: grant, Now: Now);

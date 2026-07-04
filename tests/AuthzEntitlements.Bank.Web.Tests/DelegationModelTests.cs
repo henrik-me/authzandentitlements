@@ -77,6 +77,7 @@ public class DelegationModelTests
         Assert.Equal(grant.ManagerId, del.ManagerId);
         Assert.Equal(grant.DelegateId, del.DelegateId);
         Assert.Equal(grant.ExpiresAt, del.ExpiresAt);
+        Assert.Equal(grant.Scopes, del.Scopes);
         Assert.Equal(now, request.Context.Now);
 
         // The manager subject identity is preserved (the delegate acts FOR the manager, not AS itself).
@@ -117,6 +118,7 @@ public class DelegationModelTests
         Assert.Equal(grant.ManagerId, mapped.ManagerId);
         Assert.Equal(grant.DelegateId, mapped.DelegateId);
         Assert.Equal(grant.ExpiresAt, mapped.ExpiresAt);
+        Assert.Equal(grant.Scopes, mapped.Scopes);
     }
 
     [Fact]

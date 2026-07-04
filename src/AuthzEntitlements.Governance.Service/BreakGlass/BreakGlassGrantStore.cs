@@ -3,12 +3,14 @@ using AuthzEntitlements.Governance.Service.Domain;
 namespace AuthzEntitlements.Governance.Service.BreakGlass;
 
 // Thread-safe, in-memory system-of-record for break-glass grants, registered as a singleton.
-// Deliberately in-memory (no EF/Postgres) to preserve the deterministic no-Docker path — EF
-// persistence is a documented follow-up. A single monitor lock guards every operation so each
-// read returns a consistent snapshot and each check-then-set transition (Issue, Review) is
-// atomic. Every mutation is FAIL-CLOSED: blank/invalid input and illegal state transitions
-// throw rather than silently accepting bad state, so the endpoint layer maps them to a clear
-// 400/404/409 instead of a silent default.
+// Kept in-memory to avoid adding a NEW EF entity/migration/table for these ephemeral emergency
+// grants — NOT because the service avoids Postgres: Governance.Service still requires Postgres at
+// startup for its durable entitlement grants. Persisting break-glass grants (mirroring the durable
+// AccessGrant tables) is a documented follow-up; they do not survive a restart today. A single
+// monitor lock guards every operation so each read returns a consistent snapshot and each
+// check-then-set transition (Issue, Review) is atomic. Every mutation is FAIL-CLOSED: blank/invalid
+// input and illegal state transitions throw rather than silently accepting bad state, so the
+// endpoint layer maps them to a clear 400/404/409 instead of a silent default.
 public sealed class BreakGlassGrantStore
 {
     private readonly object _gate = new();

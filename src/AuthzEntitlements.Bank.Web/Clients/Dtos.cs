@@ -295,15 +295,17 @@ public sealed record PdpBreakGlassGrantDto(
     string Justification);
 
 // A manager->delegate delegation grant carried on PdpContextDto.Delegation, mirroring the PDP
-// Authz.Pdp/Contracts/DelegationGrant.cs shape (GrantId, ManagerId, DelegateId, ExpiresAt). When
-// present the PDP additionally requires it to be active and matching (ManagerId == Subject.Id,
-// DelegateId == Actor.Id, Now < ExpiresAt) on top of the CS19 OBO intersection, else it denies
-// DelegationNotActive.
+// Authz.Pdp/Contracts/DelegationGrant.cs shape (GrantId, ManagerId, DelegateId, ExpiresAt, Scopes) by
+// property name. When present the PDP additionally requires it to be active and matching (ManagerId ==
+// Subject.Id, DelegateId == Actor.Id, Now < ExpiresAt) AND the action's required scope to be present in
+// Scopes (the manager's grant bounds the delegate, distinct from the Actor's own token) on top of the
+// CS19 OBO intersection, else it denies DelegationNotActive / DelegationScopeMissing.
 public sealed record PdpDelegationGrantDto(
     string GrantId,
     string ManagerId,
     string DelegateId,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    IReadOnlyList<string> Scopes);
 
 public sealed record PdpAccessRequestDto(
     PdpSubjectDto Subject,

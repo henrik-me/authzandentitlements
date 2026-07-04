@@ -3,11 +3,14 @@ using AuthzEntitlements.Governance.Service.Domain;
 namespace AuthzEntitlements.Governance.Service.Delegation;
 
 // Thread-safe, in-memory system-of-record for manager->delegate delegation grants, registered
-// as a singleton. Deliberately in-memory (no EF/Postgres) to preserve the deterministic
-// no-Docker path — EF persistence is a documented follow-up. A single monitor lock guards
-// every operation so reads return a consistent snapshot and the revoke check-then-set is
-// atomic. Every mutation is FAIL-CLOSED: blank/invalid input and illegal transitions throw so
-// the endpoint layer maps them to a clear 400/404/409 instead of a silent default.
+// as a singleton. Kept in-memory to avoid adding a NEW EF entity/migration/table for these
+// ephemeral grants — NOT because the service avoids Postgres: Governance.Service still requires
+// Postgres at startup for its durable entitlement grants. Persisting delegation grants (mirroring
+// the durable AccessGrant tables) is a documented follow-up; they do not survive a restart today.
+// A single monitor lock guards every operation so reads return a consistent snapshot and the
+// revoke check-then-set is atomic. Every mutation is FAIL-CLOSED: blank/invalid input and illegal
+// transitions throw so the endpoint layer maps them to a clear 400/404/409 instead of a silent
+// default.
 public sealed class DelegationGrantStore
 {
     private readonly object _gate = new();

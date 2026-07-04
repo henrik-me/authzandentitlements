@@ -117,13 +117,16 @@ public static class DelegationModel
             scenario.DurationMinutes);
 
     // Maps an issued governance delegation grant to the PDP EvaluationContext grant shape, 1:1 by
-    // field: the grant id (as string), the manager and delegate ids, and the auto-expiry instant.
+    // field: the grant id (as string), the manager and delegate ids, the auto-expiry instant, and the
+    // delegated Scopes the manager granted — which the PDP requires to contain the action's required
+    // scope (the manager's grant bounds the delegate, distinct from the Actor's own token).
     public static PdpDelegationGrantDto ToContextGrant(DelegationGrantResponse grant) =>
         new(
             grant.Id.ToString(),
             grant.ManagerId,
             grant.DelegateId,
-            grant.ExpiresAt);
+            grant.ExpiresAt,
+            grant.Scopes);
 
     // The instant one second past a grant's expiry, used by the page to demonstrate the injected
     // decision clock + auto-expiry: re-evaluating the delegate request with this clock denies

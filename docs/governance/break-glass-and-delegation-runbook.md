@@ -164,8 +164,12 @@ reusing the CS19 OBO seam. The effective decision is the **intersection** of thr
 ([`ReferenceDecisionProvider.Evaluate`](../../src/AuthzEntitlements.Authz.Pdp/Providers/ReferenceDecisionProvider.cs)):
 
 1. **Manager rights (base).** The manager's own base decision — the delegate can never exceed it.
-2. **Delegate scope (CS19 OBO).** The delegate (the `Actor`) must hold the delegated `agent.bank.*`
-   scope the action class requires, else `DelegationScopeMissing`.
+2. **Delegate scope (CS19 OBO) + the manager's grant `Scopes` (CS21).** The delegate (the `Actor`)
+   must hold the delegated `agent.bank.*` scope the action class requires **in its own token**, and —
+   when a delegation grant is in context — that same required scope must **also** be present in the
+   grant's `Scopes` (the capabilities the manager actually delegated). The delegate can exceed neither
+   its own token nor the manager's grant, so a missing scope on **either** denies
+   `DelegationScopeMissing`.
 3. **Active, matching grant (CS21).** When a delegation grant is in context it must be active and
    match this manager (`ManagerId == Subject.Id`), this delegate (`DelegateId == Actor.Id`), and be
    unexpired (`Now < ExpiresAt`), else **`DelegationNotActive`** — fail-closed on an
@@ -236,10 +240,12 @@ The request authoring and decision mapping live in offline-testable view models
 
 ## Deferred / production notes
 
-- **In-memory grant stores → EF persistence.** Both grant stores are deliberately **in-memory**
-  (singletons) to preserve the deterministic no-Docker path and avoid an EF/Postgres migration in
-  CS21. Persisting them in the `governance` database (mirroring the `AccessGrant` tables) is a
-  documented follow-up — grants do not survive a service restart today.
+- **In-memory grant stores → EF persistence.** Both grant stores are kept **in-memory**
+  (singletons) to avoid adding a **new** EF entity, migration, and table for these ephemeral grants
+  in CS21 — **not** because the service avoids Postgres: `Governance.Service` still requires Postgres
+  at startup for its durable entitlement grants. Persisting them in the `governance` database
+  (mirroring the `AccessGrant` tables) is a documented follow-up — grants do not survive a service
+  restart today.
 - **Production OBO via RFC 8693 token exchange.** As in CS19, the manager → delegate binding is
   modeled at the **app / PDP-context layer** (`Subject.Actor` + the delegation grant), not minted into
   a token. The production form is **OAuth 2.0 Token Exchange (RFC 8693)**, where the exchanged token

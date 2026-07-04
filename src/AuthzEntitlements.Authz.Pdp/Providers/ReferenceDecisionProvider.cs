@@ -48,8 +48,10 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
     //                                      path; the "human path unaffected" guarantee).
     //        * Actor present, base Deny -> return the base Deny unchanged (the human is not permitted, so
     //                                      the agent — which can never exceed the human — is not either).
-    //        * Actor present, base Permit -> require the delegated scope for the action class; a missing/
-    //                                      unmapped delegated scope denies DelegationScopeMissing.
+    //        * Actor present, base Permit -> require the delegated scope for the action class in the
+    //                                      Actor's scopes AND, when a delegation grant is in context, in
+    //                                      the grant's Scopes too; a missing/unmapped delegated scope on
+    //                                      EITHER denies DelegationScopeMissing.
     //   3. MANAGER->DELEGATE GRANT (CS21). When Context.Delegation is present the OBO call additionally
     //      requires an active, matching delegation grant (manager==Subject, delegate==Actor, not expired),
     //      else DelegationNotActive. Absent Delegation ⇒ exactly the CS19 agent-OBO behaviour.
@@ -70,17 +72,27 @@ public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
         var actor = request.Subject.Actor;
         var required = AgentScopeNames.RequiredFor(request.Action.Name);
 
-        // Fail-closed: an action with no defined delegated scope, or an agent whose granted scopes
-        // do not include the required one, denies. A null/empty Scopes list satisfies nothing.
-        var satisfied = required is not null
+        // Fail-closed: an action with no defined delegated scope, or an Actor whose granted scopes do
+        // not include the required one, denies. A null/empty Scopes list satisfies nothing.
+        var actorHasScope = required is not null
             && actor.Scopes is not null
             && actor.Scopes.Any(s => string.Equals(s, required, StringComparison.Ordinal));
 
-        if (!satisfied)
+        // CS21: the manager's grant is ALSO authoritative. When a manager->delegate grant is in context
+        // the action's required scope must additionally be present in the grant's own Scopes, so the
+        // delegate can exceed neither its own token (Actor.Scopes) nor what the manager delegated. Absent
+        // grant ⇒ the CS19 agent-OBO path is unchanged (this grant-scope check is skipped entirely). A
+        // null/empty grant Scopes list satisfies nothing (fail-closed).
+        var grantAllowsScope = request.Context.Delegation is not { } scopeGrant
+            || (required is not null
+                && scopeGrant.Scopes is not null
+                && scopeGrant.Scopes.Any(s => string.Equals(s, required, StringComparison.Ordinal)));
+
+        if (!actorHasScope || !grantAllowsScope)
         {
             return Explain(AccessDecision.Deny(new Reason(
                 ReasonCodes.DelegationScopeMissing,
-                $"Agent '{actor.Id}' is not authorized to '{request.Action.Name}' on behalf of subject " +
+                $"Actor '{actor.Id}' is not authorized to '{request.Action.Name}' on behalf of subject " +
                 $"'{request.Subject.Id}': missing delegated scope '{required ?? "(none defined)"}'.")));
         }
 
