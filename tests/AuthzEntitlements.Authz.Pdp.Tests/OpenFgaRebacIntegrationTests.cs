@@ -13,9 +13,9 @@ public sealed class OpenFgaRebacIntegrationTests
     private static OpenFgaRebacService? ServiceOrSkip()
     {
         var url = Environment.GetEnvironmentVariable("OPENFGA_TEST_API_URL");
-        if (string.IsNullOrEmpty(url))
+        if (string.IsNullOrWhiteSpace(url))
         {
-            return null; // Soft-skip: no server configured.
+            return null; // Soft-skip: no server configured (blank or whitespace-only).
         }
 
         // Unique store per run so repeated integration runs don't collide on the shared server.

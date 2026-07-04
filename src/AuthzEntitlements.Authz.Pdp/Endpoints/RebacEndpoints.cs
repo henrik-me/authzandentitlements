@@ -175,6 +175,11 @@ public static class RebacEndpoints
             return $"Query parameter '{principalName}' is required.";
         }
 
+        if (principal.Trim() != principal)
+        {
+            return $"Query parameter '{principalName}' must not have leading or trailing whitespace.";
+        }
+
         if (principal.Contains(':'))
         {
             return $"Query parameter '{principalName}' must be a bare id with no 'type:' prefix " +
