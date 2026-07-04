@@ -1,0 +1,20 @@
+@* Primary navigation. Links reflect the four-layer product flow; the auth links flip
+   with sign-in state via <AuthorizeView>. *@
+<nav class="nav">
+    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Home</NavLink>
+    <NavLink class="nav-link" href="accounts">Accounts</NavLink>
+    <NavLink class="nav-link" href="transactions/new">New Transaction</NavLink>
+    <NavLink class="nav-link" href="approvals">Approvals</NavLink>
+    <NavLink class="nav-link" href="entitlements">Entitlements</NavLink>
+    <NavLink class="nav-link" href="access-requests">Access Requests</NavLink>
+    <NavLink class="nav-link" href="claims">Claims</NavLink>
+    <AuthorizeView>
+        <Authorized>
+            <span class="nav-user">@context.User.Identity?.Name</span>
+            <a class="nav-link" href="logout">Log out</a>
+        </Authorized>
+        <NotAuthorized>
+            <a class="nav-link" href="login">Log in</a>
+        </NotAuthorized>
+    </AuthorizeView>
+</nav>

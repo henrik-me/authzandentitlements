@@ -1,0 +1,311 @@
+@page "/access-requests"
+@attribute [Authorize]
+@using AuthzEntitlements.Bank.Web.ViewModels
+@inject IGovernanceClient Governance
+@inject ICurrentUser CurrentUser
+
+@* Static SSR (no @rendermode): each form re-runs the component server-side on POST, keeping
+   the pattern consistent with the other write pages. The Governance.Service is anonymous
+   (no bearer token forwarding), but requests/decisions are bound to the signed-in identity's
+   GovernancePrincipalId — never a form field — so a caller cannot request or decide as
+   another subject. This is the JIT (just-in-time) access-request flow with
+   segregation-of-duties governance: the server enforces SoD, checker eligibility, and
+   decide-once independently of this UI, and the outcomes are surfaced fail-closed. *@
+
+<PageTitle>Access requests</PageTitle>
+
+<h1>Access requests</h1>
+
+<p class="hint">This is the <strong>just-in-time (JIT) access-request</strong> flow with
+    <strong>segregation-of-duties</strong> governance. Request a time-bound access package,
+    then a different eligible checker approves or rejects it. The server enforces the rules
+    independently of this UI: an approver who is also the requester is denied
+    (<strong>segregation of duties</strong>); a request can only be decided once; and if the
+    PDP is unreachable the decision <strong>fails closed</strong> (SoD outcome
+    <em>Unavailable</em>, the request stays Pending).</p>
+
+@if (_principal is null)
+{
+    <p class="notice" role="alert">No username is present on your identity, so a governance
+        principal cannot be resolved. You cannot request or decide access (fail-closed).</p>
+}
+else
+{
+    <p class="hint">Signed in as governance principal <code>@_principal</code>.</p>
+
+    @if (_result is not null)
+    {
+        <div class="notice" role="@(_result.IsSuccess ? "status" : "alert")">
+            <p><strong>@_resultTitle — @AccessRequestsModel.RequestOutcomeLabel(_result.StatusCode).</strong></p>
+            @if (!string.IsNullOrWhiteSpace(_resultDetail))
+            {
+                <p>@_resultDetail</p>
+            }
+        </div>
+    }
+
+    <h2>Access packages</h2>
+    @if (_packages.Count == 0)
+    {
+        <p class="notice">No access packages are available. This can also mean the governance
+            service is unavailable (fail-closed).</p>
+    }
+    else
+    {
+        <table class="grid">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Package</th>
+                    <th>Roles</th>
+                    <th class="num">Default duration (min)</th>
+                    <th>Requires approval</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var package in _packages)
+                {
+                    <tr>
+                        <td><code>@package.Code</code></td>
+                        <td>@package.DisplayName</td>
+                        <td>@(package.Roles.Length == 0 ? "—" : string.Join(", ", package.Roles))</td>
+                        <td class="num">@package.DefaultDurationMinutes</td>
+                        <td>@(package.RequiresApproval ? "Yes" : "No")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h2>Request access</h2>
+        <EditForm Model="RequestForm" FormName="request" OnValidSubmit="RequestAsync" method="post">
+            <AntiforgeryToken />
+            <p>
+                <label>Package<br />
+                    <InputSelect @bind-Value="RequestForm.AccessPackageCode">
+                        <option value="">— select an access package —</option>
+                        @foreach (var package in _packages)
+                        {
+                            <option value="@package.Code">@package.Code — @package.DisplayName</option>
+                        }
+                    </InputSelect>
+                </label>
+            </p>
+            <p>
+                <label>Justification (required)<br />
+                    <InputText @bind-Value="RequestForm.Justification" />
+                </label>
+            </p>
+            <p>
+                <label>Duration in minutes (optional — blank uses the package default)<br />
+                    <InputNumber @bind-Value="RequestForm.RequestedDurationMinutes" />
+                </label>
+            </p>
+            <button type="submit" class="button">Request access</button>
+        </EditForm>
+    }
+
+    <h2>Requests</h2>
+    @if (_requests.Count == 0)
+    {
+        <p class="notice">No access requests yet. This can also mean the governance service is
+            unavailable (fail-closed).</p>
+    }
+    else
+    {
+        <table class="grid">
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Principal</th>
+                    <th>Package</th>
+                    <th>Status</th>
+                    <th>SoD outcome</th>
+                    <th>SoD reason</th>
+                    <th>Decided by</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var request in _requests)
+                {
+                    <tr class="@(AccessRequestsModel.IsPending(request) ? "num" : null)">
+                        <td>@request.Id</td>
+                        <td>@request.PrincipalId</td>
+                        <td><code>@request.AccessPackageCode</code></td>
+                        <td>
+                            @if (AccessRequestsModel.IsPending(request))
+                            {
+                                <strong>Pending</strong>
+                            }
+                            else
+                            {
+                                @request.Status
+                            }
+                        </td>
+                        <td>@AccessRequestsModel.SodOutcomeLabel(request.SodOutcome)</td>
+                        <td>@(string.IsNullOrWhiteSpace(request.SodReason) ? "—" : request.SodReason)</td>
+                        <td>@(string.IsNullOrWhiteSpace(request.DecidedBy) ? "—" : request.DecidedBy)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (_pending.Count == 0)
+        {
+            <p class="notice">No requests are awaiting a decision.</p>
+        }
+        else
+        {
+            <div class="decide">
+                <EditForm Model="ApproveForm" FormName="approve-req" OnValidSubmit="ApproveAsync" method="post">
+                    <AntiforgeryToken />
+                    <h3>Approve</h3>
+                    <p>
+                        <label>Request<br />
+                            <InputSelect @bind-Value="ApproveForm.RequestId">
+                                <option value="@Guid.Empty">— select a pending request —</option>
+                                @foreach (var request in _pending)
+                                {
+                                    <option value="@request.Id">@request.Id — @request.AccessPackageCode (@request.PrincipalId)</option>
+                                }
+                            </InputSelect>
+                        </label>
+                    </p>
+                    <button type="submit" class="button">Approve</button>
+                </EditForm>
+
+                <EditForm Model="RejectForm" FormName="reject-req" OnValidSubmit="RejectAsync" method="post">
+                    <AntiforgeryToken />
+                    <h3>Reject</h3>
+                    <p>
+                        <label>Request<br />
+                            <InputSelect @bind-Value="RejectForm.RequestId">
+                                <option value="@Guid.Empty">— select a pending request —</option>
+                                @foreach (var request in _pending)
+                                {
+                                    <option value="@request.Id">@request.Id — @request.AccessPackageCode (@request.PrincipalId)</option>
+                                }
+                            </InputSelect>
+                        </label>
+                    </p>
+                    <p>
+                        <label>Reason (optional)<br />
+                            <InputText @bind-Value="RejectForm.Reason" />
+                        </label>
+                    </p>
+                    <button type="submit" class="button">Reject</button>
+                </EditForm>
+            </div>
+        }
+    }
+}
+
+@code {
+    // BL0008 forbids a property initializer on a [SupplyParameterFromForm] property under
+    // warnings-as-errors, so these are `= default!` here and `??= new()` in
+    // OnInitializedAsync. Each form has a unique FormName so the three static-SSR forms bind
+    // to the correct model on POST.
+    [SupplyParameterFromForm(FormName = "request")]
+    private RequestAccessInput RequestForm { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "approve-req")]
+    private DecideRequestInput ApproveForm { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "reject-req")]
+    private DecideRequestInput RejectForm { get; set; } = default!;
+
+    private string? _principal;
+    private IReadOnlyList<AccessPackageResponse> _packages = [];
+    private IReadOnlyList<AccessRequestResponse> _requests = [];
+    private IReadOnlyList<AccessRequestResponse> _pending = [];
+
+    private ApiResult<AccessRequestResponse>? _result;
+    private string _resultTitle = string.Empty;
+    private string? _resultDetail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        RequestForm ??= new();
+        ApproveForm ??= new();
+        RejectForm ??= new();
+
+        _principal = CurrentUser.GovernancePrincipalId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _packages = await Governance.GetAccessPackagesAsync();
+        _requests = await Governance.GetRequestsAsync();
+        _pending = AccessRequestsModel.Pending(_requests);
+    }
+
+    private async Task RequestAsync()
+    {
+        if (_principal is null)
+        {
+            return;
+        }
+
+        var body = AccessRequestsModel.BuildCreateBody(_principal, RequestForm);
+        if (string.IsNullOrWhiteSpace(body.AccessPackageCode) || string.IsNullOrWhiteSpace(body.Justification))
+        {
+            _result = ApiResult<AccessRequestResponse>.Failure(400, "A package and justification are required.");
+            _resultTitle = "Request rejected";
+            _resultDetail = _result.Error;
+            return;
+        }
+
+        _result = await Governance.CreateRequestAsync(body);
+        _resultTitle = _result.IsSuccess ? "Request submitted" : "Request rejected";
+        _resultDetail = DescribeOutcome(_result);
+        await LoadAsync();
+    }
+
+    private async Task ApproveAsync()
+    {
+        if (_principal is null || ApproveForm.RequestId == Guid.Empty)
+        {
+            return;
+        }
+
+        // The approver is the signed-in subject — never a form field. The server denies
+        // (segregation of duties) if the approver equals the requester.
+        var result = await Governance.ApproveRequestAsync(
+            ApproveForm.RequestId, new ApproveRequestBody(_principal));
+        _result = result.IsSuccess
+            ? ApiResult<AccessRequestResponse>.Success(null!, result.StatusCode)
+            : ApiResult<AccessRequestResponse>.Failure(result.StatusCode, result.Error ?? "The approval was denied.");
+        _resultTitle = result.IsSuccess ? "Request approved" : "Approval denied";
+        _resultDetail = result.IsSuccess
+            ? "A time-bound grant was issued for the request."
+            : result.Error;
+        await LoadAsync();
+    }
+
+    private async Task RejectAsync()
+    {
+        if (_principal is null || RejectForm.RequestId == Guid.Empty)
+        {
+            return;
+        }
+
+        var reason = string.IsNullOrWhiteSpace(RejectForm.Reason) ? null : RejectForm.Reason.Trim();
+        _result = await Governance.RejectRequestAsync(
+            RejectForm.RequestId, new RejectRequestBody(_principal, reason));
+        _resultTitle = _result.IsSuccess ? "Request rejected" : "Rejection denied";
+        _resultDetail = DescribeOutcome(_result);
+        await LoadAsync();
+    }
+
+    private static string? DescribeOutcome(ApiResult<AccessRequestResponse> result)
+    {
+        if (!result.IsSuccess)
+        {
+            return result.Error;
+        }
+
+        return result.Value is { } req
+            ? $"Status: {req.Status}. SoD outcome: {AccessRequestsModel.SodOutcomeLabel(req.SodOutcome)}."
+            : null;
+    }
+}

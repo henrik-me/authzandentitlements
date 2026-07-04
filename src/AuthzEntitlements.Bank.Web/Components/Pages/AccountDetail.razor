@@ -1,0 +1,93 @@
+@page "/accounts/{Id:guid}"
+@attribute [Authorize]
+@inject IBankApiClient BankApi
+
+@* Static SSR (no @rendermode): calls Bank.Api through the edge gateway with the user's
+   bearer token, which the AccessTokenHandler reads from the current HttpContext (only
+   available during a static-SSR request, not on an Interactive Server circuit). *@
+
+<PageTitle>Account detail</PageTitle>
+
+<p><a href="accounts">&larr; Back to accounts</a></p>
+
+@if (_loaded && _account is null)
+{
+    <h1>Account detail</h1>
+    <p class="notice">
+        This account is unavailable, or your token is not authorized to read it
+        (fail-closed).
+    </p>
+}
+else if (_account is null)
+{
+    <h1>Account detail</h1>
+    <p>Loading…</p>
+}
+else
+{
+    <h1>@_account.AccountNumber</h1>
+
+    <table class="grid">
+        <tbody>
+            <tr><th>Customer</th><td>@_account.CustomerName</td></tr>
+            <tr><th>Type</th><td>@_account.Type</td></tr>
+            <tr><th>Balance</th><td>@_account.Balance.ToString("N2") @_account.Currency</td></tr>
+            <tr><th>Status</th><td>@_account.Status</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Transactions</h2>
+    @if (_transactions.Count == 0)
+    {
+        <p class="notice">No transactions for this account.</p>
+    }
+    else
+    {
+        <table class="grid">
+            <thead>
+                <tr>
+                    <th>Created</th>
+                    <th>Type</th>
+                    <th class="num">Amount</th>
+                    <th>Status</th>
+                    <th>Approval</th>
+                    <th>Reference</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var txn in _transactions)
+                {
+                    <tr>
+                        <td>@txn.CreatedAt.ToString("u")</td>
+                        <td>@txn.Type</td>
+                        <td class="num">@txn.Amount.ToString("N2") @txn.Currency</td>
+                        <td>@txn.Status</td>
+                        <td>@(txn.Approval is null ? "—" : txn.Approval.Status.ToString())</td>
+                        <td>@(txn.Reference ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private bool _loaded;
+    private AccountDto? _account;
+    private IReadOnlyList<TransactionDto> _transactions = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _account = await BankApi.GetAccountAsync(Id);
+        if (_account is not null)
+        {
+            var all = await BankApi.GetTransactionsAsync();
+            _transactions = all.Where(t => t.AccountId == Id).ToList();
+        }
+
+        _loaded = true;
+    }
+}

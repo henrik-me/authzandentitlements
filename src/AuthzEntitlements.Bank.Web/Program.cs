@@ -1,9 +1,11 @@
-// CS03 stub: minimal ASP.NET Core web app wiring OIDC authorization-code login
-// against Keycloak and displaying the signed-in user's claims. This is a login
-// stub only — CS14 builds the real Blazor product UI on top of this identity wiring.
+// CS14: Blazor Web App (Interactive Server enabled) for the fintech product UI. This
+// REPLACES the CS03 minimal-API login stub while PRESERVING its exact Keycloak/OIDC +
+// cookie wiring (same config-key contract and options). Token-dependent pages render as
+// static SSR so IHttpContextAccessor.HttpContext (and GetTokenAsync) are available on the
+// request; anonymous-service widgets may opt into Interactive Server.
 
-using System.Net;
-using System.Text;
+using AuthzEntitlements.Bank.Web.Clients;
+using AuthzEntitlements.Bank.Web.Components;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -64,6 +66,11 @@ builder.Services.AddAuthentication(options =>
         options.Scope.Clear();
         options.Scope.Add("openid");
         options.Scope.Add("bank.read");
+        // CS14: request the write scopes so the issued access token can call Bank.Api's
+        // maker (transactions) and checker (approvals) endpoints through the gateway.
+        // These are optional client scopes on the bank-web Keycloak client.
+        options.Scope.Add("bank.transactions.write");
+        options.Scope.Add("bank.approvals.write");
         // Identity claims (preferred_username, email, tenant, branch, roles) come from
         // the realm's default "bank-claims" client scope, so profile/email are not
         // requested — they are not defined as client scopes in the dev realm.
@@ -80,91 +87,55 @@ builder.Services.AddAuthentication(options =>
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+// Scoped identity + OIDC-identity-to-Bank.Api-user resolver used by the product pages.
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+
+// Attaches the signed-in user's bearer token to Bank.Api calls (bank client only).
+builder.Services.AddTransient<AccessTokenHandler>();
+
+// Typed clients. All base addresses use Aspire service discovery; AddServiceDefaults
+// already added the resilience + discovery handlers. Bank.Api traffic is routed THROUGH
+// the coarse edge gateway so that layer is exercised, and only that client forwards the
+// user's token. The entitlements/governance/pdp services are anonymous (no token).
+builder.Services.AddHttpClient<IBankApiClient, BankApiClient>(client =>
+        client.BaseAddress = new Uri("https+http://edge-gateway"))
+    .AddHttpMessageHandler<AccessTokenHandler>();
+
+builder.Services.AddHttpClient<IEntitlementsClient, EntitlementsClient>(client =>
+    client.BaseAddress = new Uri("https+http://entitlements-service"));
+
+builder.Services.AddHttpClient<IGovernanceClient, GovernanceClient>(client =>
+    client.BaseAddress = new Uri("https+http://governance-service"));
+
+builder.Services.AddHttpClient<IPdpClient, PdpClient>(client =>
+    client.BaseAddress = new Uri("https+http://authz-pdp"));
 
 var app = builder.Build();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseAntiforgery();
 
-app.MapGet("/", (HttpContext ctx) =>
-{
-    var user = ctx.User;
-    var signedIn = user.Identity?.IsAuthenticated == true;
-    var who = signedIn
-        ? WebUtility.HtmlEncode(user.Identity!.Name ?? "(unknown)")
-        : null;
+// Serve wwwroot (app.css) and the framework static web assets — notably
+// _framework/blazor.web.js, without which the Interactive Server island cannot
+// hydrate. MapStaticAssets is the .NET 10 optimized static-asset pipeline.
+app.MapStaticAssets();
 
-    var status = signedIn
-        ? $"<p>Signed in as <strong>{who}</strong>.</p>"
-        : "<p>You are <strong>not signed in</strong>.</p>";
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
-    var body = new StringBuilder()
-        .Append("<h1>Bank.Web (CS03 OIDC login stub)</h1>")
-        .Append(status)
-        .Append("<ul>")
-        .Append("<li><a href=\"/login\">Log in</a></li>")
-        .Append("<li><a href=\"/claims\">View my claims</a></li>")
-        .Append("<li><a href=\"/logout\">Log out</a></li>")
-        .Append("</ul>")
-        .ToString();
-
-    return Results.Content(HtmlPage("Bank.Web", body), "text/html");
-});
-
+// OIDC login/logout endpoints. The OIDC middleware owns /signin-oidc and
+// /signout-callback-oidc (the CallbackPath/SignedOutCallbackPath above).
 app.MapGet("/login", () =>
     Results.Challenge(
-        new AuthenticationProperties { RedirectUri = "/claims" },
+        new AuthenticationProperties { RedirectUri = "/" },
         [OidcScheme]));
-
-app.MapGet("/claims", (HttpContext ctx) =>
-{
-    var user = ctx.User;
-
-    string First(string type) =>
-        WebUtility.HtmlEncode(user.FindFirst(type)?.Value ?? "(none)");
-
-    string All(string type)
-    {
-        var values = user.FindAll(type).Select(c => c.Value).ToArray();
-        return values.Length == 0
-            ? "(none)"
-            : WebUtility.HtmlEncode(string.Join(", ", values));
-    }
-
-    var highlights = new StringBuilder()
-        .Append("<h2>Identity</h2>")
-        .Append("<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\">")
-        .Append($"<tr><th>preferred_username</th><td>{First("preferred_username")}</td></tr>")
-        .Append($"<tr><th>name</th><td>{First("name")}</td></tr>")
-        .Append($"<tr><th>tenant</th><td>{First("tenant")}</td></tr>")
-        .Append($"<tr><th>branch</th><td>{First("branch")}</td></tr>")
-        .Append($"<tr><th>roles</th><td>{All("roles")}</td></tr>")
-        .Append($"<tr><th>scope</th><td>{First("scope")}</td></tr>")
-        .Append("</table>");
-
-    var allRows = new StringBuilder("<h2>All claims</h2>")
-        .Append("<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\">")
-        .Append("<tr><th>Type</th><th>Value</th></tr>");
-    foreach (var claim in user.Claims)
-    {
-        allRows.Append("<tr><td>")
-            .Append(WebUtility.HtmlEncode(claim.Type))
-            .Append("</td><td>")
-            .Append(WebUtility.HtmlEncode(claim.Value))
-            .Append("</td></tr>");
-    }
-    allRows.Append("</table>");
-
-    var body = new StringBuilder()
-        .Append("<h1>Your claims</h1>")
-        .Append(highlights)
-        .Append(allRows)
-        .Append("<p><a href=\"/\">Home</a> &middot; <a href=\"/logout\">Log out</a></p>")
-        .ToString();
-
-    return Results.Content(HtmlPage("Claims", body), "text/html");
-})
-.RequireAuthorization();
 
 app.MapGet("/logout", () =>
     Results.SignOut(
@@ -174,6 +145,3 @@ app.MapGet("/logout", () =>
 app.MapDefaultEndpoints();
 
 app.Run();
-
-static string HtmlPage(string title, string body) =>
-    $"<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>{WebUtility.HtmlEncode(title)}</title></head><body>{body}</body></html>";

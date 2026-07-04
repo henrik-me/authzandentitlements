@@ -1,0 +1,147 @@
+@page "/transactions/new"
+@attribute [Authorize]
+@using AuthzEntitlements.Bank.Web.ViewModels
+@inject IBankApiClient BankApi
+@inject ICurrentUser CurrentUser
+
+@* Static SSR (no @rendermode): submitting a transaction calls Bank.Api through the edge
+   gateway with the user's bearer token, which the AccessTokenHandler reads from the
+   current HttpContext. A static-SSR form re-runs the component server-side on POST, so
+   HttpContext (and the token) are present; an Interactive Server circuit would have no
+   per-event HttpContext and the write would fail closed. The MakerId is derived from the
+   resolved token identity, never from the form — a caller may not act as another user. *@
+
+<PageTitle>New transaction</PageTitle>
+
+<h1>New transaction</h1>
+
+<p class="hint">As a <strong>maker</strong>, submit a transaction against one of your
+    tenant's accounts. The request travels AuthN → coarse edge gateway → fine Bank.Api
+    authorization → commercial entitlement. Small amounts post immediately; amounts at or
+    above the approval threshold are routed to <a href="approvals">maker-checker
+    approval</a>.</p>
+
+@if (_result is not null)
+{
+    @if (_result.IsSuccess && _result.Value is { } txn)
+    {
+        <div class="notice" role="status">
+            <p><strong>Transaction accepted.</strong></p>
+            <table class="grid">
+                <tbody>
+                    <tr><th>Id</th><td>@txn.Id</td></tr>
+                    <tr><th>Type</th><td>@txn.Type</td></tr>
+                    <tr><th>Amount</th><td class="num">@txn.Amount.ToString("N2") @txn.Currency</td></tr>
+                    <tr><th>Status</th><td>@txn.Status</td></tr>
+                </tbody>
+            </table>
+            @if (txn.Status == TransactionStatus.Pending)
+            {
+                <p class="hint">Above the approval threshold: routed to maker-checker
+                    approval. Track it on the <a href="approvals">approvals</a> page.</p>
+            }
+            else
+            {
+                <p class="hint">Posted immediately (below the approval threshold).</p>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="notice" role="alert">
+            <p><strong>Transaction denied — @StatusLabel(_result.StatusCode).</strong></p>
+            <p>@_result.Error</p>
+        </div>
+    }
+}
+
+@if (_accounts.Count == 0)
+{
+    <p class="notice">No accounts are available to transact against. This can mean the
+        service is unavailable, or your token is not authorized to read accounts
+        (fail-closed).</p>
+}
+else
+{
+    <EditForm Model="Input" FormName="new-transaction" OnValidSubmit="SubmitAsync" method="post">
+        <AntiforgeryToken />
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <p>
+            <label>Account<br />
+                <InputSelect @bind-Value="Input.AccountId">
+                    <option value="@Guid.Empty">— select an account —</option>
+                    @foreach (var account in _accounts)
+                    {
+                        <option value="@account.Id">
+                            @account.AccountNumber — @account.CustomerName (@account.Balance.ToString("N2") @account.Currency)
+                        </option>
+                    }
+                </InputSelect>
+            </label>
+        </p>
+
+        <p>
+            <label>Type<br />
+                <InputSelect @bind-Value="Input.Type">
+                    @foreach (var type in Enum.GetValues<TransactionType>())
+                    {
+                        <option value="@type">@type</option>
+                    }
+                </InputSelect>
+            </label>
+        </p>
+
+        <p>
+            <label>Amount<br />
+                <InputNumber @bind-Value="Input.Amount" step="0.01" />
+            </label>
+        </p>
+
+        <p>
+            <label>Reference (optional)<br />
+                <InputText @bind-Value="Input.Reference" />
+            </label>
+        </p>
+
+        <button type="submit" class="button">Submit transaction</button>
+    </EditForm>
+}
+
+@code {
+    [SupplyParameterFromForm]
+    private NewTransactionInput Input { get; set; } = default!;
+
+    private IReadOnlyList<AccountDto> _accounts = [];
+    private ApiResult<TransactionDto>? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+        _accounts = await BankApi.GetAccountsAsync();
+    }
+
+    private async Task SubmitAsync()
+    {
+        // The maker is the authenticated subject, resolved from the token — never a
+        // caller-chosen value. Bank.Api rejects (403) if MakerId != token sub.
+        var makerId = await CurrentUser.ResolveBankUserIdAsync();
+        if (makerId is null)
+        {
+            _result = ApiResult<TransactionDto>.Failure(
+                403, "Your identity could not be mapped to a bank user.");
+            return;
+        }
+
+        _result = await BankApi.CreateTransactionAsync(Input.ToRequest(makerId.Value));
+    }
+
+    private static string StatusLabel(int statusCode) => statusCode switch
+    {
+        403 => "403 Forbidden (coarse gateway / fine authorization)",
+        400 => "400 Bad Request (validation or commercial entitlement)",
+        503 => "503 Service Unavailable (fail-closed)",
+        _ => $"{statusCode}",
+    };
+}

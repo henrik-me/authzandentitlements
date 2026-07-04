@@ -1,0 +1,28 @@
+@* Routing + authorization shell. AuthorizeRouteView enforces each page's [Authorize]
+   attribute and shows a sign-in prompt (NotAuthorized) instead of a blank 403.
+   CascadingAuthenticationState flows the current user to <AuthorizeView> everywhere. *@
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
+            <NotAuthorized>
+                <div class="notice">
+                    <h2>Sign-in required</h2>
+                    <p>You must sign in to view this page.</p>
+                    <p><a class="button" href="login">Log in</a></p>
+                </div>
+            </NotAuthorized>
+            <Authorizing>
+                <p>Authorizing…</p>
+            </Authorizing>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(MainLayout)">
+            <div class="notice">
+                <h2>Not found</h2>
+                <p>Sorry, there's nothing at this address.</p>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>

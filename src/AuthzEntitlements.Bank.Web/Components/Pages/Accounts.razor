@@ -1,0 +1,65 @@
+@page "/accounts"
+@attribute [Authorize]
+@inject IBankApiClient BankApi
+
+@* Static SSR (no @rendermode): this page calls Bank.Api through the edge gateway with
+   the user's bearer token, which the AccessTokenHandler reads from the current
+   HttpContext. A static-SSR component executes during the HTTP request so the token is
+   available; an Interactive Server circuit would have no per-event HttpContext. This is
+   the proven vertical slice: AuthN -> coarse gateway -> tenant-scoped read. *@
+
+<PageTitle>Accounts</PageTitle>
+
+<h1>Accounts</h1>
+
+<p class="hint">Accounts are read from Bank.Api through the coarse edge gateway, scoped
+    to your token's tenant.</p>
+
+@if (_accounts is null)
+{
+    <p>Loading…</p>
+}
+else if (_accounts.Count == 0)
+{
+    <p class="notice">
+        No accounts are available. This can mean the service is unavailable, or your
+        token is not authorized to read accounts (fail-closed).
+    </p>
+}
+else
+{
+    <table class="grid">
+        <thead>
+            <tr>
+                <th>Account #</th>
+                <th>Customer</th>
+                <th>Type</th>
+                <th class="num">Balance</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var account in _accounts)
+            {
+                <tr>
+                    <td>@account.AccountNumber</td>
+                    <td>@account.CustomerName</td>
+                    <td>@account.Type</td>
+                    <td class="num">@account.Balance.ToString("N2") @account.Currency</td>
+                    <td>@account.Status</td>
+                    <td><a href="@($"accounts/{account.Id}")">Details</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<AccountDto>? _accounts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _accounts = await BankApi.GetAccountsAsync();
+    }
+}

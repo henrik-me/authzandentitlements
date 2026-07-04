@@ -1,0 +1,115 @@
+@page "/entitlements"
+@attribute [Authorize]
+@using AuthzEntitlements.Bank.Web.ViewModels
+@inject IEntitlementsClient EntitlementsApi
+@inject ICurrentUser CurrentUser
+
+@* Static SSR (no @rendermode on the page): the plan summary reads ICurrentUser.TenantCode,
+   which is resolved from the HttpContext claims available during a static-SSR request. The
+   commercial Entitlements.Service is anonymous, so no bearer token is forwarded. Fail-closed:
+   a missing tenant claim, an unreachable service, or an unknown feature key resolves to a
+   DISABLED gate with a clear reason — the LOCAL service catalog is the source of truth, never
+   a client-side default. The embedded <EntitlementChecker> is the one interactive island. *@
+
+<PageTitle>Entitlements</PageTitle>
+
+<h1>Entitlements</h1>
+
+<p class="hint">This is the <strong>commercial entitlement</strong> layer — what the tenant's
+    subscription plan licenses, distinct from the coarse gateway and the fine maker-checker
+    authorization. Feature gates below are evaluated by <strong>Entitlements.Service</strong>
+    against your tenant's plan tier; the service is the source of truth and the UI
+    <strong>fails closed</strong> (treats unavailable/unknown as gated). Cross-link:
+    <code>high-value-transactions</code> gates large transfers on the
+    <a href="transactions/new">New Transaction</a> page by plan tier — so
+    <strong>CONTOSO (Professional)</strong> can make high-value transfers while
+    <strong>FABRIKAM (Standard)</strong> is denied.</p>
+
+@if (_tenant is null)
+{
+    <p class="notice" role="alert">No tenant is present on your identity, so entitlements
+        cannot be resolved. Failing closed: every feature is treated as gated.</p>
+}
+else
+{
+    <h2>Plan summary</h2>
+    @if (_plan is null)
+    {
+        <p class="notice" role="alert">The entitlements service is unavailable or has no
+            subscription for tenant <strong>@_tenant</strong>. Failing closed: features are
+            treated as gated.</p>
+    }
+    else
+    {
+        <table class="grid">
+            <tbody>
+                <tr><th>Tenant</th><td>@_plan.TenantCode</td></tr>
+                <tr><th>Plan tier</th><td>@_plan.PlanTier</td></tr>
+                <tr><th class="num">Seats</th><td class="num">@_plan.SeatsUsed / @_plan.SeatLimit</td></tr>
+                <tr><th>Modules</th><td>@(_plan.Modules.Length == 0 ? "—" : string.Join(", ", _plan.Modules))</td></tr>
+                <tr><th>Features</th><td>@(_plan.Features.Length == 0 ? "—" : string.Join(", ", _plan.Features))</td></tr>
+            </tbody>
+        </table>
+    }
+
+    <h2>Feature gates</h2>
+    <table class="grid">
+        <thead>
+            <tr>
+                <th>Feature</th>
+                <th>Status</th>
+                <th>Plan tier</th>
+                <th>Reason</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var gate in _gates)
+            {
+                <tr>
+                    <td><code>@gate.Key</code></td>
+                    <td>@EntitlementsModel.GateLabel(gate.Enabled)</td>
+                    <td>@gate.PlanTier</td>
+                    <td>@gate.Reason</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<h2>Live feature check (interactive)</h2>
+<p class="hint">The widget below is a <strong>Blazor Interactive Server</strong> island: it
+    re-checks a feature over a live circuit without reloading the page. It reads the tenant
+    from the cascaded authentication state (an interactive circuit has no HttpContext), which
+    is safe because the entitlements service is anonymous.</p>
+
+<EntitlementChecker />
+
+@code {
+    private string? _tenant;
+    private PlanSummaryResponse? _plan;
+    private IReadOnlyList<EntitlementsModel.FeatureGateView> _gates = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenant = CurrentUser.TenantCode;
+        if (_tenant is null)
+        {
+            // Fail closed: no tenant → every demo feature is gated with a clear reason.
+            _gates = EntitlementsModel.DemoFeatureKeys
+                .Select(k => EntitlementsModel.FromResponse(k, null))
+                .ToList();
+            return;
+        }
+
+        _plan = await EntitlementsApi.GetPlanAsync(_tenant);
+
+        var gates = new List<EntitlementsModel.FeatureGateView>();
+        foreach (var key in EntitlementsModel.DemoFeatureKeys)
+        {
+            var resp = await EntitlementsApi.GetFeatureAsync(_tenant, key);
+            gates.Add(EntitlementsModel.FromResponse(key, resp));
+        }
+
+        _gates = gates;
+    }
+}

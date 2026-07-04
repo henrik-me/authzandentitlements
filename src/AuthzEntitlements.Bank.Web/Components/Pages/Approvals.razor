@@ -1,0 +1,197 @@
+@page "/approvals"
+@attribute [Authorize]
+@using AuthzEntitlements.Bank.Web.ViewModels
+@inject IBankApiClient BankApi
+@inject ICurrentUser CurrentUser
+
+@* Static SSR (no @rendermode): deciding an approval calls Bank.Api through the edge
+   gateway with the user's bearer token, which the AccessTokenHandler reads from the
+   current HttpContext. A static-SSR form re-runs the component server-side on POST, so
+   HttpContext (and the token) are present; an Interactive Server circuit would have no
+   per-event HttpContext and the decide would fail closed. The CheckerId is derived from
+   the resolved token identity, never from the form — Bank.Api returns 403 if CheckerId
+   does not equal the token subject. *@
+
+<PageTitle>Approvals</PageTitle>
+
+<h1>Approvals</h1>
+
+<p class="hint">This is the <strong>maker-checker</strong> / segregation-of-duties (fine
+    authorization) layer. Transactions at or above the approval threshold wait here for a
+    second person to decide. The server enforces the rules independently of this UI: a
+    checker who is also the maker is denied with <strong>409 (segregation of duties)</strong>;
+    a role that is not <strong>BranchManager</strong> or <strong>ComplianceOfficer</strong>
+    is denied with <strong>403</strong>; and once an approval is decided a second decision
+    is rejected (decide-once).</p>
+
+@if (!_isEligible)
+{
+    <p class="notice" role="note">You are signed in as a role that cannot decide approvals;
+        the server will deny with 403. The attempt is still sent so the fail-closed server
+        response is visible (defense in depth — the UI hint is not the security boundary).</p>
+}
+
+@if (_result is not null)
+{
+    @if (_result.IsSuccess && _result.Value is { } txn)
+    {
+        <div class="notice" role="status">
+            <p><strong>Decision recorded — @ApprovalsModel.DecisionOutcomeLabel(_result.StatusCode).</strong></p>
+            <table class="grid">
+                <tbody>
+                    <tr><th>Id</th><td>@txn.Id</td></tr>
+                    <tr><th>Amount</th><td class="num">@txn.Amount.ToString("N2") @txn.Currency</td></tr>
+                    <tr><th>Status</th><td>@txn.Status</td></tr>
+                </tbody>
+            </table>
+            @if (txn.Status == TransactionStatus.Posted)
+            {
+                <p class="hint">Approved: the transaction is now <strong>Posted</strong>.</p>
+            }
+            else if (txn.Status == TransactionStatus.Rejected)
+            {
+                <p class="hint">Rejected: the transaction is now <strong>Rejected</strong>.</p>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="notice" role="alert">
+            <p><strong>Decision denied — @ApprovalsModel.DecisionOutcomeLabel(_result.StatusCode).</strong></p>
+            <p>@_result.Error</p>
+        </div>
+    }
+}
+
+@if (_pending.Count == 0)
+{
+    <p class="notice">No transactions are awaiting approval. This can also mean the service
+        is unavailable, or your token is not authorized to read transactions (fail-closed).</p>
+}
+else
+{
+    <table class="grid">
+        <thead>
+            <tr>
+                <th>Transaction</th>
+                <th>Maker</th>
+                <th class="num">Amount</th>
+                <th>Reference</th>
+                <th>Requested</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var txn in _pending)
+            {
+                <tr>
+                    <td>@txn.Id</td>
+                    <td>@txn.MakerId</td>
+                    <td class="num">@txn.Amount.ToString("N2") @txn.Currency</td>
+                    <td>@(string.IsNullOrWhiteSpace(txn.Reference) ? "—" : txn.Reference)</td>
+                    <td>@txn.Approval!.RequestedAt.ToString("u")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="decide">
+        <EditForm Model="ApproveForm" FormName="approve" OnValidSubmit="ApproveAsync" method="post">
+            <AntiforgeryToken />
+            <h2>Approve</h2>
+            <p>
+                <label>Transaction<br />
+                    <InputSelect @bind-Value="ApproveForm.TransactionId">
+                        <option value="@Guid.Empty">— select a pending transaction —</option>
+                        @foreach (var txn in _pending)
+                        {
+                            <option value="@txn.Id">@txn.Id — @txn.Amount.ToString("N2") @txn.Currency</option>
+                        }
+                    </InputSelect>
+                </label>
+            </p>
+            <p>
+                <label>Reason (optional)<br />
+                    <InputText @bind-Value="ApproveForm.Reason" />
+                </label>
+            </p>
+            <button type="submit" class="button">Approve</button>
+        </EditForm>
+
+        <EditForm Model="RejectForm" FormName="reject" OnValidSubmit="RejectAsync" method="post">
+            <AntiforgeryToken />
+            <h2>Reject</h2>
+            <p>
+                <label>Transaction<br />
+                    <InputSelect @bind-Value="RejectForm.TransactionId">
+                        <option value="@Guid.Empty">— select a pending transaction —</option>
+                        @foreach (var txn in _pending)
+                        {
+                            <option value="@txn.Id">@txn.Id — @txn.Amount.ToString("N2") @txn.Currency</option>
+                        }
+                    </InputSelect>
+                </label>
+            </p>
+            <p>
+                <label>Reason (optional)<br />
+                    <InputText @bind-Value="RejectForm.Reason" />
+                </label>
+            </p>
+            <button type="submit" class="button">Reject</button>
+        </EditForm>
+    </div>
+}
+
+@code {
+    // BL0008 forbids a property initializer on a [SupplyParameterFromForm] property under
+    // warnings-as-errors, so these are initialized with `= default!` here and `??= new()`
+    // in OnInitializedAsync. Each form has a unique FormName so multiple static-SSR forms
+    // on one page bind to the correct model on POST.
+    [SupplyParameterFromForm(FormName = "approve")]
+    private ApproveInput ApproveForm { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "reject")]
+    private RejectInput RejectForm { get; set; } = default!;
+
+    private IReadOnlyList<TransactionDto> _pending = [];
+    private bool _isEligible;
+    private ApiResult<TransactionDto>? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ApproveForm ??= new();
+        RejectForm ??= new();
+
+        var all = await BankApi.GetTransactionsAsync();
+        _pending = ApprovalsModel.PendingApprovals(all);
+        _isEligible = ApprovalsModel.IsCheckerEligible(CurrentUser.Roles);
+    }
+
+    private Task ApproveAsync() => DecideAsync(ApproveForm.TransactionId, ApproveForm.Reason, approve: true);
+
+    private Task RejectAsync() => DecideAsync(RejectForm.TransactionId, RejectForm.Reason, approve: false);
+
+    private async Task DecideAsync(Guid transactionId, string? reason, bool approve)
+    {
+        // The checker is the authenticated subject, resolved from the token — never a
+        // caller-chosen value. Bank.Api rejects (403) if CheckerId != token sub.
+        var checkerId = await CurrentUser.ResolveBankUserIdAsync();
+        if (checkerId is null)
+        {
+            _result = ApiResult<TransactionDto>.Failure(
+                403, "Your identity could not be mapped to a bank user.");
+            return;
+        }
+
+        var request = new DecideRequest(
+            checkerId.Value, string.IsNullOrWhiteSpace(reason) ? null : reason.Trim());
+
+        _result = approve
+            ? await BankApi.ApproveTransactionAsync(transactionId, request)
+            : await BankApi.RejectTransactionAsync(transactionId, request);
+
+        // Refresh the pending list so a just-decided item disappears (or a concurrent
+        // decide-once conflict is reflected on reload).
+        var all = await BankApi.GetTransactionsAsync();
+        _pending = ApprovalsModel.PendingApprovals(all);
+    }
+}
