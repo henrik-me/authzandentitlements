@@ -1,0 +1,329 @@
+@page "/playground"
+@attribute [Authorize]
+@rendermode RenderMode.InteractiveServer
+@using AuthzEntitlements.Bank.Web.ViewModels
+@inject IPdpClient Pdp
+@inject IConfiguration Configuration
+
+@* AuthZ Playground (CS15): author one authorization request (or pick a preset), fan it out across
+   every engine, and compare the per-engine decision/explanation/latency side by side. This is a
+   what-if surface — the fan-out endpoint evaluates providers directly and emits NO audit event, so
+   the page is Interactive Server (live fan-out over the circuit) and does NOT forward the user's
+   token: the PDP is anonymous in this lab. Fail-closed: a null response renders an explicit "PDP
+   unavailable" error rather than a silent empty table. *@
+
+<PageTitle>AuthZ Playground</PageTitle>
+
+<h1>AuthZ Playground</h1>
+
+<p class="hint">Build a single fine-grained authorization request and fan it out across every
+    engine at once to compare how each decides it. The playground is a <strong>what-if</strong>
+    surface: it previews decisions without enforcing anything and writes <strong>no audit
+    entry</strong>.</p>
+
+@if (_replaySequence is not null)
+{
+    <p class="notice" role="note">
+        Reconstructed from audit entry <strong>#@_replaySequence</strong> — recorded decision:
+        <strong>@_recordedDecision</strong> (@_recordedReason). The audit log captures only a single
+        tenant (mapped to the subject) and none of the ABAC inputs (amount, maker, status, roles,
+        scopes, resource tenant/branch); complete them below to reproduce the original decision — a
+        cross-tenant <code>TenantMismatch</code> needs a Resource tenant distinct from the subject.
+    </p>
+}
+
+<div class="notice" role="group" aria-label="Authorization request">
+    <h2>Request</h2>
+    <div class="form-grid">
+        <label>Subject type<br /><input @bind="_input.SubjectType" /></label>
+        <label>Subject id<br /><input @bind="_input.SubjectId" /></label>
+        <label>Roles (comma-separated)<br /><input @bind="_input.Roles" /></label>
+        <label>Tenant<br /><input @bind="_input.Tenant" /></label>
+        <label>Branch<br /><input @bind="_input.Branch" /></label>
+        <label>Action<br /><input @bind="_input.Action" /></label>
+        <label>Resource type<br /><input @bind="_input.ResourceType" /></label>
+        <label>Resource id<br /><input @bind="_input.ResourceId" /></label>
+        <label>Resource tenant<br /><input @bind="_input.ResourceTenant" placeholder="(defaults to Tenant)" /></label>
+        <label>Amount<br /><input type="number" step="0.01" @bind="_input.Amount" /></label>
+        <label>Maker id<br /><input @bind="_input.MakerId" /></label>
+        <label>Status<br /><input @bind="_input.Status" /></label>
+        <label>Scopes (comma-separated)<br /><input @bind="_input.Scopes" /></label>
+    </div>
+
+    <h2>Presets</h2>
+    <p class="hint">Fill the form with a representative request.</p>
+    @foreach (var preset in Presets)
+    {
+        <button type="button" class="button" @onclick="() => ApplyPreset(preset)">@preset.Label</button>
+    }
+
+    <h2>Engines</h2>
+    <div class="engine-grid">
+        @foreach (var engine in _engines)
+        {
+            <label>
+                <input type="checkbox" @bind="engine.Selected" /> @engine.Name
+                @if (engine.Hint is not null)
+                {
+                    <span class="hint">(@engine.Hint)</span>
+                }
+            </label>
+        }
+    </div>
+
+    <p>
+        <button type="button" class="button" @onclick="RunAsync" disabled="@_running">
+            @(_running ? "Running…" : "Run fan-out")
+        </button>
+    </p>
+</div>
+
+@if (_error is not null)
+{
+    <p class="notice" role="alert">@_error</p>
+}
+
+@if (_response is not null)
+{
+    <h2>Results</h2>
+    @if (_recordedDecision is not null)
+    {
+        <p class="hint">Recorded decision for comparison:
+            <strong class="@DecisionClass(_recordedDecision)">@_recordedDecision</strong>
+            (@_recordedReason).</p>
+    }
+    <p class="@(_response.AllAgree ? "agree" : "disagree")">
+        <strong>@(_response.AllAgree ? "All engines agree" : "Engines disagree")</strong>
+        <span class="hint">(over available engines)</span>
+    </p>
+
+    <table class="grid">
+        <thead>
+            <tr>
+                <th>Engine</th>
+                <th>Decision</th>
+                <th>Reason(s)</th>
+                <th>Explanation</th>
+                <th>Obligations</th>
+                <th class="num">Latency (ms)</th>
+                <th>Trace</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var result in _response.Results)
+            {
+                <tr>
+                    <td>@result.Engine</td>
+                    <td>
+                        @if (result.Available)
+                        {
+                            <span class="@DecisionClass(result.Decision)">@result.Decision</span>
+                        }
+                        else
+                        {
+                            <span class="unavailable" title="@result.UnavailableReason">Unavailable</span>
+                        }
+                    </td>
+                    <td>
+                        @if (result.Available)
+                        {
+                            @foreach (var reason in result.Reasons)
+                            {
+                                <div><code>@reason.Code</code> — @reason.Message</div>
+                            }
+                        }
+                        else
+                        {
+                            <span class="hint">@result.UnavailableReason</span>
+                        }
+                    </td>
+                    <td>
+                        @if (result.Explanation is { } explanation)
+                        {
+                            <div><strong>@explanation.DeterminingRule</strong></div>
+                            <div>@explanation.Narrative</div>
+                            @foreach (var reference in explanation.PolicyReferences)
+                            {
+                                <div class="hint"><code>@reference.Kind</code>: @reference.Reference</div>
+                            }
+                        }
+                        else
+                        {
+                            <span class="hint">—</span>
+                        }
+                    </td>
+                    <td>
+                        @if (result.Available && result.Obligations.Count > 0)
+                        {
+                            @foreach (var obligation in result.Obligations)
+                            {
+                                <div><code>@obligation.Id</code>@FormatObligationProperties(obligation.Properties)</div>
+                            }
+                        }
+                        else
+                        {
+                            <span class="hint">—</span>
+                        }
+                    </td>
+                    <td class="num">@result.LatencyMs.ToString("N2")</td>
+                    <td>
+                        @if (string.IsNullOrEmpty(result.TraceId))
+                        {
+                            <span class="hint">—</span>
+                        }
+                        else if (_observabilityBaseUrl is not null)
+                        {
+                            <a href="@($"{_observabilityBaseUrl}{Uri.EscapeDataString(result.TraceId)}")"
+                               target="_blank" rel="noopener"><code>@result.TraceId</code></a>
+                        }
+                        else
+                        {
+                            <code>@result.TraceId</code>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    // The engines the fan-out can target. Reference + the always-in-process adapters are checked by
+    // default; the container-backed engines (opa, openfga) are unchecked with a hint because they
+    // only answer when their explicit-start container is running (otherwise they fail closed to an
+    // Unavailable row).
+    private sealed class EngineChoice
+    {
+        public required string Name { get; init; }
+        public string? Hint { get; init; }
+        public bool Selected { get; set; }
+    }
+
+    private sealed record Preset(
+        string Label,
+        string SubjectId,
+        string Roles,
+        string Tenant,
+        string? ResourceTenant,
+        string Action,
+        string ResourceType,
+        decimal? Amount,
+        string? MakerId,
+        string? Status,
+        string Scopes);
+
+    // A permit, a cross-tenant deny, and a threshold/obligation case, mirroring the shared
+    // FintechScenarioCatalog so the presets exercise real decision paths across engines. The deny
+    // sets a different ResourceTenant (subject in CONTOSO, resource in FABRIKAM) so every engine
+    // returns TenantMismatch.
+    private static readonly IReadOnlyList<Preset> Presets =
+    [
+        new("Permit: teller reads own-tenant account", "user-teller1", "Teller", "CONTOSO", null,
+            "bank.account.read", "account", null, null, null, "bank.read"),
+        new("Deny: teller reads other-tenant account", "user-teller1", "Teller", "CONTOSO", "FABRIKAM",
+            "bank.account.read", "account", null, null, null, "bank.read"),
+        new("Threshold: teller creates $15,000 transfer", "user-teller1", "Teller", "CONTOSO", null,
+            "bank.transaction.create", "transaction", 15_000m, "user-teller1", null,
+            "bank.transactions.write"),
+    ];
+
+    private readonly PlaygroundInput _input = new();
+
+    private readonly List<EngineChoice> _engines =
+    [
+        new() { Name = "reference", Selected = true },
+        new() { Name = "aspnet", Selected = true },
+        new() { Name = "casbin", Selected = true },
+        new() { Name = "cedar", Selected = true },
+        new() { Name = "opa", Selected = false, Hint = "needs its container running" },
+        new() { Name = "openfga", Selected = false, Hint = "needs its container running" },
+    ];
+
+    private bool _running;
+    private string? _error;
+    private PlaygroundFanoutResponseDto? _response;
+    private string? _observabilityBaseUrl;
+
+    // Replay pre-fill parameters (from an Audit Explorer "Replay in Playground" link). The audit
+    // row captures only these fields — not the ABAC inputs — so they seed the form and the recorded
+    // verdict is shown for comparison, but the user must complete the rest before running.
+    [SupplyParameterFromQuery] private string? Subject { get; set; }
+    [SupplyParameterFromQuery] private string? Action { get; set; }
+    [SupplyParameterFromQuery] private string? ResourceType { get; set; }
+    [SupplyParameterFromQuery] private string? ResourceId { get; set; }
+    [SupplyParameterFromQuery] private string? Tenant { get; set; }
+    [SupplyParameterFromQuery] private string? RecordedDecision { get; set; }
+    [SupplyParameterFromQuery] private string? RecordedReason { get; set; }
+    [SupplyParameterFromQuery] private long? Sequence { get; set; }
+
+    private long? _replaySequence;
+    private string? _recordedDecision;
+    private string? _recordedReason;
+
+    protected override void OnInitialized()
+    {
+        var baseUrl = Configuration["Observability:BaseUrl"];
+        _observabilityBaseUrl = string.IsNullOrWhiteSpace(baseUrl) ? null : baseUrl;
+
+        if (Sequence is not null)
+        {
+            _replaySequence = Sequence;
+            _recordedDecision = RecordedDecision;
+            _recordedReason = RecordedReason;
+            _input.SubjectId = Subject ?? string.Empty;
+            _input.Action = Action ?? string.Empty;
+            _input.ResourceType = ResourceType ?? string.Empty;
+            _input.ResourceId = ResourceId;
+            _input.Tenant = Tenant;
+        }
+    }
+
+    private void ApplyPreset(Preset preset)
+    {
+        _input.SubjectType = "user";
+        _input.SubjectId = preset.SubjectId;
+        _input.Roles = preset.Roles;
+        _input.Tenant = preset.Tenant;
+        _input.Branch = null;
+        _input.Action = preset.Action;
+        _input.ResourceType = preset.ResourceType;
+        _input.ResourceId = null;
+        _input.ResourceTenant = preset.ResourceTenant;
+        _input.Amount = preset.Amount;
+        _input.MakerId = preset.MakerId;
+        _input.Status = preset.Status;
+        _input.Scopes = preset.Scopes;
+    }
+
+    private async Task RunAsync()
+    {
+        _running = true;
+        _error = null;
+        _response = null;
+        try
+        {
+            var selected = _engines.Where(e => e.Selected).Select(e => e.Name).ToList();
+            IReadOnlyList<string>? engines = selected.Count == 0 ? null : selected;
+            var request = new PlaygroundFanoutRequestDto(_input.ToRequestDto(), engines);
+
+            _response = await Pdp.FanoutAsync(request);
+            if (_response is null)
+            {
+                _error = "Fan-out failed (fail-closed) — authz-pdp is unreachable, or it rejected " +
+                    "the request as invalid. Check the request fields and that authz-pdp is running.";
+            }
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private static string DecisionClass(string decision) =>
+        string.Equals(decision, "Permit", StringComparison.OrdinalIgnoreCase) ? "permit" : "deny";
+
+    private static string FormatObligationProperties(IReadOnlyDictionary<string, string>? properties) =>
+        properties is { Count: > 0 }
+            ? " — " + string.Join(", ", properties.Select(p => $"{p.Key}={p.Value}"))
+            : string.Empty;
+}

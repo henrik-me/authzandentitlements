@@ -18,6 +18,10 @@ authorization layers**, each surfacing a visible outcome:
 It replaces the CS03 minimal-API login stub, preserving that stub's exact
 Keycloak/OIDC + cookie wiring.
 
+> **See also:** the [AuthZ Playground & Audit Explorer](authz-playground-and-audit-explorer.md)
+> (CS15) — the `/playground` engine-comparison and `/audit` decision-log
+> surfaces layered on top of this app.
+
 ## Rendering & token strategy
 
 Bank.Web is a **Blazor Web App with Interactive Server** components enabled

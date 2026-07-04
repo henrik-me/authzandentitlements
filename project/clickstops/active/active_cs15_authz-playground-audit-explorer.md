@@ -32,22 +32,58 @@ Provide the side-by-side engine comparison surface plus an audit explorer.
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Playground over PDP fan-out | pending | — | |
-| Per-engine result rendering | pending | — | |
-| Audit explorer | pending | — | |
-| Replay + verify | pending | — | |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and feature docs so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | File/disposition LEARNINGS.md entries; open planned follow-up CSs for unresolved issues |
+| Playground fan-out API (all engines: decision/reason/explanation/latency/trace) | done | yoga-ae-c2 | agent-id=cs15-pdp-fanout \| role=implementer \| report-status=complete \| learnings=0 — `POST /api/authz/playground/fanout`, +29 PDP tests |
+| Audit query: single-entry (`?sequence=`) filter | done | yoga-ae-c2 | agent-id=cs15-audit-filter \| role=implementer \| report-status=complete \| learnings=0 — closes the ingest Location-header gap, +11 audit tests |
+| Bank.Web UI: Playground + Audit Explorer pages, clients, replay+verify, AppHost wiring | done | yoga-ae-c2 | agent-id=cs15-bankweb-ui \| role=implementer \| report-status=complete \| learnings=1 — 2 InteractiveServer pages + clients; +26 Bank.Web tests (incl. orchestrator preset fix) |
+| Docs: playground + audit-explorer feature doc | done | yoga-ae-c2 | agent-id=cs15-docs \| role=implementer \| report-status=complete \| learnings=0 — `docs/product/authz-playground-and-audit-explorer.md` + bank-web.md pointer |
+| Close-out: docs + restart state | pending | yoga-ae-c2 | Update WORKBOARD, CONTEXT.md, and feature docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | yoga-ae-c2 | File/disposition LEARNINGS.md entries; open planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+**Design decision — Audit Explorer "replay" fidelity (orchestrator, 2026-07-04).** The CS13
+tamper-evident audit row captures `subject/action/resource(type,id)/tenant/decision/reason/trace`
+but NOT the ABAC inputs (`amount`, `maker`, `status`, subject `roles`, context `scopes`). A naïve
+auto-replay would re-run with those inputs missing and spuriously diverge, so it would mislead.
+Chosen approach: **replay = "open in Playground"** — the Audit Explorer pre-fills the Playground
+with the captured fields and shows the recorded decision alongside the live cross-engine fan-out,
+with a banner that uncaptured ABAC fields must be completed to reproduce the original decision.
+This keeps CS13's tamper-evident store untouched. **Faithful 1:1 replay** (storing a full request
+snapshot per audit row) is deferred to a follow-up planned CS (option B), since it changes the
+security-critical audit component and warrants its own review.
+
+**Trace link** is best-effort (plan-review R1): the fan-out surfaces the request trace id; a deep
+link to Grafana/Tempo (CS12) is rendered only when an observability base URL is configured.
+
+**Playground fan-out is non-audited** (what-if semantics, mirroring the CS17 `WhatIfEvaluator`/
+`/shadow` surface, which resolve engines by name and never emit an enforcement audit event).
+
+**Implementation (2026-07-04).** Backend: `PlaygroundFanoutService` + `POST /api/authz/playground/fanout`
+runs one request across all registered engines (in-process `reference/aspnet/casbin/cedar`; `opa/openfga`
+fail closed to an `Available=false` row when their container is down), returning per-engine
+`{decision, reasons, obligations, explanation, latencyMs, traceId, available}` + a cross-engine `allAgree`.
+Audit: added a `?sequence=` filter to `GET /api/audit/entries` (closes the ingest `Location` header gap).
+UI (Bank.Web, InteractiveServer, `[Authorize]`): `/playground` (form + presets + engine selection +
+comparison table + replay pre-fill) and `/audit` (filters + hash-chain verify badge + "Replay in
+Playground"); new fail-closed `IAuditClient` + `PdpClient.FanoutAsync`; `bank-web` now
+`.WithReference(audit-service)`. Build 0/0; full solution `dotnet test` **1027** (PDP 573, Bank.Web 118,
+Audit 58); `harness lint` 22/0.
+
+**Orchestrator fix (local review).** SA3's Playground presets had identical "Permit" and "Deny" entries
+and the form bound a single `Tenant` to both subject and resource, so a cross-tenant (`TenantMismatch`)
+deny was inexpressible. Added a `PlaygroundInput.ResourceTenant` field (falls back to `Tenant` when blank)
++ form input, and pointed the "Deny" preset's resource at `FABRIKAM` while the subject stays `CONTOSO`, so
+the deny preset now actually denies. +2 view-model tests.
+
+**Learning candidate (blazor).** A Razor page cannot `@inject` a member whose name equals the
+page/component type name — `Audit.razor` injecting a member named `Audit` failed with CS0542; SA3 renamed
+it to `AuditApi`. File at close-out.
 
 ## Model audit
 
 | Field | Value |
 |---|---|
-| Implementer models | claude-opus-4.8 |
+| Implementer models | claude-opus-4.8, claude-opus-4.6 |
 | Reviewer model | gpt-5.5 |
 | Implementer agent | yoga-ae-c2 |
 | Reviewer agent | rubber-duck |

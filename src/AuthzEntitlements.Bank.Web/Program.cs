@@ -119,6 +119,11 @@ builder.Services.AddHttpClient<IGovernanceClient, GovernanceClient>(client =>
 builder.Services.AddHttpClient<IPdpClient, PdpClient>(client =>
     client.BaseAddress = new Uri("https+http://authz-pdp"));
 
+// CS15 — Audit Explorer read model + chain verification. The audit API is anonymous in this lab
+// (called intra-cluster by decision producers), so no token handler is attached.
+builder.Services.AddHttpClient<IAuditClient, AuditClient>(client =>
+    client.BaseAddress = new Uri("https+http://audit-service"));
+
 var app = builder.Build();
 
 app.UseAuthentication();
