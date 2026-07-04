@@ -230,6 +230,7 @@ public sealed class OpaDecisionProviderTests
     [InlineData("SubjectNotMaker")]
     [InlineData("MakerEqualsChecker")]
     [InlineData("NotPending")]
+    [InlineData("BranchNotInTenant")]
     [InlineData("UnknownAction")]
     public void Deny_SurfacesReasonCode(string reasonCode)
     {
@@ -303,6 +304,35 @@ public sealed class OpaDecisionProviderTests
     public void FailClosed_OnUnparseableBody()
     {
         var provider = ProviderReturning("this is not json", out _);
+
+        AssertProviderUnavailable(provider.Evaluate(TransactionCreate()));
+    }
+
+    [Fact]
+    public void FailClosed_OnUnknownReasonCode()
+    {
+        // OPA is out-of-process; a reason outside the bounded ReasonCodes vocabulary must not reach
+        // the caller (or inflate audit/metric cardinality) — fail closed.
+        var provider = ProviderReturning(
+            """{"result":{"decision":"Deny","reason":"TotallyMadeUp"}}""", out _);
+
+        AssertProviderUnavailable(provider.Evaluate(TransactionCreate()));
+    }
+
+    [Fact]
+    public void FailClosed_WhenPermitCarriesNonPermitReason()
+    {
+        var provider = ProviderReturning(
+            """{"result":{"decision":"Permit","reason":"TenantMismatch"}}""", out _);
+
+        AssertProviderUnavailable(provider.Evaluate(TransactionCreate()));
+    }
+
+    [Fact]
+    public void FailClosed_WhenDenyCarriesPermitReason()
+    {
+        var provider = ProviderReturning(
+            """{"result":{"decision":"Deny","reason":"Permit"}}""", out _);
 
         AssertProviderUnavailable(provider.Evaluate(TransactionCreate()));
     }

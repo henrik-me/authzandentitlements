@@ -64,10 +64,14 @@ and `context.scopes`.
 
 ### Reason codes
 
-`result.reason` is exactly one of the stable codes shared with the reference engine
-([`ReasonCodes`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/Reason.cs)):
+`result.reason` is one of the stable
+[`ReasonCodes`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/Reason.cs) the OPA policy emits —
+the same subset the reference engine emits:
 `Permit`, `MissingScope`, `TenantMismatch`, `RoleNotAuthorized`, `SubjectNotMaker`,
-`MakerEqualsChecker`, `NotPending`, `UnknownAction`.
+`MakerEqualsChecker`, `NotPending`, `UnknownAction`. (`ReasonCodes` also declares
+`BranchNotInTenant`, reserved for branch-level ABAC and not emitted by either engine.) The adapter
+validates the returned code against the full `ReasonCodes` vocabulary and **fails closed** on any
+code outside it, so an out-of-process engine cannot surface an unbounded reason to callers.
 
 ## How OPA output maps to `AccessDecision`
 

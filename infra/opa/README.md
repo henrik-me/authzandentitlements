@@ -61,9 +61,11 @@ absent or null):
 ```
 
 - `decision`: `"Permit"` or `"Deny"`.
-- `reason`: exactly one of `Permit`, `MissingScope`, `TenantMismatch`,
-  `RoleNotAuthorized`, `SubjectNotMaker`, `MakerEqualsChecker`, `NotPending`,
-  `UnknownAction`.
+- `reason`: one of the stable `ReasonCodes` the policy emits — `Permit`, `MissingScope`,
+  `TenantMismatch`, `RoleNotAuthorized`, `SubjectNotMaker`, `MakerEqualsChecker`, `NotPending`,
+  `UnknownAction`. (`ReasonCodes` also declares `BranchNotInTenant`, reserved for branch-level ABAC
+  and not emitted here.) The C# adapter validates the returned code against the full `ReasonCodes`
+  vocabulary and fails closed on anything else.
 - `obligations`: `[]` for everything except a **permitted
   `bank.transaction.create`**, which is `["require_approval"]` when
   `amount >= 10000` else `["post_immediately"]`.

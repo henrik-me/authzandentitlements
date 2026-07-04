@@ -39,6 +39,23 @@ public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
     private const string ProviderUnavailableMessage =
         "The OPA authorization engine did not return a usable decision; failing closed.";
 
+    // The bounded reason vocabulary the adapter accepts from OPA. OPA is out-of-process and could
+    // return an arbitrary string; anything outside this set fails closed so an unknown or
+    // attacker-influenced code cannot reach callers or inflate audit/metric (pdp.reason) cardinality.
+    // Mirrors the shared ReasonCodes exactly (incl. the declared-but-unemitted BranchNotInTenant).
+    private static readonly HashSet<string> KnownReasonCodes = new(StringComparer.Ordinal)
+    {
+        ReasonCodes.Permit,
+        ReasonCodes.MissingScope,
+        ReasonCodes.TenantMismatch,
+        ReasonCodes.RoleNotAuthorized,
+        ReasonCodes.SubjectNotMaker,
+        ReasonCodes.MakerEqualsChecker,
+        ReasonCodes.NotPending,
+        ReasonCodes.BranchNotInTenant,
+        ReasonCodes.UnknownAction,
+    };
+
     // Web defaults give camelCase serialization (matching the wire contract) AND case-insensitive
     // property matching on the way back in.
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
@@ -122,12 +139,25 @@ public sealed class OpaDecisionProvider : IAuthorizationDecisionProvider
             return FailClosed("OPA decision result was missing a reason code.");
         }
 
+        // OPA could return an arbitrary reason string; accept only the bounded ReasonCodes so an
+        // unknown code cannot reach callers or inflate audit/metric cardinality.
+        if (!KnownReasonCodes.Contains(result.Reason))
+        {
+            return FailClosed($"OPA returned an unrecognized reason code '{result.Reason}'.");
+        }
+
         var reason = new Reason(result.Reason, $"OPA policy decision: {result.Reason}.");
 
+        // Enforce decision/reason consistency (a Permit always carries the Permit reason; a Deny
+        // never does), matching the reference engine — a mismatch means a misbehaving policy and
+        // fails closed rather than surfacing an incoherent decision.
         return result.Decision switch
         {
-            "Permit" => AccessDecision.Permit(reason, MapObligations(result.Obligations)),
-            "Deny" => AccessDecision.Deny(reason),
+            "Permit" when result.Reason == ReasonCodes.Permit =>
+                AccessDecision.Permit(reason, MapObligations(result.Obligations)),
+            "Permit" => FailClosed($"OPA permitted with a non-permit reason code '{result.Reason}'."),
+            "Deny" when result.Reason != ReasonCodes.Permit => AccessDecision.Deny(reason),
+            "Deny" => FailClosed("OPA denied with the 'Permit' reason code."),
             _ => FailClosed($"OPA returned an unrecognized decision '{result.Decision}'."),
         };
     }
