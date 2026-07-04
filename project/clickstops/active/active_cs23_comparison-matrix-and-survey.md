@@ -33,10 +33,12 @@ Produce the evaluation-lab deliverables: comparison matrix + broad market survey
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Build matrix from results | pending | — | |
-| Author survey docs | pending | — | |
-| Write ADRs | pending | — | |
-| Strengths/weaknesses/when-to-use | pending | — | |
+| Comparison matrix from real integrations | in_progress | cs23-matrix | `docs/eval/comparison-matrix.md` — agent-id=cs23-matrix \| role=implementer \| report-status=pending \| learnings=0 |
+| Survey: ReBAC/Zanzibar family | in_progress | cs23-survey-rebac | `docs/eval/survey/relationship-based-zanzibar.md` (incl. strengths/weaknesses/when-to-use) — agent-id=cs23-survey-rebac \| role=implementer \| report-status=pending \| learnings=0 |
+| Survey: policy + decision engines | in_progress | cs23-survey-policy | `docs/eval/survey/policy-and-decision-engines.md` (incl. strengths/weaknesses/when-to-use) — agent-id=cs23-survey-policy \| role=implementer \| report-status=pending \| learnings=0 |
+| Survey: entitlements + AuthZEN | in_progress | cs23-survey-entitlements | `docs/eval/survey/entitlements-and-flags.md` + `docs/eval/survey/authzen.md` — agent-id=cs23-survey-entitlements \| role=implementer \| report-status=pending \| learnings=0 |
+| Survey index / taxonomy | pending | cs23-survey-index | `docs/eval/market-survey.md` (Wave 2, after surveys land) — agent-id=cs23-survey-index \| role=implementer \| report-status=pending \| learnings=0 |
+| ADRs (decisions + when-to-use) | in_progress | cs23-adr | `docs/adr/` index + ADRs — agent-id=cs23-adr \| role=implementer \| report-status=pending \| learnings=0 |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and the eval docs so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | — | File/disposition learnings in LEARNINGS.md; open follow-up CSs for unresolved survey/matrix gaps |
 
