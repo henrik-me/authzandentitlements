@@ -835,6 +835,46 @@ tags: [dotnet, channels, concurrency, testing]
 **Implications carried forward:**
 - Any future non-blocking, drop-counting channel producer should use `FullMode=Wait` + `TryWrite`, not `DropWrite`.
 
+### LRN-042
+
+```yaml
+id: LRN-042
+date: 2026-07-04
+category: process
+source_cs: CS18
+status: open
+tags: [docs, citations, review, multi-agent, dotnet]
+```
+
+**Problem:** CS18 paired a code change (JWT `TokenValidationParameters` hardening) with docs that cite that same code by `file:line` (`docs/security/threat-model.md`, `secrets-and-least-privilege.md`). Adding lines to `AuthenticationSetup.cs` / `GatewayAuthenticationSetup.cs` shifted every citation below the insertion point, so the docs' `file:line` references silently pointed at the wrong lines — and it happened **twice** (the initial hardening, then again in the Copilot fix-round that added `ValidateIssuerSigningKey`).
+
+**Finding:** When a CS ships a code change AND docs that cite that code by `file:line`, the citations WILL drift each time the code shifts. Mitigations: (1) have doc sub-agents cite the NEW-code control by **file + narrative** (not exact line numbers) when a sibling/fix-round is concurrently editing that file, and reserve `file:line` for stable, unchanged code; (2) at integration time AND after every review-fix round, `grep` the docs for citations to any changed file and re-verify each `file:line` by opening the target — treat citation drift as a mandatory re-verify step, not a one-time check; (3) the independent rubber-duck reviewer must spot-check that cited `file:line` references resolve (REVIEWS.md § 2.6a), which caught nothing here only because the orchestrator re-fixed them pre-review.
+
+**Evidence:** In this session, `AuthenticationSetup.cs` `RequireHttpsMetadata`/`TokenValidationParameters`/`RoleClaimType` lines moved 108→115, 110-119→117-134, 117-118→132-133 across two edits; `docs/security/threat-model.md` citations at lines 129/132/198/209 and `secrets-and-least-privilege.md:102` were re-pointed twice to stay accurate.
+
+**Implications carried forward:**
+- Any docs+code CS: re-grep + re-verify every `file:line` citation to a changed file at integration and after each fix-round; prefer file+narrative for lines a concurrent agent is still moving.
+
+### LRN-043
+
+```yaml
+id: LRN-043
+date: 2026-07-04
+category: process
+source_cs: CS18
+status: open
+tags: [recon, verification, multi-agent, citations]
+```
+
+**Problem:** The CS18 orchestrator ran a fast/cheap recon agent (gpt-5.4-mini) to map the security surface and threaded its findings into the sub-agent briefings. One finding was **wrong**: it claimed `Bank.Api` is externally exposed via `WithExternalHttpEndpoints()`. A doc implementer (claude-opus-4.8) caught it by opening `AppHost.cs` and confirming Bank.Api has NO external endpoint (only Grafana, edge-gateway, and bank-web do) — the more-secure, already-internal posture.
+
+**Finding:** Recon produced by a fast/inexpensive model can contain confident factual errors. Every downstream agent (and the orchestrator) MUST verify each **current-state claim against source before citing it** — even claims the orchestrator itself provided in the briefing. Brief sub-agents explicitly that recon line numbers/claims are *approximate and unverified*, and that their job includes source-verification; a "briefing correction" note in the deliverable (as the secrets doc did) is the correct outcome, not silent propagation.
+
+**Evidence:** `secrets-lp` sub-agent report + `docs/security/secrets-and-least-privilege.md` "Note — Bank.Api exposure (briefing correction)": `WithExternalHttpEndpoints` appears only at `AppHost.cs:37,:142,:151` (Grafana/edge-gateway/bank-web), NOT on `bank-api` at `AppHost.cs:115-124`.
+
+**Implications carried forward:**
+- Treat recon (especially from a cheap model) as a lead, not a fact. Sub-agent briefings must instruct: verify every current-state claim against source before citing; surface corrections in the report.
+
 ## Applied
 
 _(no entries yet)_
