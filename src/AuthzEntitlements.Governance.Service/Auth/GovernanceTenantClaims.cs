@@ -23,7 +23,11 @@ public static class GovernanceTenantClaims
     // Fail-closed tenant equality: true only when BOTH the caller tenant and the resource
     // tenant are present and exactly (Ordinal) equal. A missing/blank value on either side
     // returns false, so a resource is never exposed to a caller whose tenant cannot be proven
-    // to match — closing the cross-tenant confused-deputy gap.
+    // to match — closing the cross-tenant confused-deputy gap. The request endpoints enforce
+    // this equality at the DATABASE QUERY level (WHERE TenantCode == callerTenant, with a
+    // non-blank callerTenant guaranteed by RequireTenant) so a cross-tenant row is never
+    // materialised; this method is the canonical, unit-tested definition of that fail-closed
+    // semantics (used by the tenant-claim tests and available for any future in-memory check).
     public static bool BelongsToTenant(string? callerTenant, string? resourceTenant) =>
         !string.IsNullOrWhiteSpace(callerTenant)
         && !string.IsNullOrWhiteSpace(resourceTenant)

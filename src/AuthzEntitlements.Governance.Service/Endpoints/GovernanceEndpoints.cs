@@ -114,13 +114,14 @@ public static class GovernanceEndpoints
         }
 
         // CS29: bind the request's tenant to the caller's validated token, never a caller-
-        // supplied field. A principal in another tenant is reported as "unknown" (the same
-        // 404 as a genuinely-missing principal) so a caller can neither raise a request for
-        // another tenant's principal nor probe cross-tenant principal existence.
+        // supplied field, and filter the principal lookup by tenant IN THE QUERY. A principal
+        // in another tenant is reported as "unknown" (the same 404 as a genuinely-missing
+        // principal) and is never materialised, so a caller can neither raise a request for
+        // another tenant's principal nor probe cross-tenant principal existence. RequireTenant
+        // already guaranteed callerTenant is non-blank, so the predicate is fail-closed.
         var principal = await db.Principals.AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == body.PrincipalId, ct);
-        if (principal is null
-            || !GovernanceTenantClaims.BelongsToTenant(callerTenant, principal.TenantCode))
+            .FirstOrDefaultAsync(p => p.Id == body.PrincipalId && p.TenantCode == callerTenant, ct);
+        if (principal is null)
         {
             return Problem($"unknown principal '{body.PrincipalId}'", StatusCodes.Status404NotFound);
         }
@@ -181,10 +182,13 @@ public static class GovernanceEndpoints
             return tenantDenied;
         }
 
-        var request = await db.AccessGrantRequests.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct);
-        // CS29: a request owned by another tenant is reported as NotFound — do not leak
-        // cross-tenant existence via a 200/403 distinction.
-        if (request is null || !GovernanceTenantClaims.BelongsToTenant(callerTenant, request.TenantCode))
+        // CS29: filter by tenant IN THE QUERY so a cross-tenant row is never materialised;
+        // a request owned by another tenant is reported as NotFound (no 200/403 existence
+        // leak). RequireTenant already guaranteed callerTenant is non-blank, so the predicate
+        // is fail-closed (a null/blank stored TenantCode can never equal a non-blank caller).
+        var request = await db.AccessGrantRequests.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == id && r.TenantCode == callerTenant, ct);
+        if (request is null)
         {
             return TypedResults.NotFound();
         }
@@ -212,11 +216,13 @@ public static class GovernanceEndpoints
             return Problem("approverId is required", StatusCodes.Status400BadRequest);
         }
 
-        var request = await db.AccessGrantRequests.FirstOrDefaultAsync(r => r.Id == id, ct);
-        // CS29: a cross-tenant decide is a confused-deputy escalation — treat another tenant's
-        // request as NotFound BEFORE the status check, so cross-tenant existence is never
-        // leaked (neither via a 200 nor via a 409 "already decided").
-        if (request is null || !GovernanceTenantClaims.BelongsToTenant(callerTenant, request.TenantCode))
+        // CS29: a cross-tenant decide is a confused-deputy escalation. Filter by tenant IN THE
+        // QUERY so another tenant's request is never even tracked/materialised — it returns
+        // NotFound before the status check, so cross-tenant existence is never leaked (neither
+        // via a 200 nor via a 409 "already decided"). RequireTenant guaranteed a non-blank tenant.
+        var request = await db.AccessGrantRequests
+            .FirstOrDefaultAsync(r => r.Id == id && r.TenantCode == callerTenant, ct);
+        if (request is null)
         {
             return TypedResults.NotFound();
         }
@@ -346,10 +352,12 @@ public static class GovernanceEndpoints
             return Problem("approverId is required", StatusCodes.Status400BadRequest);
         }
 
-        var request = await db.AccessGrantRequests.FirstOrDefaultAsync(r => r.Id == id, ct);
-        // CS29: as with approve, a cross-tenant reject is reported as NotFound before the
-        // status check so cross-tenant existence is never leaked.
-        if (request is null || !GovernanceTenantClaims.BelongsToTenant(callerTenant, request.TenantCode))
+        // CS29: as with approve, filter by tenant IN THE QUERY so a cross-tenant reject never
+        // materialises the row; it returns NotFound before the status check, so cross-tenant
+        // existence is never leaked. RequireTenant guaranteed a non-blank caller tenant.
+        var request = await db.AccessGrantRequests
+            .FirstOrDefaultAsync(r => r.Id == id && r.TenantCode == callerTenant, ct);
+        if (request is null)
         {
             return TypedResults.NotFound();
         }

@@ -108,10 +108,12 @@ CS29 binds the **tenant** boundary to the token. These remain open:
    review endpoints remain anonymous and un-scoped for the intra-cluster/Compliance read paths.
    Tenant-scoping those (e.g. via a service-to-service credential that still carries a tenant) is
    future work.
-3. **Stale client comment.** The `IGovernanceClient` doc comment in
-   [`GovernanceClient.cs`](../../src/AuthzEntitlements.Bank.Web/Clients/GovernanceClient.cs) still says
-   the service is anonymous and no token handler is attached. That is now inaccurate (the handler is
-   attached in `Program.cs`); the comment should be corrected by the owner of that file.
+3. **Handler-integration regression tests.** The tenant boundary is covered by unit tests (the
+   fail-closed `BelongsToTenant` contract) plus an endpoint-authorization-metadata test, and each
+   request endpoint filters by tenant in its EF query. There is no handler-level integration test
+   exercising list-filtering / cross-tenant 404 against persisted mixed-tenant data, because the repo
+   carries no EF-InMemory / TestHost harness in CPM. Adding a lightweight handler-or-query-seam test
+   to regression-lock the cross-tenant behavior end-to-end is future work (GPT-5.5 review note).
 
 ## Tests
 
