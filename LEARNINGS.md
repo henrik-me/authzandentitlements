@@ -81,6 +81,45 @@ tags: [xunit, dotnet, usings, test-project]
 
 **Disposition:** **open** — minor convention; candidate for CONVENTIONS.md consolidation at harvest.
 
+### LRN-081
+
+```yaml
+id: LRN-081
+date: 2026-07-05
+category: process
+source_cs: CS47
+status: applied
+tags: [review, fact-verification, vendor-claims, docs, de-scope, oso]
+```
+
+**Problem:** CS47's de-scope of Oso inherited a **factual error** from the CS26 feasibility notes — that the Oso Cloud dev-server is "`latest`-only / unpinnable" — and propagated it into ADR 0008 + three eval docs. The independent GPT-5.5 rubber-duck review caught it: the dev-server **is** pinnable (versioned ECR tags e.g. `:v1.2.3`, per Oso's "Pin Dev Server versions in CI" guidance, plus a downloadable native binary).
+
+**Finding:** When a de-scope/adoption decision rests on a vendor's packaging/hosting shape, **verify each load-bearing claim against primary sources** (the ECR/registry tag list, the vendor's own docs, the package registry) — not a single indirect check. The corrected, defensible Oso de-scope rationale is **"no in-process .NET/Polar library (`nuget.org/packages/Oso` → 404) AND no self-hostable *production* server (the dev-server is vendor-scoped to development/testing; production is the paid managed Oso Cloud)"** — NOT "unpinnable/latest-only". An independent reviewer whose model differs from the implementer is the effective catch for inherited-fact errors in prose PRs (REVIEWS.md § 2.6a fact-claim verification).
+
+**Evidence:** CS47 (PR #170) — the rubber-duck (gpt-5.5) round flagged the claim; re-verified 2026-07-05 against `osohq.com/docs/develop/local-dev/oso-dev-server` (pinnable tags + native binary), `nuget.org/packages/Oso` (404), `nuget.org/packages/OsoCloud` (exists); corrected across `docs/adr/0008-oso-descoped-from-expansion-engines.md` + comparison-matrix / market-survey / survey / TCO before merge.
+
+**Disposition:** **applied** by CS47 — the corrected rationale shipped in ADR 0008 + the eval docs, and the re-evaluation trigger keys off the exact corrected constraints. The general fact-verification convention is a candidate for REVIEWS.md consolidation at harvest.
+
+### LRN-082
+
+```yaml
+id: LRN-082
+date: 2026-07-05
+category: process
+source_cs: CS47
+status: open
+claim_area: cs46
+tags: [cross-cs, docs-staleness, oso, consistency, file-ownership]
+```
+
+**Problem:** The same inherited "unpinnable `latest`-only" Oso phrasing that CS47 corrected also exists in **`project/clickstops/active/active_cs46_keto-topaz-adapters.md`** (CS46's plan Background), which is an **actively-owned CS (owner yoga-ae)** that CS47 must not edit (file-ownership rule). After CS47 merged, `main` briefly holds ADR 0008 (correct) alongside CS46's plan (stale) — an internal inconsistency CS47 cannot fix in-band.
+
+**Finding:** When a fact-correction spans files owned by another in-flight CS, the correcting CS **surfaces** the finding (learning + note) rather than editing the other CS's files. CS46's owner should correct its Background's Oso reference (the dev-server is pinnable but development-only; no self-hostable production path — see ADR 0008) at CS46 implementation or close-out. `claim_area: cs46` surfaces this at the CS46 harvest / before-claim gate.
+
+**Evidence:** CS47 (PR #170) plan-vs-impl + rubber-duck reviews flagged `active_cs46_keto-topaz-adapters.md` (~line 22, "unpinnable `latest`-only dev-server"); left untouched per file-ownership rules; ADR 0008 is the corrected authority.
+
+**Disposition:** **open** — for CS46's owner to reconcile; tracked via `claim_area: cs46`.
+
 ### LRN-069
 
 ```yaml
