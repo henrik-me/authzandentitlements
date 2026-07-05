@@ -167,10 +167,10 @@ sequenceDiagram
   WEB->>EG: POST /api/transactions (bearer)
   EG->>EG: coarse — validate JWT + audience + scope + tenant
   EG->>API: proxy (edge-authorized)
-  API->>API: AuthN (same JWT contract)
-  API->>ENT: module? feature? quota? (fail-closed)
+  API->>API: AuthN + subject/account/tenant prechecks
+  API->>ENT: module? feature? quota? (fail-closed, create only)
   ENT-->>API: allow / 402 / 403 / 429
-  API->>API: fine — maker-checker / SoD / tenant (10,000 threshold)
+  API->>API: maker-checker threshold (>10,000 → Pending + approval)
   API-->>WEB: 201 Created (posted, or Pending when > threshold) / 400 / 402 / 403 / 429
   Note over EG,API: both gates emit audit-ready decision events + OTel
 ```
@@ -252,9 +252,11 @@ grants, requests, packages, and review campaigns are persisted in the `governanc
 
 ### State lifecycle
 
-Every enforced request flows AuthN -> coarse (edge) -> fine (Bank.Api) -> entitlements, emitting an
-audit-ready event and OTel telemetry. JIT and break-glass grants are time-bound and expire at read
-time (`IsActive(now)`); access-review campaigns recertify standing access.
+A transaction create flows AuthN -> coarse (edge) -> Bank.Api prechecks + commercial entitlements ->
+the maker-checker threshold, emitting audit-ready events + OTel; reads are tenant-scoped and
+approvals enforce SoD (neither calls Entitlements.Service). JIT and break-glass grants are
+time-bound and expire at read time (`IsActive(now)`); access-review campaigns recertify standing
+access.
 
 ## Observability
 

@@ -109,10 +109,12 @@ deterministic.
    blocks the maker from approving their own work, the checker must be tenant-scoped and
    checker-eligible, and approvals are decide-once (optimistic concurrency).
 
-Each step passes AuthN -> the coarse edge gateway -> Bank.Api's fine-grained maker-checker/SoD
-rules -> commercial entitlements, and each gate emits a structured, audit-ready decision event to
-OpenTelemetry. (The unified PDP additionally forwards its own decisions to the tamper-evident
-Audit.Service; broader ingestion of the edge/Bank.Api events is planned.)
+Transaction creation passes AuthN -> the coarse edge gateway -> Bank.Api (subject/account/tenant
+prechecks, then commercial entitlements, then the maker-checker threshold); approvals enforce
+segregation-of-duties and reads are tenant-scoped (neither calls Entitlements.Service). Each gate
+emits a structured, audit-ready decision event to OpenTelemetry. (The unified PDP additionally
+forwards its own decisions to the tamper-evident Audit.Service; broader ingestion of the
+edge/Bank.Api events is planned.)
 
 ### Compare authorization engines
 
@@ -150,9 +152,10 @@ curl http://<audit-service>/api/audit/verify     # recompute + verify the chain
 curl http://<audit-service>/api/audit/entries    # filtered / paged entries
 ```
 
-The audit store is append-only and hash-chained — each row binds the previous row's hash, so any
-tampering breaks verification. The PDP forwards its decisions here; other services emit
-audit-ready events via OpenTelemetry.
+The audit store is append-only and hash-chained — each row binds the previous row's hash, so
+tampering with any hashed field, the sequence, or a chain link breaks verification. (The request
+snapshot is persisted for replay but is not hash-bound.) The PDP forwards its decisions here; other
+services emit audit-ready events via OpenTelemetry.
 
 ### Governance: JIT, break-glass, delegation
 
@@ -177,8 +180,8 @@ dotnet test AuthzEntitlements.sln --no-build --no-restore
 ```
 
 Build and test need **no Docker** — the OPA adapter tests are stubbed (deterministic), and the
-integration tests that exercise a live engine container (OpenFGA / SpiceDB / Cerbos) self-skip when
-it is not running.
+OpenFGA / SpiceDB / Cerbos integration tests are env-gated, soft-skipping unless their
+`*_TEST_*` endpoint variable is set.
 
 ## Evaluation lab deliverables
 
