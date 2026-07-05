@@ -7,6 +7,20 @@
 > meaningful rather than accumulating stale suppressions. It closes the **LRN-003** and
 > **LRN-005** re-evaluation debt tracked by the **CS30** clickstop plan.
 
+> **Update (2026-07-05, `deps/aspire-13.4.6`):** both re-evaluation triggers in the
+> [Next re-evaluation trigger](#next-re-evaluation-trigger) section below have since
+> fired, so **both** the Microsoft.Build.* 17.14.28 and MessagePack 2.5.302 transitive
+> pins were **dropped** in the .NET 10 GA + Aspire 13.4.6 migration:
+> - **Microsoft.Build.* (GHSA-w3q9-fxm7-j8fq):** GA `Microsoft.EntityFrameworkCore.Design`
+>   10.0.9 no longer drags `Microsoft.Build.Tasks.Core` / `Utilities.Core` into the restore
+>   graph, so the pin is redundant.
+> - **MessagePack (GHSA-hv8m-jj95-wg3x et al.):** `Aspire.AppHost.Sdk` 13.4.6 now resolves
+>   the patched **MessagePack 2.5.302** transitively on its own.
+>
+> Verified with the pins removed: `dotnet build AuthzEntitlements.sln` stays clean
+> (**0 warnings / 0 errors**) under `TreatWarningsAsErrors` and `--vulnerable` reports
+> nothing new. The dated dispositions below are retained as the CS30 point-in-time record.
+
 ## Status & scope
 
 - **As of:** CS30 (supply-chain re-evaluation). Fixes **LRN-003** (15 suppressed
@@ -53,6 +67,11 @@
 
 ## Next re-evaluation trigger
 
+> **Historical (both triggers have since fired — 2026-07-05):** the two conditions below
+> were both met by the .NET 10 GA + Aspire 13.4.6 migration, so both pins were dropped — see
+> the **Update (2026-07-05)** note at the top of this file. The list is retained as the
+> original CS30 record of what to watch for.
+
 Revisit this note when either upstream ships a fix that lets a pin drop:
 
 - When the EF Core / .NET stack moves off **10.0.0-rc.1** to a GA build that references
@@ -66,7 +85,9 @@ Revisit this note when either upstream ships a fix that lets a pin drop:
 - **CS30 clickstop plan** (`project/clickstops/` — `active/` while in flight, `done/` after
   close-out) — goal, decisions, deliverables, and exit criteria.
 - [`Directory.Packages.props`](../../Directory.Packages.props) — the OTel version bumps
-  and the MessagePack / Microsoft.Build.* transitive pins.
+  and the EF Core 10.0.9 unification pins. (The earlier MessagePack / Microsoft.Build.* CVE
+  transitive pins were dropped in the 2026-07-05 .NET 10 GA + Aspire 13.4.6 migration — see the
+  update note near the top of this file.)
 - [`Directory.Build.props`](../../Directory.Build.props) — `TreatWarningsAsErrors` and
   the (now suppression-free) audit posture.
 - [threat-model.md](threat-model.md) — the STRIDE threat model this note complements.

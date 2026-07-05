@@ -9,11 +9,14 @@
   <!--
     CS30 (2026-07-04): the 15 NuGet audit advisories formerly acknowledged here via
     NuGetAuditSuppress are now REMEDIATED via patched versions in Directory.Packages.props —
-    OpenTelemetry bumped to 1.16.0 (Instrumentation.Runtime to 1.15.1) and MessagePack
-    transitively pinned to 2.5.302 — so no NuGetAuditSuppress entries remain.
-    TreatWarningsAsErrors (above) keeps NU1902/NU1903 build-breaking, so any NEW advisory —
-    on these or any other package — still fails the build. See
-    docs/security/nuget-audit-reeval-2026-07-04.md for the full re-evaluation.
+    OpenTelemetry bumped to 1.16.0 (Instrumentation.Runtime to 1.15.1) — so no NuGetAuditSuppress
+    entries remain. (The earlier MessagePack and Microsoft.Build.* transitive CVE pins were
+    dropped in the 2026-07-05 .NET 10 GA + Aspire 13.4.6 migration: GA EF Core Design 10.0.9 no
+    longer pulls the Microsoft.Build.* packages into the restore graph, and Aspire.AppHost.Sdk
+    13.4.6 resolves patched MessagePack transitively on its own — see Directory.Packages.props.)
+    TreatWarningsAsErrors (above) keeps NU1902/NU1903
+    build-breaking, so any NEW advisory — on these or any other package — still fails the build.
+    See docs/security/nuget-audit-reeval-2026-07-04.md for the full re-evaluation.
   -->
 
 </Project>
