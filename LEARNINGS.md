@@ -269,9 +269,9 @@ claim_area: ci-merge-gating
 
 **Evidence:** CS40 — ruleset `push to main` (id 18513457) required checks = [`build-test`, `structural-gate`, `read-only-gates`, `copilot-review-attached`, `independence-invariant`]; `update` + `copilot_code_review` + `code_coverage` + `code_quality` removed; Admin-only bypass; thread-resolution on. PRs #143 (policy doc), #145 (WORKBOARD), #148 (close-out) all merged **bypass-free** — rule-suite for merge commit `9e1c7b…` = `pass`, not bypass. Policy: `docs/ci/review-pr-hardening.md`.
 
-**Implications carried forward:** This delivers the required-status-check enforcement that deferred **LRN-035** / **LRN-040** were awaiting (`build-test` is now required-to-merge). Durable harness-side gaps hit while enforcing the gates are tracked upstream: `agent-harness` **#496** (`structural-gate` managed/composed drift on Dependabot GitHub-Actions bumps to managed workflows), **#497** (`review-gates` should auto-rerun `copilot-review-attached` via a `pull_request_review` trigger), and corroborated **#393** (port `review-gates` bot-author/fork skip-reasons).
+**Implications carried forward:** This delivers the required-status-check enforcement that deferred **LRN-035** / **LRN-040** were awaiting (`build-test` is now required-to-merge). Durable harness-side gaps hit while enforcing the gates are tracked upstream: **henrik-me/agent-harness#496** (`structural-gate` managed/composed drift on Dependabot GitHub-Actions bumps to managed workflows), **henrik-me/agent-harness#497** (`review-gates` should auto-rerun `copilot-review-attached` via a `pull_request_review` trigger), and corroborated **henrik-me/agent-harness#393** (port `review-gates` bot-author/fork skip-reasons).
 
-**Disposition:** **Applied by CS40** (content PR #143, close-out #148, 2026-07-05). Residual harness fixes tracked upstream (#496, #497, #393); the deferred CI-enforcement learnings LRN-035/040 are now satisfiable and can be flipped `deferred → applied` at the next harvest.
+**Disposition:** **Applied by CS40** (content PR #143, close-out #148, 2026-07-05). Residual harness fixes tracked upstream (henrik-me/agent-harness#496, henrik-me/agent-harness#497, henrik-me/agent-harness#393); the deferred CI-enforcement learnings LRN-035/040 are now satisfiable and can be flipped `deferred → applied` at the next harvest.
 
 ### LRN-003
 
