@@ -58,7 +58,11 @@ var auditDb = postgres.AddDatabase("audit");
 // its own `unleash` database on the shared postgres server.
 var unleashDb = postgres.AddDatabase("unleash");
 
-var unleash = builder.AddContainer("unleash", "unleashorg/unleash-server", "6")
+// NOTE: the Aspire *resource* name must differ from the `unleash` database resource above
+// (Aspire resource names are case-insensitive and must be unique, else the AppHost throws on
+// startup). The container is named `unleash-server`; its DATABASE_NAME env still targets the
+// `unleash` database.
+var unleash = builder.AddContainer("unleash-server", "unleashorg/unleash-server", "6")
     .WithHttpEndpoint(targetPort: 4242, name: "http")
     .WithEnvironment("DATABASE_HOST", $"{postgres.Resource.PrimaryEndpoint.Property(EndpointProperty.Host)}")
     .WithEnvironment("DATABASE_PORT", $"{postgres.Resource.PrimaryEndpoint.Property(EndpointProperty.Port)}")
@@ -168,7 +172,10 @@ var openfgaMigrate = builder.AddContainer("openfga-migrate", openfgaImage, openf
 
 // The OpenFGA server. HTTP API on 8080 (gRPC 8081, playground 3000 are not exposed). Runs the
 // migration first, then serves; explicit-start keeps it off the default path.
-var openfga = builder.AddContainer("openfga", openfgaImage, openfgaImageTag)
+// Aspire resource name is `openfga-server` to avoid colliding with the `openfga` database
+// resource (Aspire resource names are case-insensitive and must be unique); the OpenFGA
+// datastore URI still targets the `openfga` database.
+var openfga = builder.AddContainer("openfga-server", openfgaImage, openfgaImageTag)
     .WithArgs("run")
     .WithEnvironment("OPENFGA_DATASTORE_ENGINE", "postgres")
     .WithEnvironment("OPENFGA_DATASTORE_URI", openfgaDatastoreUri)
