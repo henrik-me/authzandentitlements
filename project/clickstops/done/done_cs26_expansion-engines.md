@@ -1,10 +1,10 @@
 # CS26 — Expansion engines (SpiceDB/Cerbos/Keto/Oso/Topaz)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs26/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-05
 **Phase:** 7 — Expansion + Azure
 **Lane:** Expansion
 **Depends on:** CS05, CS15
