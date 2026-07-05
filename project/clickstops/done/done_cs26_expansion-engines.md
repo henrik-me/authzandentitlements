@@ -79,7 +79,7 @@ Broaden engine coverage by adding more adapters behind the same abstraction/play
 
 ## Plan-vs-implementation review
 
-**Reviewer:** GPT-5.5 (rubber-duck, independent sub-agent `cs26-pvi-review`) — independent of the claude-opus-4.8 implementers
+**Reviewer:** gpt-5.5 (rubber-duck, independent sub-agent `cs26-pvi-review`) — independent of the claude-opus-4.8 implementers
 **Date:** 2026-07-05T03:41:14Z
 **Outcome:** GO
 

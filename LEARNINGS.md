@@ -110,7 +110,7 @@ path). Pair it with fail-closed rejection of `https://` endpoints (this path is 
 clear message. Verified against the grpc-dotnet docs.
 
 **Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/SpiceDb/SpiceDbCheckService.cs` (static
-ctor sets the switch at line 48; `BuildClient` rejects `https://` via `Uri.TryCreate` + scheme
+ctor sets the switch at line 48; `BuildClients` rejects `https://` via `Uri.TryCreate` + scheme
 checks, lines 140-153) + `src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/Cerbos/CerbosCheckService.cs`
 (static ctor at line 40; `BuildClient` https rejection at lines 120-133); PR #134 + PR #139 Review
 logs.
