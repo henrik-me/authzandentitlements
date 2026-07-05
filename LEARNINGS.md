@@ -84,6 +84,171 @@ claim_area: cs44
 
 **Disposition:** **open** — intentional hold. Lift only when (1) the current stack + local OpenMeter are validated locally + documented, (2) a maintainer confirms cloud deploy is in scope, and (3) demo/lab observability is warranted. On lift, flip `status` and record the confirming maintainer + date here.
 
+### LRN-072
+
+```yaml
+id: LRN-072
+date: 2026-07-05
+category: tooling
+source_cs: CS26
+status: open
+tags: [pdp, grpc, http2, cleartext, h2c, adapter, dotnet]
+claim_area: pdp-adapters
+```
+
+**Problem:** The SpiceDB and Cerbos adapters reach a local dev container over cleartext HTTP/2 (h2c)
+gRPC. .NET's `SocketsHttpHandler` refuses HTTP/2-over-cleartext by default, so the LIVE adapter
+cannot connect even when the container is running — and the offline suites still pass, so the
+failure is invisible until a real container is exercised (a showstopper).
+
+**Finding:** Set `AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
+true)` in a STATIC constructor that runs BEFORE any `SocketsHttpHandler`/`GrpcChannel` is created —
+the runtime caches the flag on first handler construction, so late-setting is silently inert. Keep
+it in the adapter check-service static ctor (load-bearing placement; inert on the default reference
+path). Pair it with fail-closed rejection of `https://` endpoints (this path is h2c-only) plus
+`Uri.TryCreate` absolute-URI + scheme validation so a misconfigured endpoint fails closed with a
+clear message. Verified against the grpc-dotnet docs.
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/SpiceDb/SpiceDbCheckService.cs` (static
+ctor sets the switch at line 48; `BuildClients` rejects `https://` via `Uri.TryCreate` + scheme
+checks, lines 140-153) + `src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/Cerbos/CerbosCheckService.cs`
+(static ctor at line 40; `BuildClient` https rejection at lines 120-133); PR #134 + PR #139 Review
+logs.
+
+**Implications carried forward:**
+- Any future cleartext-gRPC adapter (CS46 Keto/Topaz) must set the switch in an early static ctor
+  and reject `https://`; a green offline suite does NOT prove the live gRPC path works.
+
+### LRN-073
+
+```yaml
+id: LRN-073
+date: 2026-07-05
+category: tooling
+source_cs: CS26
+status: open
+tags: [pdp, grpc, metadata, authorization, spicedb, adapter]
+claim_area: pdp-adapters
+```
+
+**Problem:** SpiceDB preshared-key auth sends an `authorization` gRPC metadata header. A mis-cased
+key (`Authorization`) is rejected by the gRPC stack, so a correctly-configured key still fails to
+authenticate.
+
+**Finding:** gRPC metadata / `CallCredentials` keys MUST be lowercase (`authorization`, never
+`Authorization`). The Copilot review caught the mis-cased key; add an offline config regression test
+that asserts the header casing so a future edit cannot silently re-break live auth.
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/SpiceDb/SpiceDbCheckService.cs`
+(`CallCredentials.FromInterceptor` → `metadata.Add("authorization", ...)`, line 161); PR #134 Review
+log ("lowercased gRPC metadata key (authorization)").
+
+**Implications carried forward:**
+- Any gRPC adapter using metadata / `CallCredentials` (CS46 Keto/Topaz) must lowercase every
+  metadata key.
+
+### LRN-074
+
+```yaml
+id: LRN-074
+date: 2026-07-05
+category: architectural
+source_cs: CS26
+status: open
+tags: [pdp, fail-closed, full-decision, obligations, cerbos, security]
+claim_area: pdp-adapters
+```
+
+**Problem:** A full-decision out-of-process adapter (Cerbos owns the whole fintech decision in CEL)
+can fail OPEN while mapping the engine response back to `AccessDecision`: an unknown/typo
+permit-obligation token could be dropped → a permit WITHOUT the maker-checker requirement; a known
+action returning no output row could be misclassified as `UnknownAction`; an ambiguous multi-rule
+output could silently pick one.
+
+**Finding:** The response mapper must fail CLOSED on every ambiguity — an unknown obligation token →
+deny (never drop the obligation); a known-action-with-no-output → `ProviderUnavailable` (not
+`UnknownAction`); multiple/ambiguous output rows → deny (never arbitrarily pick one). GPT-5.5 R1
+caught two fail-opens (delegation/OBO + malformed obligation) plus one misclassification.
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/Cerbos/CerbosDecisionProvider.cs`
+(`TryMapObligations` returns false → fail closed on an unknown token, line 203; no-output branch →
+`FailClosed`/`UnknownActionDeny`, lines 114-124) +
+`src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/Cerbos/CerbosCheckService.cs` (`ExtractOutputToken`
+returns null when `outputs.Count != 1`, so a multi-rule activation fails closed, lines 72-86); PR
+#139 "Fail-closed boundaries" + Review log.
+
+**Implications carried forward:**
+- When adding any full-decision engine (CS46 Topaz OPA bundle), enumerate every way the engine
+  output can be unknown / empty / ambiguous and fail each closed, with explicit tests.
+
+### LRN-075
+
+```yaml
+id: LRN-075
+date: 2026-07-05
+category: architectural
+source_cs: CS26
+status: open
+tags: [pdp, obo, delegation, break-glass, fail-open, engine-swap, security, cross-cutting]
+claim_area: pdp-adapters
+```
+
+**Problem:** OBO (`Subject.Actor`), manager→delegate delegation (`Context.Delegation`), and
+break-glass (`Context.BreakGlass`) are CS19/CS21 constraints only `ReferenceDecisionProvider`
+enforces. Every non-reference engine (aspnet/casbin via `FintechRuleEvaluator`,
+opa/openfga/spicedb/cedar, and cerbos) evaluates only the human subject — so swapping `Pdp:Provider`
+to a non-reference engine can PERMIT an OBO/delegation/break-glass call the reference engine DENIES
+(fail-OPEN). Surfaced by the CS26 Cerbos review (PR #139).
+
+**Finding:** This is cross-cutting, not Cerbos-only. CS26 patched Cerbos in-adapter (a fail-closed
+short-circuit on `Actor`/`Delegation`/`BreakGlass`); the durable fix is a shared fail-closed guard
+at `AuthorizationDecisionProviderFactory` keyed on an `ISupportsExtendedAuthorizationContext`
+capability, covering the enforced path AND the factory-resolved playground/shadow/what-if paths.
+Filed as CS45.
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/Cerbos/CerbosDecisionProvider.cs`
+lines 80-94 (the in-adapter fail-closed guard on `Subject.Actor`/`Context.Delegation`/
+`Context.BreakGlass`); PR #139 Review log (R1 fail-OPEN blocker);
+`project/clickstops/planned/planned_cs45_delegation-obo-adapter-guard.md`.
+
+**Implications carried forward:**
+- Until CS45 lands, every newly-added engine (CS46 Keto/Topaz) MUST carry a fail-closed
+  OBO/delegation/break-glass guard; do not ship a non-reference engine without it.
+- This entry stays `open`, tracked by planned CS45; flip to `applied` at CS45 close-out.
+
+### LRN-076
+
+```yaml
+id: LRN-076
+date: 2026-07-05
+category: process
+source_cs: CS26
+status: open
+tags: [pdp, testing, ci, integration, env-gated, parity, full-decision]
+claim_area: pdp-adapters
+```
+
+**Problem:** A full-decision engine's policy correctness (the Cerbos CEL in
+`infra/cerbos/policies/bank.yaml`) is NOT exercised by the offline suite or CI (CI runs no Cerbos
+container). A green offline build/test says nothing about whether the CEL policy reproduces the
+reference engine's ordered checks, reason codes, and the 10,000 maker-checker threshold.
+
+**Finding:** For any out-of-process full-decision (or ReBAC) adapter, prove the live policy/schema
+against a real PINNED container via an env-gated integration test (`CERBOS_TEST_ENDPOINT` /
+`SPICEDB_TEST_ENDPOINT`) that soft-skips when the variable is unset — the offline suite and CI stay
+Docker-free and green while a documented local run validates the CI-invisible surface. Cerbos
+22-scenario `Decision`+reason parity was validated this way both before and after the review fixes.
+
+**Evidence:** `tests/AuthzEntitlements.Authz.Pdp.Tests/CerbosIntegrationTests.cs` (soft-skips unless
+`CERBOS_TEST_ENDPOINT` is set) + `tests/AuthzEntitlements.Authz.Pdp.Tests/SpiceDbIntegrationTests.cs`
+(soft-skips unless `SPICEDB_TEST_ENDPOINT` is set); PR #139 Testing (22-scenario parity vs a real
+`ghcr.io/cerbos/cerbos:0.53.0` container); PR #134.
+
+**Implications carried forward:**
+- CS46 Keto/Topaz must carry env-gated integration tests validating the live policy/directory
+  against a pinned container; treat a green offline suite as necessary-but-insufficient for
+  out-of-process engines.
+
 ## Applied
 
 ### LRN-003
