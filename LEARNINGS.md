@@ -24,6 +24,26 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-086
+
+```yaml
+id: LRN-086
+date: 2026-07-05
+category: tooling
+source_cs: CS54
+status: open
+tags: [pdp, grpc, metadata, topaz, adapter, casing]
+claim_area: pdp-adapters
+```
+
+**Problem:** The Topaz adapter (`TopazCheckService`) attaches gRPC auth metadata with **mixed-case** keys — `metadata.Add("Authorization", ...)` and `metadata.Add("Aserto-Tenant-Id", ...)` — which conflicts with the lowercase-gRPC-metadata-keys convention (LRN-073, codified in CS54 into `docs/authz/pdp-contract.md` § "Out-of-process engine adapter safety"). Surfaced by the Copilot R4 review on CS54 PR #187.
+
+**Finding:** gRPC/HTTP2 requires lowercase header keys; whether a mixed-case key is accepted depends on client-side normalization (Grpc.Core's `Metadata` typically lowercases keys on `Add`). In the default lab config Topaz uses anonymous auth (`apiKey` / `tenantId` empty), so the mixed-case headers are never actually sent — the issue is latent until a Topaz API key / tenant is configured. Remediation: verify Topaz relies on client-side normalization, or lowercase the keys for consistency with the convention and to remove the fragility.
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/Topaz/TopazCheckService.cs` (the auth-header interceptor adds `Authorization` + `Aserto-Tenant-Id`); CS54 PR #187 Copilot R4 review; convention: `docs/authz/pdp-contract.md` § "Out-of-process engine adapter safety" (Lowercase gRPC metadata / `CallCredentials` keys).
+
+**Disposition:** **open** — surfaced by CS54 (documentation-only) but out of scope to fix there (Topaz code is CS46's deliverable). For the Topaz / CS46 owner to verify or lowercase; `claim_area: pdp-adapters` surfaces it at the next pdp-adapters harvest / before-claim gate.
+
 ### LRN-085
 
 ```yaml
@@ -245,7 +265,7 @@ id: LRN-072
 date: 2026-07-05
 category: tooling
 source_cs: CS26
-status: open
+status: applied
 tags: [pdp, grpc, http2, cleartext, h2c, adapter, dotnet]
 claim_area: pdp-adapters
 ```
@@ -273,7 +293,7 @@ logs.
 - Any future cleartext-gRPC adapter (CS46 Keto/Topaz) must set the switch in an early static ctor
   and reject `https://`; a green offline suite does NOT prove the live gRPC path works.
 
-**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
+**Disposition:** **applied by CS54** — codified into `docs/authz/pdp-contract.md` § "Out-of-process engine adapter safety" (the four out-of-process adapter safety patterns, scoped by transport/role) plus a pointer in the `CONVENTIONS.md` `conventions.project` block. Content PR #187 (squash `a909104`); flipped to `applied` at CS54 close-out.
 
 ### LRN-073
 
@@ -282,7 +302,7 @@ id: LRN-073
 date: 2026-07-05
 category: tooling
 source_cs: CS26
-status: open
+status: applied
 tags: [pdp, grpc, metadata, authorization, spicedb, adapter]
 claim_area: pdp-adapters
 ```
@@ -303,7 +323,7 @@ log ("lowercased gRPC metadata key (authorization)").
 - Any gRPC adapter using metadata / `CallCredentials` (CS46 Keto/Topaz) must lowercase every
   metadata key.
 
-**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
+**Disposition:** **applied by CS54** — codified into `docs/authz/pdp-contract.md` § "Out-of-process engine adapter safety" (the four out-of-process adapter safety patterns, scoped by transport/role) plus a pointer in the `CONVENTIONS.md` `conventions.project` block. Content PR #187 (squash `a909104`); flipped to `applied` at CS54 close-out.
 
 ### LRN-074
 
@@ -312,7 +332,7 @@ id: LRN-074
 date: 2026-07-05
 category: architectural
 source_cs: CS26
-status: open
+status: applied
 tags: [pdp, fail-closed, full-decision, obligations, cerbos, security]
 claim_area: pdp-adapters
 ```
@@ -339,7 +359,7 @@ returns null when `outputs.Count != 1`, so a multi-rule activation fails closed,
 - When adding any full-decision engine (CS46 Topaz OPA bundle), enumerate every way the engine
   output can be unknown / empty / ambiguous and fail each closed, with explicit tests.
 
-**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
+**Disposition:** **applied by CS54** — codified into `docs/authz/pdp-contract.md` § "Out-of-process engine adapter safety" (the four out-of-process adapter safety patterns, scoped by transport/role) plus a pointer in the `CONVENTIONS.md` `conventions.project` block. Content PR #187 (squash `a909104`); flipped to `applied` at CS54 close-out.
 
 ### LRN-075
 
@@ -384,7 +404,7 @@ id: LRN-076
 date: 2026-07-05
 category: process
 source_cs: CS26
-status: open
+status: applied
 tags: [pdp, testing, ci, integration, env-gated, parity, full-decision]
 claim_area: pdp-adapters
 ```
@@ -410,7 +430,7 @@ Docker-free and green while a documented local run validates the CI-invisible su
   against a pinned container; treat a green offline suite as necessary-but-insufficient for
   out-of-process engines.
 
-**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
+**Disposition:** **applied by CS54** — codified into `docs/authz/pdp-contract.md` § "Out-of-process engine adapter safety" (the four out-of-process adapter safety patterns, scoped by transport/role) plus a pointer in the `CONVENTIONS.md` `conventions.project` block. Content PR #187 (squash `a909104`); flipped to `applied` at CS54 close-out.
 
 ## Applied
 
