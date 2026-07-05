@@ -171,7 +171,7 @@ sequenceDiagram
   API->>ENT: module? feature? quota? (fail-closed, create only)
   ENT-->>API: allow / 402 / 403 / 429
   API->>API: maker-checker threshold (>=10,000 → Pending + approval)
-  API-->>WEB: 201 Created (posted, or Pending when > threshold) / 400 / 402 / 403 / 429
+  API-->>WEB: 201 Created (posted, or Pending when >= threshold) / 400 / 402 / 403 / 429
   Note over EG,API: both gates emit audit-ready decision events + OTel
 ```
 
