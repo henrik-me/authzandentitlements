@@ -244,8 +244,9 @@ are used only when those opt-in containers run):
 | `openfga` | OpenFGA (opt-in) | ReBAC relationship tuples |
 | `unleash` | Unleash (opt-in) | feature-flag state |
 
-Each service that owns a database ships an EF Core `InitialCreate` migration. Governance and
-break-glass / delegation grant stores are in-memory and time-boxed by design.
+Each service that owns a database ships an EF Core `InitialCreate` migration. The access-governance
+grants, requests, packages, and review campaigns are persisted in the `governance` database; the
+**break-glass and delegation** grants are held in separate in-memory, time-boxed stores by design.
 
 ### State lifecycle
 
@@ -259,7 +260,7 @@ time (`IsActive(now)`); access-review campaigns recertify standing access.
 when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. `AppHost` injects that endpoint and runs a single
 `grafana/otel-lgtm` container (the OTel Collector + Prometheus + Tempo + Loki + Grafana) with a
 persistent lifetime and a `/data` volume so telemetry survives `aspire run` restarts. Grafana is an
-anonymous **Editor** kiosk (login form + basic auth disabled, no admin role; OTLP ports internal) with four
+anonymous **Editor** kiosk (login form + HTTP basic auth disabled, so no interactive or programmatic path to admin; OTLP ports internal) with four
 provisioned dashboards (Service Health, Request Rates, PDP Performance, Compliance) under
 `infra/observability/`.
 

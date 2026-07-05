@@ -155,8 +155,9 @@ run a **segregation-of-duties** check through the PDP and are fail-closed.
 
 ### Observability
 
-Open **Grafana** from the dashboard — an anonymous **Editor** kiosk (the login form and basic auth
-are disabled and there is no admin role) with provisioned dashboards
+Open **Grafana** from the dashboard — an anonymous **Editor** kiosk (the login form and HTTP basic
+auth are both disabled, so there is no interactive or programmatic path to admin) with provisioned
+dashboards
 (Service Health, Request Rates, PDP Performance, Compliance). All services export OpenTelemetry
 traces/metrics/logs to the bundled `grafana/otel-lgtm` collector. The Aspire dashboard shows live
 resource health; Grafana persists telemetry across `aspire run` restarts.
