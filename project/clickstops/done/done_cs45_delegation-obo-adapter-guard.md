@@ -1,10 +1,10 @@
 # CS45 — Delegation/OBO fail-closed guard across swappable PDP adapters
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs45/content
 **Started:** 2026-07-05
-**Closed:** —
+**Closed:** 2026-07-05
 **Filed by:** yoga-ae-c4 on 2026-07-04 — surfaced by the CS26 Cerbos review (PR #139), which caught that the Cerbos adapter ignored `Subject.Actor`/`Context.Delegation` and could permit an on-behalf-of call the reference denies; investigation showed the gap is cross-cutting (only `ReferenceDecisionProvider` handles OBO; `FintechRuleEvaluator` has zero delegation handling).
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
