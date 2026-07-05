@@ -66,18 +66,36 @@ Close the cross-cutting **fail-open** where a non-reference PDP engine, selected
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Capability marker `ISupportsExtendedAuthorizationContext` (Contracts) + `ReferenceDecisionProvider` declares it | pending | — | Decision #3 — future-proof opt-in, not a `Name=="reference"` check |
-| `ExtendedContextUnsupported` reason code, distinct from `ProviderUnavailable` | pending | — | Decision #5 — must not be misclassified as an engine outage by `PlaygroundFanoutService.allAgree` |
-| Fail-closed guard decorator; factory wraps it around any non-capable provider (`GetActiveProvider`/`GetProvider`/`TryGetProvider`) | pending | — | Decisions #2/#4 — covers enforced + playground/shadow/what-if; trigger = `Subject.Actor` OR `Context.Delegation` OR `Context.BreakGlass` |
-| Reconcile the CS26 Cerbos in-adapter guard (single authoritative guard) | pending | — | Decision #6 — remove the per-adapter guard or keep as documented defense-in-depth |
-| Tests: every non-capable provider fails closed (`ExtendedContextUnsupported`) via BOTH enforced + factory-resolved paths; reference OBO permit/deny unaffected; non-delegated catalog unaffected | pending | — | Exit criteria |
-| Docs: `docs/authz/pdp-contract.md` + `docs/authz/adding-an-engine-adapter.md` — OBO/delegation/break-glass boundary + how an engine opts in | pending | — | Deliverable |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and the adapter contract docs so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | File learnings in LEARNINGS.md; flip LRN-075 → applied; open follow-up CSs for unresolved gaps |
+| Capability marker `ISupportsExtendedAuthorizationContext` (Contracts) + `ReferenceDecisionProvider` declares it | done | yoga-ae-c4 | Decision #3 — empty marker; reference is the only engine that declares it |
+| `ExtendedContextUnsupported` reason code, distinct from `ProviderUnavailable` | done | yoga-ae-c4 | Decision #5 — free of the "unavailable" substring so `PlaygroundFanoutService.allAgree` treats it as a genuine deny, not an outage (tested) |
+| Fail-closed guard decorator; factory wraps it around any non-capable provider (`GetActiveProvider`/`GetProvider`/`TryGetProvider`) | done | yoga-ae-c4 | Decisions #2/#4 — `ExtendedContextGuardProvider`; covers enforced + playground/shadow/what-if; denies on `Actor`/`Delegation`/`BreakGlass`, never permits/throws, transparent otherwise |
+| Reconcile the CS26 Cerbos in-adapter guard (single authoritative guard) | done | yoga-ae-c4 | Decision #6 — removed the per-adapter guard; the factory seam is the single authoritative guard (Cerbos still non-capable → factory-guarded) |
+| Tests: every non-capable provider fails closed (`ExtendedContextUnsupported`) via BOTH enforced + factory-resolved paths; reference OBO permit/deny unaffected; non-delegated catalog unaffected | done | yoga-ae-c4 | `ExtendedContextGuardTests` (parameterized over the real graph); PDP 922/922, full solution 1677/1677 |
+| Docs: `docs/authz/pdp-contract.md` + `docs/authz/adding-an-engine-adapter.md` — OBO/delegation/break-glass boundary + how an engine opts in | done | yoga-ae-c4 | + `docs/authz/cerbos-adapter.md` boundary → factory-guard pointer |
+| Close-out: docs + restart state | done | yoga-ae-c4 | CONTEXT.md updated; WORKBOARD row removed at close-out; contract docs shipped in #159 |
+| Close-out: learnings + follow-ups | done | yoga-ae-c4 | LRN-075 flipped → applied (CS45 is the durable factory-guard remedy); no new follow-ups |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- **Shipped (content PR #159).** The cross-cutting OBO/delegation/break-glass fail-OPEN is closed by a
+  capability-gated, fail-closed decorator applied centrally at the provider factory — not per-adapter.
+  `ISupportsExtendedAuthorizationContext` marks an engine that natively honours the CS19/CS21 extended
+  context; `ExtendedContextGuardProvider` wraps every engine that does NOT, denying any request carrying
+  `Subject.Actor`/`Context.Delegation`/`Context.BreakGlass` with the distinct `ExtendedContextUnsupported`
+  reason (never permits, never throws, transparent otherwise). `AuthorizationDecisionProviderFactory`
+  applies it so the enforced `PdpDecisionService` AND the factory-resolved shadow/what-if/playground paths
+  are all covered; only `reference` declares the capability and is unwrapped.
+- **Cerbos guard reconciled (Decision #6).** Removed the CS26 Cerbos in-adapter OBO short-circuit — the
+  factory seam is now the single authoritative guard (Cerbos remains non-capable, so it is factory-guarded).
+- **Reason-code semantics (Decision #5).** `ExtendedContextUnsupported` deliberately omits the substring
+  "unavailable" so `PlaygroundFanoutService` treats the boundary as a genuine disagreement, not an engine
+  outage (directly tested).
+- **LRN-075 flipped → applied** — CS45 is the durable factory-guard remedy for the cross-cutting fail-open.
+- **Verification.** `dotnet build` 0/0; PDP suite 922/922; full solution 1677/1677; `harness lint` clean.
+  Independent GPT-5.5 security review (adversarial fail-open hunt) → Go, no blocking/non-blocking findings.
+- **Optional future enhancement** (GPT-5.5 review suggestion, non-blocking): a direct `PlaygroundFanoutService`
+  end-to-end test asserting `ExtendedContextUnsupported` stays `Available=true` and affects `AllAgree`; the
+  reviewer judged the existing substring test + code inspection sufficient.
 
 ## Model audit
 
@@ -90,4 +108,22 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** gpt-5.5 (rubber-duck, independent sub-agent `cs45-pvi`) — independent of the claude-opus-4.8 implementer
+**Date:** 2026-07-05T06:41:52Z
+**Outcome:** GO
+
+Reviewed the merged CS45 implementation (content PR #159, squash `fa15868`) against the plan's Deliverables + Exit criteria at HEAD `085b71e`. All deliverables **match**; the reviewer independently ran `dotnet build` 0/0 and `dotnet test AuthzEntitlements.sln` 1677/0.
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| D1 — fail-closed guard at the factory | match | `ExtendedContextGuardProvider` wraps non-capable providers; denies Actor/Delegation/BreakGlass with `ExtendedContextUnsupported`; covers the enforced + factory-resolved paths. |
+| D2 — capability marker | match | `ISupportsExtendedAuthorizationContext` exists; `ReferenceDecisionProvider` declares it. |
+| D3 — reconcile the Cerbos in-adapter guard | match | Removed; docs name the factory seam as authoritative (single guard). |
+| D4 — shared regression tests | match | `ExtendedContextGuardTests` enumerates registered non-reference providers via both resolution paths; reference OBO permit/deny covered. |
+| D5 — contract docs | match | `pdp-contract.md`, `adding-an-engine-adapter.md`, `cerbos-adapter.md` document the boundary + opt-in. |
+| D6 — LEARNINGS entry | match | LRN-075 captures the fail-open + factory-guard remedy (flipped → applied at this close-out). |
+| Exit criteria | match | No non-reference provider can fail open; a shared test enumerates all providers; the reference is unaffected; `dotnet build` 0/0, full suite 1677/0. |
+
+**Test-coverage:** sufficient. **Overall outcome: GO** — no blocking findings.
+
+Review-log row: `model: gpt-5.5` · `branch HEAD SHA: 085b71e94a2ea9ffafa07805b59ddf657e3c7789` · `R-round: R1` · `verdict: Go` · `evidence: PR #159`.
