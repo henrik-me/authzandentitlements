@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CS52 (Wave 0) — coverage measurement infrastructure (Decisions #4/#5).
+  XPlat Code Coverage data collector emitting Cobertura, scoped to the
+  business-logic assemblies. Run it from the repo root by passing this file
+  via the "settings" option together with the XPlat Code Coverage collector
+  on "dotnet test" (see docs/testing/coverage.md for the exact command).
+  Exclusions implement Decision #5: EF Migrations (generated), AppHost (topology),
+  Benchmarks (perf harness), the test assemblies themselves, and generated /
+  ExcludeFromCodeCoverage members.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <ExcludeByFile>**/Migrations/*.cs</ExcludeByFile>
+          <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverage</ExcludeByAttribute>
+          <Exclude>[*.AppHost]*,[*.Benchmarks]*,[*]*.Migrations.*,[*.Tests]*</Exclude>
+          <SkipAutoProps>true</SkipAutoProps>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>
