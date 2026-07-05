@@ -1,10 +1,10 @@
 # CS54 — Codify out-of-process PDP adapter safety conventions
 
-**Status:** active
-**Owner:** —
-**Branch:** —
-**Started:** —
-**Closed:** —
+**Status:** done
+**Owner:** yoga-ae
+**Branch:** cs54/content
+**Started:** 2026-07-05
+**Closed:** 2026-07-05
 **Filed by:** yoga-ae-c2 on 2026-07-05 — harvest of open learnings LRN-072/073/074/076 (all `source_cs: CS26`, `claim_area: pdp-adapters`), surfaced while dispositioning the open-learnings backlog. State-of-world probe (2026-07-05): the on-disk max CS id was 50 and `docs/file-planned-cs51-*` was in flight, so this was originally filed as CS52; **renumbered to CS54** on 2026-07-05 after a concurrent sibling (yoga-ae-c3) merged a different CS52 (`product-eval-refactor-and-coverage`) to `main`.
 **Depends on:** none
 
