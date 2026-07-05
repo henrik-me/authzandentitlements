@@ -147,7 +147,7 @@ telemetry.
 - **Extra PDP surfaces:** explainability on every decision; shadow / dual-run; what-if
   (non-enforcing); golden-decision snapshot + policy-version drift detection; AuthZEN Access
   Evaluation conformance; the OpenFGA ReBAC reverse-index (`/api/authz/rebac/*`); and Playground fan-out.
-- **Planned expansion:** Ory Keto, Oso, Topaz / Aserto (CS26 remainder + CS46 / CS47).
+- **Planned expansion:** Ory Keto, Oso, Topaz / Aserto (CS46 / CS47).
 
 ## Key data flows
 
@@ -337,8 +337,8 @@ audit, the Blazor product + Playground + Audit Explorer, the evaluation-lab docu
 CI / review-gate hardening. Live clickstop status is in [CONTEXT.md](CONTEXT.md); the remaining
 direction:
 
-- **Expansion engines** — SpiceDB + Cerbos are integrated; Ory Keto / Oso / Topaz are in progress
-  (CS26 / CS46 / CS47).
+- **Expansion engines** — SpiceDB + Cerbos are integrated (CS26); Ory Keto / Oso / Topaz are
+  planned (CS46 / CS47).
 - **Azure + metering (planned)** — Azure Container Apps deployment via `azd` (CS27), full OpenMeter
   metering locally (CS43), and OpenMeter on Azure (CS44).
 
