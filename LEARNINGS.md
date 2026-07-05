@@ -71,6 +71,8 @@ claim_area: security-hardening
 
 **Disposition:** **Applied by CS30** (content PR #95, squash `23e4036`, 2026-07-04): the re-evaluation ran and **retained** the `Microsoft.Build.*` 17.14.28 pin — EF Core Design 10.0.0-rc.1 still resolves the vulnerable 17.14.8 without it (verified: GHSA-w3q9-fxm7-j8fq High reappears). The drop-trigger (EF Core RC1→GA build referencing patched MSBuild) is now tracked durably in `docs/security/nuget-audit-reeval-2026-07-04.md`.
 
+## Applied
+
 ### LRN-057
 
 ```yaml
@@ -78,7 +80,7 @@ id: LRN-057
 date: 2026-07-04
 category: architectural
 source_cs: CS15
-status: open
+status: applied
 tags: [audit, replay, tamper-evident, abac, follow-up]
 ```
 
@@ -91,9 +93,7 @@ tags: [audit, replay, tamper-evident, abac, follow-up]
 **Implications carried forward:**
 - A future CS (candidate for the CS30+ queue) can add a per-row request snapshot to Audit.Service for true replay; scope it with a CS13 security review.
 
-**Disposition:** Filed as planned CS36 (project/clickstops/planned/planned_cs36_audit-request-snapshot.md), GPT-5.5 plan-reviewed. Remains open until CS36 closes, then flip applied. (RETROSPECTIVES file-a-CS disposition.)
-
-## Applied
+**Disposition:** Delivered by **CS36** (audit request-snapshot for faithful decision replay), merged in PR #140 (commit `8fe3911`). The PDP now persists the full `AccessRequest` as a **non-hashed** `RequestSnapshot` column and the Audit Explorer replays a recorded decision **1:1** (roles/scopes/amount/maker/status/resource tenant+branch/OBO actor); the tamper-evident hash chain is byte-identical (`ComputeRowHash`/`AuditPayload` unchanged). Independent security review PASS + GPT-5.5 plan-vs-implementation GO. Entry flipped `open`→`applied` on CS36 close-out.
 
 ### LRN-050
 

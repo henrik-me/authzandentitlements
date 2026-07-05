@@ -96,18 +96,20 @@ column + a new migration carries no data-backfill burden.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| PDP: canonical `AccessRequest` serializer + capture in `PdpDecisionService`; add nullable `RequestSnapshot` to `PdpDecisionAuditEvent` + `IngestDecisionRequest` | pending | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-feature / report-status=pending / learnings=0 |
-| Audit.Service: `AuditEntry.RequestSnapshot` + additive EF migration; ingest persists it; `ComputeRowHash` UNCHANGED (snapshot excluded); query/response DTOs return it; bounded size guard (~16 KB → null) | pending | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-feature / report-status=pending / learnings=0 |
-| Bank.Web Audit Explorer: faithful replay pre-fill from snapshot when present; CS15 best-effort fallback when null; client DTOs | pending | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-feature / report-status=pending / learnings=0 |
-| Tests: serializer determinism/round-trip; ingest+persist+query; hash-chain-unchanged regression; fail-open-to-null (serializer + oversize); replay pre-fill | pending | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-tests / report-status=pending / learnings=0 |
-| Docs: update `docs/product/authz-playground-and-audit-explorer.md` replay section | pending | yoga-ae-c3 | agent-id=cs36-impl / role=docs / report-status=pending / learnings=0 |
-| Independent security review (distinct model) of the tamper-evident-store change | pending | yoga-ae-c3 | security-review sub-agent; non-hashed-column posture + fail-closed + PII |
-| Close-out: docs + restart state | pending | yoga-ae-c3 | update CONTEXT.md; flip LRN-057 applied |
-| Close-out: learnings + follow-ups | pending | yoga-ae-c3 | LRN-057 → applied on CS36 close; new learnings if any |
+| PDP: canonical `AccessRequest` serializer + capture in `PdpDecisionService`; add nullable `RequestSnapshot` to `PdpDecisionAuditEvent` + `IngestDecisionRequest` | done | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-feature / report-status=complete / learnings=0 |
+| Audit.Service: `AuditEntry.RequestSnapshot` + additive EF migration; ingest persists it; `ComputeRowHash` UNCHANGED (snapshot excluded); query/response DTOs return it; bounded size guard (~16 KB → null, clamped to column width) | done | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-feature / report-status=complete / learnings=0 |
+| Bank.Web Audit Explorer: faithful replay pre-fill from snapshot (via sequence-fetch, incl. OBO actor + distinct resource branch); CS15 best-effort fallback when null/malformed/fetch-failed; client DTOs | done | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-feature / report-status=complete / learnings=0 |
+| Tests: serializer determinism/round-trip; ingest+persist+query; hash-chain-unchanged regression; fail-open-to-null (serializer + oversize); replay pre-fill (faithful/fallback, actor/branch, partial-actor, blank-scalar, cap clamp) | done | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-tests / report-status=complete / learnings=0 |
+| Docs: update `docs/product/authz-playground-and-audit-explorer.md` replay section | done | yoga-ae-c3 | agent-id=cs36-impl / role=docs / report-status=complete / learnings=0 |
+| Independent security review (distinct model) of the tamper-evident-store change | done | yoga-ae-c3 | GPT-5.5 security-review: **PASS** (non-hashed posture sound; no XSS/DoS; Producer server-stamped; no secrets in AccessRequest) |
+| Close-out: docs + restart state | done | yoga-ae-c3 | CONTEXT.md updated; LRN-057 flipped applied |
+| Close-out: learnings + follow-ups | done | yoga-ae-c3 | LRN-057 → applied on CS36 close |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- Implemented by an Opus-4.8 sub-agent (`cs36-impl`) + a fix sub-agent + orchestrator hand-fixes. Reviews: independent GPT-5.5 **security review PASS**; GPT-5.5 **review-of-record** R1/R2 NEEDS-FIX (replay not 1:1 for actor/branch; silent >2000-char drop; a configurable-cap-vs-DB-column-width fail-open gap; a fetch-failure banner mislabel) → **R3 GO**; then Copilot caught a partial-actor bug + a blank-required-scalar false-faithful path (both fixed → GPT-5.5 GO), plus two non-blocking robustness nits resolved-with-rationale (LRN-020 convergence).
+- Merged as PR #140 (`8fe3911`) after rebasing onto latest `origin/main` (additive CS21 break-glass merge in `PdpDecisionAuditEvent`/`PdpDecisionService`; whole-solution build+test re-run green — LRN-040). `dotnet build` 0/0, `dotnet test` all pass, `harness lint` 0, tamper-evident hash files byte-identical.
+- No new repo learnings warranted (the sub-agent's candidates — `dotnet ef` BOM/CRLF, no-DB-provider test posture, additive-optional-param for shared services — are process-local; the additive-optional-param one is already covered by the LRN-058/CS19 additive-defaulted-member convention).
 
 ## Model audit
 
@@ -120,4 +122,22 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-05T01:58:00Z
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| PDP canonical serializer + capture + additive `RequestSnapshot` on event/contract | match | `RequestSnapshotSerializer` deterministic/fail-open; `PdpDecisionService` captures + logs null; contracts gained a nullable defaulted field. |
+| Audit.Service: column + additive migration; bounded ingest; writer independent of hash; hash files unchanged; query returns it | match | Nullable `varchar(16384)` migration/model; `RequestSnapshotOptions` clamps the cap to the column width; `AuditChainWriter` attaches the snapshot after the row hash; `AuditHashChain.cs`/`AuditPayload.cs` diff empty. |
+| Bank.Web faithful replay (actor + resource branch) via sequence-fetch; best-effort fallback; non-authoritative labeling | match | Replay link passes the sequence; Playground fetches the full row, parses the snapshot to the full form model (incl. actor/resource branch), falls back to CS15 scalar pre-fill, labels the snapshot non-hashed. |
+| Bounded size guard + fail-open-to-null logging | match | Serializer failure → null + sanitized warning; oversize → null + sanitized warning. |
+| Tests (serializer/ingest/hash-unchanged/fail-open/replay/actor/branch/cap/partial-actor/blank-scalar) | match | Coverage across PDP, Audit.Service, Bank.Web; hash-independence + replay edge cases specifically tested. |
+| Docs updated | match | Replay doc rewritten for faithful/best-effort, non-hashed posture, size guard, fail-open. |
+| Gates/security/build/test/lint | match | Security PASS, GPT-5.5 GO, build 0/0, tests pass, `harness lint` 0; diff review found no contradiction. |
+
+**Test coverage:** sufficient. Audit.Service has no DB-provider integration (repo's pure-domain posture); the ingest→persist→query path is covered compositionally (guard/options, `AuditChainWriter` row materialization + hash-independence, `AuditEndpoints.ToEntryView` projection) — adequate for a simple additive nullable scalar EF mapping.
+
+**Outcome GO:** All 7 deliverables match; tamper-evidence provably intact; no mis-scope or inaccurate claim. Confirms the pre-merge security PASS + multi-round GPT-5.5 review-of-record.
