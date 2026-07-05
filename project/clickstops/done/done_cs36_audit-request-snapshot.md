@@ -1,10 +1,10 @@
 # CS36 — Audit request-snapshot for faithful decision replay (LRN-057)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs36/content
 **Started:** 2026-07-05
-**Closed:** —
+**Closed:** 2026-07-05
 **Filed by:** yoga-ae-c3 — 2026-07-04, weekly LRN harvest (CS37): the one open learning (LRN-057) that needs a security-reviewed code change rather than a doc consolidation.
 **Depends on:** CS13, CS15
 
