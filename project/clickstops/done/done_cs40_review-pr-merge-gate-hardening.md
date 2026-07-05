@@ -1,10 +1,10 @@
 # CS40 — Review & PR merge-gate hardening (bypass-free normal merges)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c5
 **Branch:** cs40/content
 **Started:** 2026-07-05
-**Closed:** —
+**Closed:** 2026-07-05
 **Filed by:** yoga-ae-c5 — 2026-07-04; follow-up to the branch-protection hardening + CS34: the ruleset only requires build-test + structural-gate, review-evidence gates are advisory, and Dependabot/workboard PRs can't merge without admin bypass. Directions for each decision were chosen by the user (see Decisions). Renumbered to CS40 (above the in-flight arc, with margin) to resolve CS-number collisions with concurrently-filed sibling CSs.
 **Depends on:** none
 
