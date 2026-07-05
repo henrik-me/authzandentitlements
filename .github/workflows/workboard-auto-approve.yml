@@ -16,16 +16,23 @@
 #        - project/clickstops/{planned,active,done}/**
 #      ANY file outside this set fails the check; bot does NOT approve.
 #
-# Primary merge path: the bot uses a GitHub App (per Q1) configured in
+# Default merge path (zero-secret): a maintainer admin-override
+# `gh pr merge <n> --admin --squash` — see OPERATIONS.md § "Workboard-only PR
+# admin-bypass fallback" (#395 Rec A). This needs no App or PAT, but does
+# require the repo `main-protection` ruleset to grant repo admins an explicit
+# bypass actor (LRN-080). The App/PAT paths below are OPTIONAL hands-off
+# automation for higher-volume/multi-maintainer setups, not a prerequisite.
+#
+# Optional automation path: the bot uses a GitHub App (per Q1) configured in
 # docs/cs15a-app-install.md. Credentials must be stored as repo secrets:
 #   - WORKBOARD_BOT_APP_ID
 #   - WORKBOARD_BOT_PRIVATE_KEY
 #
-# Fallback merge path (CS50 / issue #138): repos without the App may configure
+# Optional fallback (CS50 / issue #138): repos without the App may configure
 # a fine-grained PAT as WORKBOARD_MERGE_TOKEN. The PAT is used only after the
 # same label/branch/actor/path gates pass and only when the App secrets are not
 # configured. If neither credential set is present, the workflow validates and
-# logs that the owner/admin must merge manually.
+# logs that the owner/admin must merge manually (the zero-secret default above).
 #
 # Bot threat model (per cs-plan §CS15a #6):
 #   - App has Contents:Read&write + Pull-requests:Read&write only; no
@@ -79,7 +86,7 @@ jobs:
           #   workboard/cs<NN>-(claim|close|close-out)
           #   cs<NN>/(claim|close-out|close)
           #   docs/file-planned-cs<NN>(-...)?
-          if ! printf '%s' "$PR_BRANCH" | grep -Eq '^(workboard/cs[0-9]+[a-z]?-(claim|close|close-out)|cs[0-9]+[a-z]?/(claim|close|close-out)|docs/file-planned-cs[0-9]+[a-z]?(-.+)?)$'; then
+          if ! printf '%s' "$PR_BRANCH" | grep -Eq '^(workboard/cs[0-9]+[a-z]?-(claim|close|close-out)|cs[0-9]+[a-z]?/(claim|close|close-out)|docs/file-planned-cs[0-9]+[a-z]?(-.+)?|workboard/maint-[A-Za-z0-9][A-Za-z0-9._-]*)$'; then
             fail "branch name '$PR_BRANCH' does not match the workboard-only branch pattern."
           fi
 
@@ -137,7 +144,7 @@ jobs:
           echo "changed-files=$changed_files" >> "$GITHUB_OUTPUT"
 
           git fetch --no-tags --depth=1 origin "$base_sha" "$head_sha"
-          git diff --name-status -M "$base_sha" "$head_sha" > pr-files.tsv
+          git -c diff.external= diff --no-ext-diff --no-textconv --name-status -M "$base_sha" "$head_sha" > pr-files.tsv
           echo "Files in PR from immutable git diff (status/path[/previous path]):"
           cat pr-files.tsv
           files_count="$(wc -l < pr-files.tsv | tr -d ' ')"
@@ -162,6 +169,7 @@ jobs:
           }
           # Allowed paths (exact OR prefix). Each line either an exact filename
           # or a path-prefix ending in `/`.
+          # harness:workboard-allowlist
           cat > allowed-paths.txt <<'EOF'
           WORKBOARD.md
           CONTEXT.md
@@ -176,6 +184,7 @@ jobs:
             [ -z "$f" ] && return 0
             local ok=0
             while IFS= read -r p; do
+              p="${p#"${p%%[![:space:]]*}"}"; p="${p%"${p##*[![:space:]]}"}"
               [ -z "$p" ] && continue
               if [ "${p%/}" != "$p" ]; then
                 # Prefix match

@@ -50,7 +50,7 @@
   Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
   ```
   To satisfy this by construction — including on **merge** commits, which is the easy case
-  to forget — run `npx -y github:henrik-me/agent-harness#v0.16.0 install-hooks` once to install the opt-in
+  to forget — run `npx -y github:henrik-me/agent-harness#v0.17.0 install-hooks` once to install the opt-in
   `prepare-commit-msg` hook (CS100); it appends the trailer above when the exact line is
   absent. The hook is opt-in (never auto-installed) and leaves a pre-existing hook untouched
   unless `--force`. See [OPERATIONS.md § Commit-trailer hook](OPERATIONS.md#commit-trailer-hook-install-hooks).
@@ -125,7 +125,7 @@ the local block below.
 - All process docs live at the repo root or under `template/` in the harness.
 - Use H2 (`##`) for top-level sections and H3 (`###`) for subsections. Do not skip heading
   levels. Do not use H1 inside a document body (the document title is the only H1).
-- Cross-links use repo-relative paths: `[ADR 0001](docs/adr/0001-file-classes.md)`. Do not
+- Cross-links use repo-relative paths, e.g. `[the project README](README.md)`. Do not
   use absolute URLs for in-repo links.
 - Code, file names, command names, and configuration keys are wrapped in backticks.
 - Avoid passive voice in normative statements. "Do X" is clearer than "X should be done."
@@ -133,7 +133,7 @@ the local block below.
   for two-column prose.
 - Keep line length ≤100 characters in Markdown source where practical. This is not enforced
   by CI but aids diff readability.
-- ADRs (`docs/adr/`) follow a fixed structure: title, date, status, context, decision,
+- ADRs follow a fixed structure: title, date, status, context, decision,
   consequences. Do not add sections outside that structure without updating this file.
 
 ---
@@ -146,7 +146,7 @@ the local block below.
 | `template/managed/` | Harness-owned templates overwritten on every sync |
 | `template/composed/` | Templates with managed core + local extension blocks |
 | `template/seeded/` | Templates seeded once on init; consumer owns thereafter |
-| `docs/adr/` | Architectural Decision Records — immutable once accepted |
+| `docs/` | Reference docs, including Architectural Decision Records (immutable once accepted) |
 | `lib/` | Harness library modules (pure ESM, `.mjs`) |
 | `bin/` | Harness CLI entry points |
 | `scripts/` | Harness development and CI scripts |
