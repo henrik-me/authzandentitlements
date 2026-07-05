@@ -134,7 +134,18 @@ public sealed class SpiceDbCheckService : ISpiceDbCheckClient, IDisposable
                 "once the 'spicedb' container is started.");
         }
 
-        if (_options.Endpoint.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        // Validate the endpoint is a well-formed absolute http/https URI so a misconfiguration
+        // (a missing scheme like "localhost:50051", stray whitespace, or a typo) fails closed with a
+        // clear message here rather than as a cryptic Uri/gRPC exception from GrpcChannel.ForAddress.
+        if (!Uri.TryCreate(_options.Endpoint, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new InvalidOperationException(
+                "SpiceDB Endpoint is not a well-formed absolute http:// URI (e.g. \"http://localhost:50051\"). " +
+                "Set \"Pdp:SpiceDb:Endpoint\" to the SpiceDB container's cleartext gRPC address.");
+        }
+
+        if (uri.Scheme == Uri.UriSchemeHttps)
         {
             throw new InvalidOperationException(
                 "SpiceDB Endpoint uses https:// but this adapter only speaks cleartext h2c (http://). " +

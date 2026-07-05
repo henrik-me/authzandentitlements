@@ -40,6 +40,20 @@ public sealed class SpiceDbCheckServiceConfigTests
         Assert.Contains("h2c", ex.Message);
     }
 
+    [Theory]
+    [InlineData("localhost:50051")]     // missing scheme — parses as scheme "localhost"
+    [InlineData("not-a-url")]
+    [InlineData("ftp://spicedb:50051")] // wrong scheme
+    public async Task CheckAsync_WhenEndpointMalformed_ThrowsClearConfigError(string endpoint)
+    {
+        using var service = Service(endpoint);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.CheckAsync("teller-1", "can_view", "acme-checking"));
+
+        Assert.Contains("http://", ex.Message);
+    }
+
     [Fact]
     public void UnencryptedHttp2Support_IsEnabled_SoTheCleartextH2cChannelCanConnect()
     {
