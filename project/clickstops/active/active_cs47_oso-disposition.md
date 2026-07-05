@@ -1,9 +1,9 @@
 # CS47 — Oso disposition: de-scope from the expansion-engine set
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c4
+**Branch:** cs47/content
+**Started:** 2026-07-05
 **Closed:** —
 **Filed by:** yoga-ae-c4 on 2026-07-04 — formalises the Oso recommendation surfaced during CS26; Oso was 1 of the 5 originally-planned expansion engines but the CS26 feasibility research found no viable pinnable, self-hostable, in-process .NET path.
 **Phase:** 7 — Expansion + Azure
@@ -63,7 +63,20 @@ Formally **disposition Oso**: record the decision to **de-scope** it from the ex
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| ADR `0008-oso-descoped-from-expansion-engines.md` + `docs/adr/README.md` index entry | pending | yoga-ae-c4 | de-scope decision + evidence (no in-process .NET/Polar lib as of 2026-07-04; `latest`-only dev-only dev-server; paid-cloud production), conflicting postures (image-pin determinism; ADR-0007 self-host-first), re-eval trigger (Decision #3) |
+| Eval-doc updates: `comparison-matrix.md` + `market-survey.md` + `survey/policy-and-decision-engines.md` Oso rows → evaluated → de-scoped w/ one-line reason + ADR link | pending | yoga-ae-c4 | supersede the survey page's older "local/self-hosted PDP binary" Oso wording |
+| Expansion narrative: `docs/authz/adding-an-engine-adapter.md` engine list reads Cerbos + SpiceDB + Keto + Topaz, Oso intentionally excluded → ADR | pending | yoga-ae-c4 | never a silent gap; dated honesty caveat + sources on pricing/availability |
+| Close-out: docs + restart state | pending | yoga-ae-c4 | update WORKBOARD + CONTEXT.md so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | yoga-ae-c4 | file LRNs; planned follow-up CSs for any unresolved issues |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c4 |
+| Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
 
