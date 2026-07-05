@@ -10,8 +10,11 @@ Everything runs locally with one command (`aspire run`). The default path is det
 needs no third-party authorization engine; you opt into container-backed engines (OPA, OpenFGA,
 SpiceDB, Cerbos) when you want to compare them.
 
-> **Status:** CS01–CS37 are implemented and merged. See [CONTEXT.md](CONTEXT.md) for the live
-> state and [ARCHITECTURE.md](ARCHITECTURE.md) for the design and key data flows.
+> **Status:** the lab is substantially built out — 35 clickstops are merged (the four-layer stack,
+> eight PDP engines, entitlements + governance, product UI, observability, hash-chained audit, and
+> the evaluation lab). Expansion engines (Ory Keto / Oso / Topaz) are still in progress. See
+> [CONTEXT.md](CONTEXT.md) for the live clickstop state and [ARCHITECTURE.md](ARCHITECTURE.md) for
+> the design and key data flows.
 
 ## What's inside
 
@@ -106,7 +109,9 @@ deterministic.
    checker-eligible, and approvals are decide-once (optimistic concurrency).
 
 Each step passes AuthN -> the coarse edge gateway -> Bank.Api's fine-grained maker-checker/SoD
-rules -> commercial entitlements, and the decisions are captured as audit events.
+rules -> commercial entitlements, and each gate emits a structured, audit-ready decision event to
+OpenTelemetry. (The unified PDP additionally forwards its own decisions to the tamper-evident
+Audit.Service; broader ingestion of the edge/Bank.Api events is planned.)
 
 ### Compare authorization engines
 

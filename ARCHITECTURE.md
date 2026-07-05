@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last updated:** 2026-07-04 — reflects CS01–CS37. See [CONTEXT.md](CONTEXT.md) for live state.
+> **Last updated:** 2026-07-04 — reflects the shipped surface. See [CONTEXT.md](CONTEXT.md) for the live clickstop state.
 
 ## Overview
 
@@ -328,16 +328,16 @@ and [docs/eval/market-survey.md](docs/eval/market-survey.md).
 
 ## Status & roadmap
 
-CS01–CS37 are complete (foundations, AuthN + coarse edge, the unified PDP + six→eight engine
-adapters, commercial + governance entitlements, observability + hash-chained audit, the Blazor
-product + Playground + Audit Explorer, and the evaluation-lab documentation). Remaining and
-in-flight work:
+The core system is shipped — 35 clickstops are merged: foundations, AuthN + coarse edge, the unified
+PDP + eight engine adapters, commercial + governance entitlements, observability + hash-chained
+audit, the Blazor product + Playground + Audit Explorer, the evaluation-lab documentation, and the
+CI / review-gate hardening. Live clickstop status is in [CONTEXT.md](CONTEXT.md); the remaining
+direction:
 
-- **CS26 (in progress)** — expansion engines; SpiceDB + Cerbos are merged, Ory Keto / Oso / Topaz
-  remain (see also CS46 / CS47).
-- **CS40 (in progress)** — review & PR merge-gate hardening.
-- **CS27 / CS43 / CS44 (planned)** — Azure Container Apps deployment via `azd`, full OpenMeter
-  metering (local), and OpenMeter on Azure.
+- **Expansion engines** — SpiceDB + Cerbos are integrated; Ory Keto / Oso / Topaz are in progress
+  (CS26 / CS46 / CS47).
+- **Azure + metering (planned)** — Azure Container Apps deployment via `azd` (CS27), full OpenMeter
+  metering locally (CS43), and OpenMeter on Azure (CS44).
 
 The authoritative clickstop dependency map, parallelization waves, and current state live in
 [CONTEXT.md](CONTEXT.md); per-CS detail is in `project/clickstops/`.

@@ -15,7 +15,8 @@
 Bring `README.md` and `ARCHITECTURE.md` in line with the **shipped** system. Both
 files still describe the pre-implementation bootstrap state (`README.md`: "Nothing
 is implemented yet"; `ARCHITECTURE.md`: "Last updated 2026-07-02 (bootstrap)"),
-but CS01–CS37 are done across 11 services. Update them to document (a) how to run
+but 35 clickstops are done across 11 projects (CS26 expansion engines still in flight). Update them
+to document (a) how to run
 and use the product/lab, (b) the current system architecture, and (c) the key
 data flows — accurately and with no overclaiming of unshipped work.
 
