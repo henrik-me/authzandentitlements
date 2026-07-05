@@ -187,4 +187,47 @@ public class PlaygroundInputTests
         Assert.Equal("CONTOSO", dto.Subject.Tenant);
         Assert.Equal("CONTOSO", dto.Resource.Tenant);
     }
+
+    [Theory]
+    [InlineData("agent", "   ")]
+    [InlineData("   ", "agent-1")]
+    [InlineData("", "")]
+    public void ToRequestDto_partial_or_blank_actor_maps_to_null(string actorType, string actorId)
+    {
+        // A partial actor (only one of type/id) is invalid at the PDP boundary (subject.actor.type
+        // and .id are both required when the actor is present); it must degrade to a direct call
+        // (null Actor), never a half-populated PdpActorDto that fails validation on fan-out.
+        var input = new PlaygroundInput
+        {
+            SubjectId = "user-teller1",
+            Action = "bank.account.read",
+            ResourceType = "account",
+            ActorType = actorType,
+            ActorId = actorId,
+            ActorScopes = "agent.bank.read",
+        };
+
+        Assert.Null(input.ToRequestDto().Subject.Actor);
+    }
+
+    [Fact]
+    public void ToRequestDto_complete_actor_maps_to_actor()
+    {
+        var input = new PlaygroundInput
+        {
+            SubjectId = "user-teller1",
+            Action = "bank.account.read",
+            ResourceType = "account",
+            ActorType = "agent",
+            ActorId = "agent-copilot-1",
+            ActorScopes = "agent.bank.read, agent.bank.write",
+        };
+
+        var actor = input.ToRequestDto().Subject.Actor;
+
+        Assert.NotNull(actor);
+        Assert.Equal("agent", actor!.Type);
+        Assert.Equal("agent-copilot-1", actor.Id);
+        Assert.Equal(new[] { "agent.bank.read", "agent.bank.write" }, actor.Scopes);
+    }
 }

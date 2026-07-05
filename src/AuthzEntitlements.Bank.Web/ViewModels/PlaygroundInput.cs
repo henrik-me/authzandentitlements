@@ -80,19 +80,21 @@ public sealed class PlaygroundInput
                 NullIfBlank(Status)),
             new PdpContextDto(SplitCsv(Scopes)));
 
-    // Builds the OBO actor from the form, or null when no delegate is authored (both type and id
-    // blank) — so a direct/human request carries a null Actor, byte-identical to omitting it. When a
-    // delegate IS present, its type/id/scopes reconstruct the recorded Actor exactly.
+    // Builds the OBO actor from the form, or null unless a COMPLETE delegate (BOTH type and id) is
+    // authored — a partial actor (only one field) is invalid at the PDP boundary (subject.actor.type
+    // and .id are both required when the actor is present), so it degrades to a direct/human call
+    // (null Actor), byte-identical to omitting it. When a complete delegate IS present, its
+    // type/id/scopes reconstruct the recorded Actor exactly.
     private PdpActorDto? BuildActor()
     {
         var type = NullIfBlank(ActorType);
         var id = NullIfBlank(ActorId);
-        if (type is null && id is null)
+        if (type is null || id is null)
         {
             return null;
         }
 
-        return new PdpActorDto(type ?? string.Empty, id ?? string.Empty, SplitCsv(ActorScopes));
+        return new PdpActorDto(type, id, SplitCsv(ActorScopes));
     }
 
     private static IReadOnlyList<string> SplitCsv(string? value) =>
