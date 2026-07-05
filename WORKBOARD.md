@@ -37,7 +37,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS21 | CS21 — Break-glass, delegation & on-behalf-of | 🟢 Active | yoga-ae | cs21/content | 2026-07-04 | — |
 | CS26 | CS26 — Expansion engines (SpiceDB/Cerbos/Keto/Oso/Topaz) | 🟢 Active | yoga-ae-c4 | cs26/content | 2026-07-04 | — |
 | CS36 | CS36 — Audit request-snapshot for faithful decision replay (LRN-057) | 🟢 Active | yoga-ae-c3 | cs36/content | 2026-07-05 | — |
 
