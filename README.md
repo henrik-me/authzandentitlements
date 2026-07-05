@@ -228,4 +228,4 @@ npx -y github:henrik-me/agent-harness#v0.17.0 startup
 
 ## License
 
-To be determined.
+[MIT](LICENSE)
