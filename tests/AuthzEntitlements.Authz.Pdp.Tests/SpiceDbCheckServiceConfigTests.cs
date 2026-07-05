@@ -19,8 +19,10 @@ public sealed class SpiceDbCheckServiceConfigTests
     [InlineData("   ")]
     public async Task CheckAsync_WhenEndpointBlank_ThrowsConfigError(string endpoint)
     {
+        using var service = Service(endpoint);
+
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Service(endpoint).CheckAsync("teller-1", "can_view", "acme-checking"));
+            () => service.CheckAsync("teller-1", "can_view", "acme-checking"));
 
         Assert.Contains("Pdp:SpiceDb:Endpoint", ex.Message);
     }
@@ -30,8 +32,10 @@ public sealed class SpiceDbCheckServiceConfigTests
     [InlineData("HTTPS://SpiceDB.example:50051")]
     public async Task CheckAsync_WhenEndpointHttps_ThrowsClearH2cError_BeforeAnyNetwork(string endpoint)
     {
+        using var service = Service(endpoint);
+
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Service(endpoint).CheckAsync("teller-1", "can_view", "acme-checking"));
+            () => service.CheckAsync("teller-1", "can_view", "acme-checking"));
 
         Assert.Contains("h2c", ex.Message);
     }
@@ -40,7 +44,7 @@ public sealed class SpiceDbCheckServiceConfigTests
     public void UnencryptedHttp2Support_IsEnabled_SoTheCleartextH2cChannelCanConnect()
     {
         // Touch the type so its static constructor runs (idempotent — other tests may already have).
-        _ = Service("http://localhost:50051");
+        using var service = Service("http://localhost:50051");
 
         Assert.True(
             AppContext.TryGetSwitch(

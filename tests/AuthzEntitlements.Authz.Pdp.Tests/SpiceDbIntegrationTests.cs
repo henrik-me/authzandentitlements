@@ -35,7 +35,7 @@ public sealed class SpiceDbIntegrationTests
     [Fact]
     public async Task Bootstrap_IsIdempotent()
     {
-        var service = ServiceOrSkip();
+        using var service = ServiceOrSkip();
         if (service is null) { return; }
 
         await service.EnsureBootstrappedAsync();
@@ -45,7 +45,7 @@ public sealed class SpiceDbIntegrationTests
     [Fact]
     public async Task ForwardChecks_MatchCatalogExpectations()
     {
-        var service = ServiceOrSkip();
+        using var service = ServiceOrSkip();
         if (service is null) { return; }
 
         await service.EnsureBootstrappedAsync();
@@ -61,7 +61,7 @@ public sealed class SpiceDbIntegrationTests
     public async Task BlankEndpoint_FailsClosed_WithClearMessage()
     {
         // This one does not need a server: it asserts the fail-closed behaviour when Endpoint is blank.
-        var service = new SpiceDbCheckService(Options.Create(new SpiceDbOptions { Endpoint = "" }));
+        using var service = new SpiceDbCheckService(Options.Create(new SpiceDbOptions { Endpoint = "" }));
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.EnsureBootstrappedAsync());
         Assert.Contains("Endpoint", ex.Message);
