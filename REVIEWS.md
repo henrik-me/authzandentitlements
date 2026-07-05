@@ -802,6 +802,17 @@ review policy above. Each bullet cites its source `LRN-NNN`.
   the thread with a rationale** (the `review-threads-resolved` gate needs threads resolved, not
   zero comments) rather than pushing another commit and re-spinning the review+engage cycle
   (LRN-063).
+- **Converging a multi-fix, security-sensitive PR under the Copilot + review-evidence gates needs
+  a disciplined loop per fix push:** (1) re-request Copilot
+  (`gh pr edit --add-reviewer copilot-pull-request-reviewer` or `harness copilot-engage <pr>`) for
+  the new HEAD; (2) wait ~5–7 min — Copilot is slow, does NOT auto-re-review on push, and its
+  review must be ON the current HEAD; (3) append a fresh independent GPT-5.5 `## Review log` row
+  with `analyzed_head == HEAD`; (4) resolve ALL threads — fix genuine findings, reply-and-resolve
+  false re-flags pointing at the shipped fix; (5) re-run the stale `read-only-gates` /
+  `review-threads-resolved` runs (thread resolution + PR-body edits don't always auto-trigger
+  them). BATCH fixes into fewer commits to minimize rounds, and treat Copilot as a serious
+  reviewer — on CS21 it caught a real integrity-masking bypass, a retention-vs-review bug, and a
+  CWE-117 log-forging vector — so budget the wall-clock (LRN-068).
 
 ### CI review-evidence gates
 
