@@ -5,7 +5,7 @@
 **Branch:** —
 **Started:** —
 **Closed:** —
-**Filed by:** yoga-ae-c2 on 2026-07-05 — harvest of open learnings LRN-079/080 (both `source_cs: CS50`, `category: tooling`), whose own dispositions already flagged them as CONVENTIONS.md candidates "at the next harvest". State-of-world probe (2026-07-05): the current on-disk max CS id is 50; `docs/file-planned-cs51-*` (sibling remote branch) and CS52 (filed in this same harvest) are ahead, so CS53 was chosen with margin above the live filing race.
+**Filed by:** yoga-ae-c2 on 2026-07-05 — harvest of open learnings LRN-079/080 (both `source_cs: CS50`, `category: tooling`), whose own dispositions already flagged them as CONVENTIONS.md candidates "at the next harvest". State-of-world probe (2026-07-05): the current on-disk max CS id is 50; `docs/file-planned-cs51-*` (sibling remote branch) and CS54 (the PDP-adapter CS filed in this same harvest, renumbered from CS52) are ahead, so CS53 was chosen with margin above the live filing race.
 **Depends on:** none
 
 ## Goal

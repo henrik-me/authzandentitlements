@@ -176,7 +176,7 @@ logs.
 - Any future cleartext-gRPC adapter (CS46 Keto/Topaz) must set the switch in an early static ctor
   and reject `https://`; a green offline suite does NOT prove the live gRPC path works.
 
-**Disposition:** **open** — filed into **CS52** (`project/clickstops/planned/planned_cs52_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS52 closes.
+**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
 
 ### LRN-073
 
@@ -206,7 +206,7 @@ log ("lowercased gRPC metadata key (authorization)").
 - Any gRPC adapter using metadata / `CallCredentials` (CS46 Keto/Topaz) must lowercase every
   metadata key.
 
-**Disposition:** **open** — filed into **CS52** (`project/clickstops/planned/planned_cs52_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS52 closes.
+**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
 
 ### LRN-074
 
@@ -242,7 +242,7 @@ returns null when `outputs.Count != 1`, so a multi-rule activation fails closed,
 - When adding any full-decision engine (CS46 Topaz OPA bundle), enumerate every way the engine
   output can be unknown / empty / ambiguous and fail each closed, with explicit tests.
 
-**Disposition:** **open** — filed into **CS52** (`project/clickstops/planned/planned_cs52_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS52 closes.
+**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
 
 ### LRN-075
 
@@ -313,7 +313,7 @@ Docker-free and green while a documented local run validates the CI-invisible su
   against a pinned container; treat a green offline suite as necessary-but-insufficient for
   out-of-process engines.
 
-**Disposition:** **open** — filed into **CS52** (`project/clickstops/planned/planned_cs52_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS52 closes.
+**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
 
 ## Applied
 

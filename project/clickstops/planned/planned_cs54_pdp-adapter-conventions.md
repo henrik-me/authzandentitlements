@@ -1,11 +1,11 @@
-# CS52 — Codify out-of-process PDP adapter safety conventions
+# CS54 — Codify out-of-process PDP adapter safety conventions
 
 **Status:** planned
 **Owner:** —
 **Branch:** —
 **Started:** —
 **Closed:** —
-**Filed by:** yoga-ae-c2 on 2026-07-05 — harvest of open learnings LRN-072/073/074/076 (all `source_cs: CS26`, `claim_area: pdp-adapters`), surfaced while dispositioning the open-learnings backlog. State-of-world probe (2026-07-05): the current on-disk max CS id is 50; `docs/file-planned-cs51-*` is in flight on a sibling remote branch, so CS52 was chosen with margin above the live filing race.
+**Filed by:** yoga-ae-c2 on 2026-07-05 — harvest of open learnings LRN-072/073/074/076 (all `source_cs: CS26`, `claim_area: pdp-adapters`), surfaced while dispositioning the open-learnings backlog. State-of-world probe (2026-07-05): the on-disk max CS id was 50 and `docs/file-planned-cs51-*` was in flight, so this was originally filed as CS52; **renumbered to CS54** on 2026-07-05 after a concurrent sibling (yoga-ae-c3) merged a different CS52 (`product-eval-refactor-and-coverage`) to `main`.
 **Depends on:** none
 
 ## Goal
@@ -41,12 +41,13 @@ Consolidate the four recurring **out-of-process / full-decision PDP engine-adapt
 |---|---|---|---|---|---|---|---|
 | R1 | GPT-5.5 | Claude Opus 4.8 | rubber-duck dispatched (cs52-plan-review) | 179f2e6bf885 | 2026-07-05T17:22:00Z | Go-with-amendments | Decision #5 over-generalized reason-parity to ReBAC adapters; split full-decision (Decision+reason) vs ReBAC (schema/relationship) test parity. |
 | R2 | GPT-5.5 | Claude Opus 4.8 | rubber-duck dispatched (cs52-plan-review-r2) | 2b4533cf305e | 2026-07-05T17:33:00Z | Go | R1 resolved: Decision #5 now separates full-decision Decision+reason parity from ReBAC schema/seed/check semantics; no new inconsistency. |
+| R3 | GPT-5.5 | Claude Opus 4.8 | rubber-duck dispatched (cs54-plan-review-r3) | 971c73de7040 | 2026-07-05T19:03:00Z | Go | Renumber CS52→CS54 (concurrent sibling CS52 collision); Decisions byte-identical, Deliverables only decouple the CS-number ref; body consistent. |
 
 ## Deliverables
 
 - `docs/authz/pdp-contract.md` gains an **"Out-of-process engine adapter safety"** section documenting all four patterns — (a) the h2c `AppContext` switch placement + `https://` fail-closed rejection + URI/scheme validation, (b) lowercase gRPC metadata / `CallCredentials` keys + an offline casing regression test, (c) the full-decision fail-closed response-mapping checklist (unknown obligation → deny; no-output → `ProviderUnavailable`; ambiguous → deny), and (d) the env-gated `<ENGINE>_TEST_ENDPOINT` soft-skip integration-test convention against a pinned container — each with a worked-example citation to the shipped SpiceDb/Cerbos adapter (by concept, not line number).
 - `CONVENTIONS.md` `conventions.project` local block gains a short **"PDP engine adapters"** entry pointing at the new `pdp-contract.md` section (discoverable index; edited only between the `harness:local-start id=conventions.project` / `harness:local-end` markers).
-- `LEARNINGS.md`: LRN-072, LRN-073, LRN-074, and LRN-076 flip to `status: applied` at this CS's close-out, each `**Disposition:**` citing this CS and the merge commit. (They stay `open`, linked to CS52, until then.)
+- `LEARNINGS.md`: LRN-072, LRN-073, LRN-074, and LRN-076 flip to `status: applied` at this CS's close-out, each `**Disposition:**` citing this CS and the merge commit. (They stay `open`, linked to this CS, until then.)
 - No code changes; the full solution stays green (`dotnet build` + `dotnet test`), and `harness lint` passes (including the text-encoding gate — LF/no-BOM).
 
 ## User-approval gates
