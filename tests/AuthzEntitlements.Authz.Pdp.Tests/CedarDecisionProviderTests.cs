@@ -313,8 +313,12 @@ public sealed class CedarDecisionProviderTests
         var factory = provider.GetRequiredService<AuthorizationDecisionProviderFactory>();
         var active = factory.GetActiveProvider();
 
+        // CS45: the cedar engine does not declare ISupportsExtendedAuthorizationContext, so the factory
+        // wraps it in the fail-closed ExtendedContextGuardProvider. Selection is unchanged (Name still
+        // "cedar"); the resolved instance is the guard whose Inner is the concrete cedar adapter.
         Assert.Equal("cedar", active.Name);
-        Assert.IsType<CedarDecisionProvider>(active);
+        var guard = Assert.IsType<ExtendedContextGuardProvider>(active);
+        Assert.IsType<CedarDecisionProvider>(guard.Inner);
     }
 
     // CS16 explainability: beyond Decision + reason code, the adapter surfaces a normalized

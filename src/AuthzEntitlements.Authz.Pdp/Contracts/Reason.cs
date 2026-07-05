@@ -45,4 +45,16 @@ public static class ReasonCodes
     // absent-but-required, expired, or does not match this manager (Subject) -> delegate (Actor).
     // Fail-closed: any of those conditions denies rather than silently permitting.
     public const string DelegationNotActive = "DelegationNotActive";
+
+    // CS45 extended-authorization fail-closed guard: a request carries CS19/CS21 extended-context
+    // (Subject.Actor on-behalf-of, Context.Delegation, or Context.BreakGlass) but the selected engine
+    // does NOT declare ISupportsExtendedAuthorizationContext — so it cannot honour those constraints.
+    // AuthorizationDecisionProviderFactory wraps every non-capable provider in the
+    // ExtendedContextGuardProvider, which denies with this code rather than forwarding a request the
+    // engine would evaluate by the human subject alone (a fail-OPEN on an engine swap). It is
+    // DELIBERATELY distinct from any provider-local "ProviderUnavailable"/"EngineUnavailable" code and
+    // MUST NOT contain the substring "unavailable": PlaygroundFanoutService classifies deny reasons
+    // containing "unavailable" as an engine OUTAGE and excludes them from its all-agree verdict, but
+    // this is a deliberate, correct semantic boundary — a genuine deny, not an outage.
+    public const string ExtendedContextUnsupported = "ExtendedContextUnsupported";
 }

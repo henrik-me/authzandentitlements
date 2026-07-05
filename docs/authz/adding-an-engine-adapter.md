@@ -76,6 +76,21 @@ with a `ProviderUnavailable`-style reason), and [cedar-adapter.md](cedar-adapter
 [OpenFGA](../../src/AuthzEntitlements.Authz.Pdp/Providers/OpenFga/OpenFgaProvider.cs) for the
 native/ReBAC cases. Do not leak transport or policy internals in the deny message.
 
+**Extended-authorization context (OBO / delegation / break-glass) is fail-closed *for* you.** By
+default your engine is treated as **not** supporting the CS19/CS21 extended context. The
+[`AuthorizationDecisionProviderFactory`](../../src/AuthzEntitlements.Authz.Pdp/Providers/AuthorizationDecisionProviderFactory.cs)
+wraps every provider that does not declare
+[`ISupportsExtendedAuthorizationContext`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/ISupportsExtendedAuthorizationContext.cs)
+in a fail-closed guard that **denies** any request carrying `Subject.Actor`, `Context.Delegation`, or
+`Context.BreakGlass` with the distinct reason `ExtendedContextUnsupported` — so a delegation-unaware
+engine can never silently weaken an on-behalf-of decision into a fail-open. The guard sits at the
+factory seam, so it protects the enforced path **and** the shadow / what-if / playground surfaces
+alike; you write **no per-adapter code** for it (and you should not re-implement it inside the adapter).
+**Opt in only when your engine natively honours** OBO, delegation, and break-glass — i.e. it constrains
+the decision to the human/actor intersection, honours grant expiry, and never elevates an integrity
+invariant — by implementing the marker interface. See the
+[PDP contract's extended-authorization boundary](pdp-contract.md#extended-authorization-fail-closed-boundary).
+
 ### 4. Register in `AddPdp` — keep the default deterministic
 
 Register the provider in
@@ -153,6 +168,7 @@ natively and mapping it back onto `AccessDecision`.
 | 6 | Prove parity | Catalog-parity test green across all 22 scenarios; explanation + audit hooks attached. |
 | 7 | Validate before trust | `shadow/catalog` `allAgree`; golden snapshot / policy version unchanged. |
 | 8 | Worked example | Started from the smallest existing adapter (Casbin / ASP.NET) or a full-decision template (Cedar / OPA). |
+| 9 | Extended-auth opt-in | Left unmarked (the factory guard fails `Subject.Actor` / `Context.Delegation` / `Context.BreakGlass` closed with `ExtendedContextUnsupported`) **unless** the engine natively honours OBO / delegation / break-glass, in which case it implements `ISupportsExtendedAuthorizationContext`. |
 
 ## See also
 
