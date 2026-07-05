@@ -1,0 +1,292 @@
+@page "/break-glass"
+@rendermode RenderMode.InteractiveServer
+@using AuthzEntitlements.Bank.Web.ViewModels
+@inject IPdpClient Pdp
+@inject IGovernanceClient Governance
+
+@* Interactive Server showcase for CS21 break-glass emergency elevation. For each demo scenario a
+   button (1) evaluates the base action against the live PDP and sees it DENIED for a missing
+   capability, (2) issues a bounded, auto-expiring break-glass grant via the Governance.Service, and
+   (3) re-evaluates the SAME action with the grant in context and sees it elevated to a Permit carrying
+   BreakGlassInvoked + the mandatory require_break_glass_review obligation. Break-glass NEVER overrides
+   an integrity invariant (tenant isolation, maker-checker / SoD). The grant lifecycle section below
+   lists every grant and drives the mandatory post-review. The PDP and governance grant endpoints are
+   anonymous in this lab, so no token / HttpContext is needed. Request authoring + decision mapping live
+   in BreakGlassModel so they are unit-testable offline; this component only wires clients + renders.
+   Fail-closed: a null decision renders as Deny. *@
+
+<PageTitle>Break-glass (emergency elevation)</PageTitle>
+
+<h1>Break-glass — emergency elevation</h1>
+
+<p>
+    Break-glass is a <strong>bounded, auto-expiring emergency elevation</strong>. When a base decision
+    is denied for a <strong>missing capability</strong> (<code>MissingScope</code> or
+    <code>RoleNotAuthorized</code>), an active, matching break-glass grant raises it to a
+    <strong>Permit</strong> carrying reason <code>BreakGlassInvoked</code> and the mandatory
+    <code>require_break_glass_review</code> obligation. It is <strong>heightened-audited</strong>
+    (Warning-level, with the grant id) and <strong>time-boxed</strong>. It <em>never</em> overrides an
+    integrity invariant — tenant isolation, maker-checker / segregation of duties, subject-is-maker, or
+    pending-status all still deny even under an active grant.
+</p>
+
+@for (var i = 0; i < BreakGlassModel.Scenarios.Count; i++)
+{
+    var scenario = BreakGlassModel.Scenarios[i];
+    var state = _states[i];
+    <div class="notice" role="group" aria-label="@scenario.Title">
+        <h2>@scenario.Title</h2>
+        <p>@scenario.Explanation</p>
+        <p class="hint">
+            Subject <code>@scenario.User.Id</code> · action <code>@scenario.Action</code> ·
+            duration @scenario.DurationMinutes min
+        </p>
+        <button type="button" class="button" @onclick="() => RunAsync(scenario, state)"
+                disabled="@state.Busy">
+            @(state.Busy ? "Working…" : "Evaluate, issue break-glass, re-evaluate")
+        </button>
+
+        @if (state.Error is not null)
+        {
+            <p class="notice" role="alert">@state.Error</p>
+        }
+
+        @if (state.Base is not null && state.Elevated is not null)
+        {
+            <table class="grid">
+                <thead>
+                    <tr><th>Path</th><th>Verdict</th><th>Reason</th><th>Obligations</th><th>Message</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Base (no grant)</td>
+                        <td>@state.Base.Verdict</td>
+                        <td>@state.Base.ReasonCode</td>
+                        <td>@Obligations(state.Base)</td>
+                        <td>@state.Base.Message</td>
+                    </tr>
+                    <tr>
+                        <td>With break-glass</td>
+                        <td>@state.Elevated.Verdict</td>
+                        <td>@state.Elevated.ReasonCode</td>
+                        <td>@Obligations(state.Elevated)</td>
+                        <td>@state.Elevated.Message</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            @if (state.Elevated.RequiresBreakGlassReview)
+            {
+                <p class="hint"><strong>Heightened audit + mandatory review.</strong> This permit carries
+                    <code>require_break_glass_review</code>: the elevation is logged at Warning level with
+                    its grant id and MUST be reviewed after the fact (see the queue below). The grant
+                    auto-expires — no background sweeper flips it.</p>
+            }
+        }
+
+        @if (state.Grant is not null)
+        {
+            <p class="hint">Issued grant <code>@state.Grant.Id</code> · status
+                <strong>@state.Grant.Status</strong> · expires @state.Grant.ExpiresAt.ToString("u").</p>
+        }
+    </div>
+}
+
+<h2>Break-glass grant lifecycle &amp; mandatory review</h2>
+<p class="hint">Every emergency grant must be reviewed. A grant becomes <em>pending review</em> once it
+    has auto-expired without a review; a reviewer records who reviewed it and the outcome. Reviewing a
+    grant twice is rejected (409).</p>
+
+<button type="button" class="button" @onclick="LoadGrantsAsync" disabled="@_loadingGrants">
+    @(_loadingGrants ? "Loading…" : "Refresh grants")
+</button>
+
+@if (_reviewOutcomeMessage is not null)
+{
+    <p class="notice" role="@(_reviewSucceeded ? "status" : "alert")">@_reviewOutcomeMessage</p>
+}
+
+@if (_grants.Count == 0)
+{
+    <p class="notice">No break-glass grants yet. This can also mean the governance service is
+        unavailable (fail-closed).</p>
+}
+else
+{
+    <table class="grid">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Principal</th>
+                <th>Action</th>
+                <th>Status</th>
+                <th>Expires</th>
+                <th>Reviewed by</th>
+                <th>Outcome</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var grant in _grants)
+            {
+                <tr class="@(grant.RequiresReview ? "pending" : null)">
+                    <td><code>@grant.Id</code></td>
+                    <td>@grant.PrincipalId</td>
+                    <td><code>@grant.Action</code></td>
+                    <td>@grant.Status</td>
+                    <td>@grant.ExpiresAt.ToString("u")</td>
+                    <td>@(string.IsNullOrWhiteSpace(grant.ReviewedBy) ? "—" : grant.ReviewedBy)</td>
+                    <td>@(string.IsNullOrWhiteSpace(grant.ReviewOutcome) ? "—" : grant.ReviewOutcome)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (_reviewable.Count == 0)
+    {
+        <p class="notice">No grants are awaiting review.</p>
+    }
+    else
+    {
+        <h3>Record a review</h3>
+        <p>
+            <label>Grant<br />
+                <select @bind="_reviewGrantId">
+                    <option value="@Guid.Empty">— select a grant to review —</option>
+                    @foreach (var grant in _reviewable)
+                    {
+                        <option value="@grant.Id">@grant.Id — @grant.PrincipalId (@grant.Status)</option>
+                    }
+                </select>
+            </label>
+        </p>
+        <p>
+            <label>Reviewed by<br />
+                <input @bind="_reviewedBy" placeholder="user-compliance1" />
+            </label>
+        </p>
+        <p>
+            <label>Outcome<br />
+                <input @bind="_reviewOutcome" placeholder="approved" />
+            </label>
+        </p>
+        <button type="button" class="button" @onclick="ReviewAsync" disabled="@_reviewing">
+            @(_reviewing ? "Submitting…" : "Submit review")
+        </button>
+    }
+}
+
+@code {
+    private sealed class ScenarioState
+    {
+        public bool Busy { get; set; }
+        public BreakGlassModel.DecisionView? Base { get; set; }
+        public BreakGlassModel.DecisionView? Elevated { get; set; }
+        public BreakGlassGrantResponse? Grant { get; set; }
+        public string? Error { get; set; }
+    }
+
+    // Parallel to BreakGlassModel.Scenarios by position (index-keyed, so it never throws even if two
+    // scenarios share a display Title and needs no stable id).
+    private readonly List<ScenarioState> _states =
+        BreakGlassModel.Scenarios.Select(_ => new ScenarioState()).ToList();
+
+    private IReadOnlyList<BreakGlassGrantResponse> _grants = [];
+    private IReadOnlyList<BreakGlassGrantResponse> _reviewable = [];
+    private bool _loadingGrants;
+
+    private Guid _reviewGrantId;
+    private string _reviewedBy = string.Empty;
+    private string _reviewOutcome = string.Empty;
+    private bool _reviewing;
+    private bool _reviewSucceeded;
+    private string? _reviewOutcomeMessage;
+
+    private static string Obligations(BreakGlassModel.DecisionView view) =>
+        view.Obligations.Count == 0 ? "—" : string.Join(", ", view.Obligations);
+
+    private async Task RunAsync(BreakGlassModel.Scenario scenario, ScenarioState state)
+    {
+        state.Busy = true;
+        state.Error = null;
+        try
+        {
+            // (a) base decision — denied for a missing capability.
+            var baseDecision = await Pdp.EvaluateAsync(BreakGlassModel.BuildBaseRequest(scenario));
+            state.Base = BreakGlassModel.ToView(baseDecision);
+
+            // (b) issue the bounded, auto-expiring break-glass grant.
+            var issued = await Governance.IssueBreakGlassAsync(BreakGlassModel.BuildIssueRequest(scenario));
+            if (!issued.IsSuccess || issued.Value is null)
+            {
+                state.Elevated = null;
+                state.Grant = null;
+                state.Error = $"Could not issue break-glass grant ({issued.StatusCode}): {issued.Error}";
+                return;
+            }
+
+            state.Grant = issued.Value;
+
+            // (c) re-evaluate the SAME action with the grant in context and the injected decision clock.
+            var elevated = await Pdp.EvaluateAsync(
+                BreakGlassModel.BuildBreakGlassRequest(scenario, issued.Value, DateTimeOffset.UtcNow));
+            state.Elevated = BreakGlassModel.ToView(elevated);
+
+            await LoadGrantsAsync();
+        }
+        finally
+        {
+            state.Busy = false;
+        }
+    }
+
+    private async Task LoadGrantsAsync()
+    {
+        _loadingGrants = true;
+        try
+        {
+            _grants = await Governance.GetBreakGlassGrantsAsync();
+            // A grant becomes reviewable only after its window ends: the store rejects reviewing an
+            // active grant (mandatory post-review), so the reviewable set is the pending-review queue
+            // (expired-and-unreviewed), not every not-yet-reviewed grant.
+            _reviewable = await Governance.GetBreakGlassPendingReviewAsync();
+        }
+        finally
+        {
+            _loadingGrants = false;
+        }
+    }
+
+    private async Task ReviewAsync()
+    {
+        if (_reviewGrantId == Guid.Empty
+            || string.IsNullOrWhiteSpace(_reviewedBy)
+            || string.IsNullOrWhiteSpace(_reviewOutcome))
+        {
+            _reviewSucceeded = false;
+            _reviewOutcomeMessage = "Select a grant and provide both a reviewer and an outcome.";
+            return;
+        }
+
+        _reviewing = true;
+        try
+        {
+            var result = await Governance.ReviewBreakGlassAsync(
+                _reviewGrantId, new ReviewBreakGlassRequest(_reviewedBy.Trim(), _reviewOutcome.Trim()));
+            _reviewSucceeded = result.IsSuccess;
+            _reviewOutcomeMessage = result.IsSuccess
+                ? $"Review recorded for grant {_reviewGrantId}."
+                : $"Review failed ({result.StatusCode}): {result.Error}";
+
+            if (result.IsSuccess)
+            {
+                _reviewGrantId = Guid.Empty;
+                _reviewOutcome = string.Empty;
+                await LoadGrantsAsync();
+            }
+        }
+        finally
+        {
+            _reviewing = false;
+        }
+    }
+}

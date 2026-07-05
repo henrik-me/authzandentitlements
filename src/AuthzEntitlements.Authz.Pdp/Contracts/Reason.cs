@@ -32,4 +32,17 @@ public static class ReasonCodes
     // The agent can never exceed the user, and it must additionally hold the delegated capability —
     // this code is the reason it is denied when it does not.
     public const string DelegationScopeMissing = "DelegationScopeMissing";
+
+    // CS21 break-glass emergency elevation: a base Deny for a MISSING CAPABILITY (MissingScope or
+    // RoleNotAuthorized) was raised to a Permit by an active, matching break-glass grant. The permit
+    // carries the RequireBreakGlassReview obligation (mandatory post-review). It is NEVER produced for
+    // an integrity denial — break-glass grants a missing capability, it does not bypass tenant
+    // isolation or segregation of duties.
+    public const string BreakGlassInvoked = "BreakGlassInvoked";
+
+    // CS21 manager->delegate delegation: an on-behalf-of request whose Actor is otherwise permitted
+    // (it holds the delegated scope) is denied because the delegation grant in context is
+    // absent-but-required, expired, or does not match this manager (Subject) -> delegate (Actor).
+    // Fail-closed: any of those conditions denies rather than silently permitting.
+    public const string DelegationNotActive = "DelegationNotActive";
 }

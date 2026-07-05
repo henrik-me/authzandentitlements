@@ -28,4 +28,13 @@ public sealed record PdpDecisionAuditEvent(
     // optional fields the Audit.Service tolerates.
     string SubjectType = "user",
     string? ActorId = null,
-    string? ActorType = null);
+    string? ActorType = null,
+    // CS21 break-glass heightened audit: BreakGlass is true ONLY when this decision was an ACTUAL
+    // break-glass elevation (a BreakGlassInvoked permit), not merely when a grant was present;
+    // BreakGlassGrantId names the invoked grant on such a permit; DelegationId names any
+    // manager->delegate grant carried in context. Additive with defaults so every existing positional
+    // construction keeps compiling and the forwarded JSON simply gains optional fields — CS13's
+    // Audit.Service hash-chain/schema is untouched (it tolerates extra fields).
+    bool BreakGlass = false,
+    string? BreakGlassGrantId = null,
+    string? DelegationId = null);

@@ -33,7 +33,8 @@ CS11 delivers the governance **service and its lifecycle**:
 Out of scope for CS11 (owned by later clickstops):
 
 - **Break-glass, delegation, and on-behalf-of** access — a later clickstop (CS21). ARCHITECTURE.md
-  lists them under `Governance.Service`, but they are **not** part of CS11.
+  lists them under `Governance.Service`, but they are **not** part of CS11. Now shipped in CS21 — see
+  the [break-glass & delegation runbook](break-glass-and-delegation-runbook.md).
 - **Bank.Api enforcement of governance grants** — CS11 ships the service and the grant lifecycle;
   wiring `Bank.Api` to treat an active grant as effective elevation at request time is deferred to a
   later clickstop.

@@ -1,0 +1,288 @@
+@page "/delegation"
+@rendermode RenderMode.InteractiveServer
+@using AuthzEntitlements.Bank.Web.ViewModels
+@inject IPdpClient Pdp
+@inject IGovernanceClient Governance
+
+@* Interactive Server showcase for CS21 manager->delegate delegation (reusing the CS19 on-behalf-of
+   seam). For the demo scenario a button (1) creates a bounded manager->delegate delegation grant via
+   the Governance.Service, then evaluates the SAME action three ways against the live PDP: as the
+   manager directly (Actor = null, no grant), via the delegate under the ACTIVE grant (Permit), and via
+   the delegate after the grant has auto-expired (denied DelegationNotActive — demonstrated by advancing
+   the injected decision clock past expiry). The effective decision is manager-rights AND delegate-scope
+   AND an active, matching grant. The grant lifecycle section lists delegations and drives revocation.
+   The PDP + governance endpoints are anonymous, so no token / HttpContext is needed. Request authoring +
+   decision mapping live in DelegationModel so they are unit-testable offline; this component only wires
+   clients + renders. Fail-closed: a null decision renders as Deny. *@
+
+<PageTitle>Delegation (manager → delegate)</PageTitle>
+
+<h1>Delegation — manager → delegate</h1>
+
+<p>
+    A manager can delegate a bounded capability to a delegate who then acts <strong>on behalf of</strong>
+    the manager. The decision is the <strong>intersection</strong> of three checks: the manager's own
+    rights (base), the delegate's delegated <code>agent.bank.*</code> scope (the CS19 OBO constraint),
+    and an <strong>active, matching</strong> delegation grant (manager = subject, delegate = actor,
+    not expired). Remove or expire the grant and the delegate is denied <code>DelegationNotActive</code>
+    — fail-closed. An emergency break-glass elevation on the base does <em>not</em> remove these OBO
+    constraints; the delegate still needs the delegated scope and an active grant.
+</p>
+
+@for (var i = 0; i < DelegationModel.Scenarios.Count; i++)
+{
+    var scenario = DelegationModel.Scenarios[i];
+    var state = _states[i];
+    <div class="notice" role="group" aria-label="@scenario.Title">
+        <h2>@scenario.Title</h2>
+        <p>@scenario.Explanation</p>
+        <p class="hint">
+            Manager <code>@scenario.Manager.Id</code> · delegate <code>@scenario.Delegate.Id</code> ·
+            delegated scopes <code>@string.Join(", ", scenario.Delegate.DelegatedScopes)</code> ·
+            duration @scenario.DurationMinutes min
+        </p>
+        <button type="button" class="button" @onclick="() => RunAsync(scenario, state)"
+                disabled="@state.Busy">
+            @(state.Busy ? "Working…" : "Create delegation, evaluate all paths")
+        </button>
+
+        @if (state.Error is not null)
+        {
+            <p class="notice" role="alert">@state.Error</p>
+        }
+
+        @if (state.ManagerDirect is not null && state.DelegateActive is not null && state.DelegateExpired is not null)
+        {
+            <table class="grid">
+                <thead>
+                    <tr><th>Path</th><th>Verdict</th><th>Reason</th><th>Message</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Manager (direct)</td>
+                        <td>@state.ManagerDirect.Verdict</td>
+                        <td>@state.ManagerDirect.ReasonCode</td>
+                        <td>@state.ManagerDirect.Message</td>
+                    </tr>
+                    <tr>
+                        <td>Delegate (active grant)</td>
+                        <td>@state.DelegateActive.Verdict</td>
+                        <td>@state.DelegateActive.ReasonCode</td>
+                        <td>@state.DelegateActive.Message</td>
+                    </tr>
+                    <tr>
+                        <td>Delegate (after grant expiry)</td>
+                        <td>@state.DelegateExpired.Verdict</td>
+                        <td>@state.DelegateExpired.ReasonCode</td>
+                        <td>@state.DelegateExpired.Message</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            @if (state.DelegateExpired.IsDelegationNotActive)
+            {
+                <p class="hint"><strong>Auto-expiry, fail-closed.</strong> The third path reuses the same
+                    grant but advances the injected decision clock one second past its expiry — the PDP
+                    denies <code>DelegationNotActive</code> with no wall-clock wait and no background
+                    sweeper.</p>
+            }
+        }
+
+        @if (state.Grant is not null)
+        {
+            <p class="hint">Created grant <code>@state.Grant.Id</code> · status
+                <strong>@state.Grant.Status</strong> · expires @state.Grant.ExpiresAt.ToString("u").</p>
+        }
+    </div>
+}
+
+<h2>Delegation grant lifecycle</h2>
+<p class="hint">Delegation grants are bounded and can be revoked early. Revoking a grant twice is
+    rejected (409). A revoked or expired grant is not passed into the PDP context, so the delegate loses
+    the borrowed capability.</p>
+
+<button type="button" class="button" @onclick="LoadGrantsAsync" disabled="@_loadingGrants">
+    @(_loadingGrants ? "Loading…" : "Refresh delegations")
+</button>
+
+@if (_revokeMessage is not null)
+{
+    <p class="notice" role="@(_revokeSucceeded ? "status" : "alert")">@_revokeMessage</p>
+}
+
+@if (_grants.Count == 0)
+{
+    <p class="notice">No delegation grants yet. This can also mean the governance service is
+        unavailable (fail-closed).</p>
+}
+else
+{
+    <table class="grid">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Manager</th>
+                <th>Delegate</th>
+                <th>Scopes</th>
+                <th>Status</th>
+                <th>Expires</th>
+                <th>Revoked by</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var grant in _grants)
+            {
+                <tr>
+                    <td><code>@grant.Id</code></td>
+                    <td>@grant.ManagerId</td>
+                    <td>@grant.DelegateId</td>
+                    <td><code>@string.Join(", ", grant.Scopes)</code></td>
+                    <td>@grant.Status</td>
+                    <td>@grant.ExpiresAt.ToString("u")</td>
+                    <td>@(string.IsNullOrWhiteSpace(grant.RevokedBy) ? "—" : grant.RevokedBy)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (_revocable.Count == 0)
+    {
+        <p class="notice">No active delegations to revoke.</p>
+    }
+    else
+    {
+        <h3>Revoke a delegation</h3>
+        <p>
+            <label>Delegation<br />
+                <select @bind="_revokeGrantId">
+                    <option value="@Guid.Empty">— select an active delegation —</option>
+                    @foreach (var grant in _revocable)
+                    {
+                        <option value="@grant.Id">@grant.Id — @grant.ManagerId → @grant.DelegateId</option>
+                    }
+                </select>
+            </label>
+        </p>
+        <p>
+            <label>Revoked by<br />
+                <input @bind="_revokedBy" placeholder="user-compliance1" />
+            </label>
+        </p>
+        <button type="button" class="button" @onclick="RevokeAsync" disabled="@_revoking">
+            @(_revoking ? "Revoking…" : "Revoke delegation")
+        </button>
+    }
+}
+
+@code {
+    private sealed class ScenarioState
+    {
+        public bool Busy { get; set; }
+        public DelegationModel.DecisionView? ManagerDirect { get; set; }
+        public DelegationModel.DecisionView? DelegateActive { get; set; }
+        public DelegationModel.DecisionView? DelegateExpired { get; set; }
+        public DelegationGrantResponse? Grant { get; set; }
+        public string? Error { get; set; }
+    }
+
+    // Parallel to DelegationModel.Scenarios by position (index-keyed).
+    private readonly List<ScenarioState> _states =
+        DelegationModel.Scenarios.Select(_ => new ScenarioState()).ToList();
+
+    private IReadOnlyList<DelegationGrantResponse> _grants = [];
+    private IReadOnlyList<DelegationGrantResponse> _revocable = [];
+    private bool _loadingGrants;
+
+    private Guid _revokeGrantId;
+    private string _revokedBy = string.Empty;
+    private bool _revoking;
+    private bool _revokeSucceeded;
+    private string? _revokeMessage;
+
+    private async Task RunAsync(DelegationModel.Scenario scenario, ScenarioState state)
+    {
+        state.Busy = true;
+        state.Error = null;
+        try
+        {
+            // Manager acting directly — the base right, no delegation.
+            var managerDirect = await Pdp.EvaluateAsync(DelegationModel.BuildManagerDirectRequest(scenario));
+            state.ManagerDirect = DelegationModel.ToView(managerDirect);
+
+            // Create the bounded manager->delegate grant.
+            var created = await Governance.CreateDelegationAsync(DelegationModel.BuildCreateRequest(scenario));
+            if (!created.IsSuccess || created.Value is null)
+            {
+                state.DelegateActive = null;
+                state.DelegateExpired = null;
+                state.Grant = null;
+                state.Error = $"Could not create delegation ({created.StatusCode}): {created.Error}";
+                return;
+            }
+
+            state.Grant = created.Value;
+
+            // Delegate under the ACTIVE grant (clock = now) — permitted.
+            var active = await Pdp.EvaluateAsync(
+                DelegationModel.BuildDelegateRequest(scenario, created.Value, DateTimeOffset.UtcNow));
+            state.DelegateActive = DelegationModel.ToView(active);
+
+            // Delegate after the grant has auto-expired (clock advanced past expiry) — DelegationNotActive.
+            var expired = await Pdp.EvaluateAsync(
+                DelegationModel.BuildDelegateRequest(
+                    scenario, created.Value, DelegationModel.JustAfterExpiry(created.Value)));
+            state.DelegateExpired = DelegationModel.ToView(expired);
+
+            await LoadGrantsAsync();
+        }
+        finally
+        {
+            state.Busy = false;
+        }
+    }
+
+    private async Task LoadGrantsAsync()
+    {
+        _loadingGrants = true;
+        try
+        {
+            _grants = await Governance.GetDelegationsAsync();
+            _revocable = _grants.Where(g => g.Active).ToList();
+        }
+        finally
+        {
+            _loadingGrants = false;
+        }
+    }
+
+    private async Task RevokeAsync()
+    {
+        if (_revokeGrantId == Guid.Empty || string.IsNullOrWhiteSpace(_revokedBy))
+        {
+            _revokeSucceeded = false;
+            _revokeMessage = "Select an active delegation and provide a revoker.";
+            return;
+        }
+
+        _revoking = true;
+        try
+        {
+            var result = await Governance.RevokeDelegationAsync(
+                _revokeGrantId, new RevokeDelegationRequest(_revokedBy.Trim()));
+            _revokeSucceeded = result.IsSuccess;
+            _revokeMessage = result.IsSuccess
+                ? $"Delegation {_revokeGrantId} revoked."
+                : $"Revoke failed ({result.StatusCode}): {result.Error}";
+
+            if (result.IsSuccess)
+            {
+                _revokeGrantId = Guid.Empty;
+                await LoadGrantsAsync();
+            }
+        }
+        finally
+        {
+            _revoking = false;
+        }
+    }
+}

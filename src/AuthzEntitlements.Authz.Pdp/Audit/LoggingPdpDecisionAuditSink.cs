@@ -8,12 +8,19 @@ namespace AuthzEntitlements.Authz.Pdp.Audit;
 public sealed class LoggingPdpDecisionAuditSink(ILogger<LoggingPdpDecisionAuditSink> logger)
     : IPdpDecisionAuditSink
 {
-    public void Record(PdpDecisionAuditEvent decisionEvent) =>
-        logger.LogInformation(
+    public void Record(PdpDecisionAuditEvent decisionEvent)
+    {
+        // Heightened audit: a real break-glass elevation is logged at Warning so it stands out in the
+        // trail; every normal decision stays at Information. BreakGlass is emitted as a structured
+        // property (queryable) alongside the invoked grant id and any delegation grant id.
+        var level = decisionEvent.BreakGlass ? LogLevel.Warning : LogLevel.Information;
+        logger.Log(
+            level,
             "PDP decision {Decision} ({Reason}) provider={Provider} action={Action} " +
             "resource={ResourceType}/{ResourceId} subject={SubjectId} subjectType={SubjectType} " +
             "actorType={ActorType} actorId={ActorId} tenant={Tenant} " +
             "rule={DeterminingRule} policyReferences={PolicyReferences} narrative={Narrative} " +
+            "breakGlass={BreakGlass} breakGlassGrant={BreakGlassGrantId} delegation={DelegationId} " +
             "trace={TraceId} at {TimestampUtc}",
             Clean(decisionEvent.Decision),
             Clean(decisionEvent.Reason),
@@ -29,8 +36,12 @@ public sealed class LoggingPdpDecisionAuditSink(ILogger<LoggingPdpDecisionAuditS
             Clean(decisionEvent.DeterminingRule),
             Clean(string.Join(" | ", decisionEvent.PolicyReferences)),
             Clean(decisionEvent.Narrative),
+            decisionEvent.BreakGlass,
+            Clean(decisionEvent.BreakGlassGrantId),
+            Clean(decisionEvent.DelegationId),
             Clean(decisionEvent.TraceId),
             decisionEvent.TimestampUtc);
+    }
 
     // Strip CR/LF from EVERY rendered string value before it reaches the log line, so no
     // request- or engine-derived field (e.g. an untrusted subject/actor id or type from the

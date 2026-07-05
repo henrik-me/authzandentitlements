@@ -100,3 +100,64 @@ public sealed record ReviewCampaignResponse(
     ReviewItemResponse[] Items);
 
 public sealed record CampaignRunResponse(Guid CampaignId, int ItemsCreated);
+
+// ---- CS21: break-glass + delegation grant lifecycle ----
+
+// Body for POST /break-glass. Action is the bank action class the emergency grant covers
+// (e.g. "bank.transaction.create"); DurationMinutes must be positive.
+public sealed record IssueBreakGlassRequest(
+    string PrincipalId,
+    string TenantCode,
+    string Action,
+    string Justification,
+    int DurationMinutes);
+
+// Body for POST /break-glass/{id}/review — records the mandatory post-review. Outcome is a
+// free-form disposition label (e.g. "approved" / "rejected").
+public sealed record ReviewBreakGlassRequest(string ReviewedBy, string Outcome);
+
+// Body for POST /delegations. Scopes are the delegated agent.bank.* capability scopes;
+// DurationMinutes must be positive.
+public sealed record CreateDelegationRequest(
+    string ManagerId,
+    string DelegateId,
+    string TenantCode,
+    IReadOnlyList<string> Scopes,
+    int DurationMinutes);
+
+// Body for POST /delegations/{id}/revoke.
+public sealed record RevokeDelegationRequest(string RevokedBy);
+
+// A break-glass grant projection. Active is IsActive(now); RequiresReview is true once the
+// grant has expired without a review; Status is the derived lifecycle label ("active",
+// "pending-review", or "reviewed") so a caller sees expiry + the review obligation enforced at
+// read time without a background sweeper.
+public sealed record BreakGlassGrantDto(
+    Guid Id,
+    string PrincipalId,
+    string TenantCode,
+    string Action,
+    string Justification,
+    DateTimeOffset GrantedAt,
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset? ReviewedAt,
+    string? ReviewedBy,
+    string? ReviewOutcome,
+    bool Active,
+    bool RequiresReview,
+    string Status);
+
+// A delegation grant projection. Active is IsActive(now); Status is the derived lifecycle
+// label ("active", "expired", or "revoked").
+public sealed record DelegationGrantDto(
+    Guid Id,
+    string ManagerId,
+    string DelegateId,
+    string TenantCode,
+    string[] Scopes,
+    DateTimeOffset GrantedAt,
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset? RevokedAt,
+    string? RevokedBy,
+    bool Active,
+    string Status);

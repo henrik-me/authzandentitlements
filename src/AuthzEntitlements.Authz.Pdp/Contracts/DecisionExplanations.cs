@@ -22,6 +22,8 @@ public static class DecisionExplanations
         ReasonCodes.SodConflict => DeterminingRules.SegregationOfDuties, // CS11 governance SoD
         ReasonCodes.UnknownAction => DeterminingRules.UnknownAction,
         ReasonCodes.DelegationScopeMissing => DeterminingRules.DelegationScope, // CS19 OBO delegation
+        ReasonCodes.BreakGlassInvoked => DeterminingRules.BreakGlass,           // CS21 break-glass elevation
+        ReasonCodes.DelegationNotActive => DeterminingRules.Delegation,         // CS21 manager->delegate grant
         "NoRelationship" => DeterminingRules.Relationship,     // RebacReasonCodes.NoRelationship
         _ => DeterminingRules.EngineUnavailable,               // ProviderUnavailable/EngineUnavailable/boundary
     };

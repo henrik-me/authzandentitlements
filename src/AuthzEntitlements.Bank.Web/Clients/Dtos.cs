@@ -179,6 +179,67 @@ public sealed record ApproveRequestBody(string ApproverId);
 
 public sealed record RejectRequestBody(string ApproverId, string? Reason);
 
+// ---- Governance.Service CS21 break-glass + delegation DTOs (mirror Governance.Service/Contracts/Dtos.cs) ----
+
+// Body for POST /api/governance/break-glass. Action is the bank action class the emergency grant
+// covers (e.g. "bank.account.read"); DurationMinutes must be positive.
+public sealed record IssueBreakGlassRequest(
+    string PrincipalId,
+    string TenantCode,
+    string Action,
+    string Justification,
+    int DurationMinutes);
+
+// Body for POST /api/governance/break-glass/{id}/review — records the mandatory post-review.
+// Outcome is a free-form disposition label (e.g. "approved" / "rejected").
+public sealed record ReviewBreakGlassRequest(string ReviewedBy, string Outcome);
+
+// Body for POST /api/governance/delegations. Scopes are the delegated agent.bank.* capability
+// scopes the delegate may exercise on the manager's behalf; DurationMinutes must be positive.
+public sealed record CreateDelegationRequest(
+    string ManagerId,
+    string DelegateId,
+    string TenantCode,
+    IReadOnlyList<string> Scopes,
+    int DurationMinutes);
+
+// Body for POST /api/governance/delegations/{id}/revoke.
+public sealed record RevokeDelegationRequest(string RevokedBy);
+
+// A break-glass grant projection (mirror Governance.Service BreakGlassGrantDto). Active is
+// IsActive(now); RequiresReview is true once the grant has expired without a review; Status is the
+// derived lifecycle label ("active", "pending-review", or "reviewed") so a caller sees expiry + the
+// mandatory-review obligation enforced at read time.
+public sealed record BreakGlassGrantResponse(
+    Guid Id,
+    string PrincipalId,
+    string TenantCode,
+    string Action,
+    string Justification,
+    DateTimeOffset GrantedAt,
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset? ReviewedAt,
+    string? ReviewedBy,
+    string? ReviewOutcome,
+    bool Active,
+    bool RequiresReview,
+    string Status);
+
+// A delegation grant projection (mirror Governance.Service DelegationGrantDto). Active is
+// IsActive(now); Status is the derived lifecycle label ("active", "expired", or "revoked").
+public sealed record DelegationGrantResponse(
+    Guid Id,
+    string ManagerId,
+    string DelegateId,
+    string TenantCode,
+    string[] Scopes,
+    DateTimeOffset GrantedAt,
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset? RevokedAt,
+    string? RevokedBy,
+    bool Active,
+    string Status);
+
 // ---- Authz.Pdp native AuthZEN contract (mirror Authz.Pdp/Contracts/*.cs) ----
 
 public sealed record PdpSubjectDto(
@@ -208,7 +269,43 @@ public sealed record PdpResourceDto(
     string? MakerId = null,
     string? Status = null);
 
-public sealed record PdpContextDto(IReadOnlyList<string> Scopes);
+// CS21 (break-glass / delegation) extends the AuthZEN context ADDITIVELY, mirroring the PDP
+// Authz.Pdp/Contracts/EvaluationContext.cs shape EXACTLY so System.Text.Json (which binds by
+// property name) round-trips the request into the PDP unchanged: an optional break-glass
+// emergency-elevation grant, an optional manager->delegate delegation grant, and the injected
+// decision clock (Now) the PDP uses as the single source of "the current time" for expiry. All
+// three are trailing defaulted members, so every existing positional new PdpContextDto(scopes)
+// keeps compiling and the human/no-context wire shape is byte-identical.
+public sealed record PdpContextDto(
+    IReadOnlyList<string> Scopes,
+    PdpBreakGlassGrantDto? BreakGlass = null,
+    PdpDelegationGrantDto? Delegation = null,
+    DateTimeOffset? Now = null);
+
+// A break-glass emergency-elevation grant carried on PdpContextDto.BreakGlass, mirroring the PDP
+// Authz.Pdp/Contracts/BreakGlassGrant.cs shape (GrantId, SubjectId, Action, ExpiresAt,
+// Justification) by property name. The PDP raises a base Deny for a MISSING CAPABILITY
+// (MissingScope / RoleNotAuthorized) to a Permit only when this grant names the request's subject
+// and action and has not expired against Context.Now — it never overrides an integrity invariant.
+public sealed record PdpBreakGlassGrantDto(
+    string GrantId,
+    string SubjectId,
+    string Action,
+    DateTimeOffset ExpiresAt,
+    string Justification);
+
+// A manager->delegate delegation grant carried on PdpContextDto.Delegation, mirroring the PDP
+// Authz.Pdp/Contracts/DelegationGrant.cs shape (GrantId, ManagerId, DelegateId, ExpiresAt, Scopes) by
+// property name. When present the PDP additionally requires it to be active and matching (ManagerId ==
+// Subject.Id, DelegateId == Actor.Id, Now < ExpiresAt) AND the action's required scope to be present in
+// Scopes (the manager's grant bounds the delegate, distinct from the Actor's own token) on top of the
+// CS19 OBO intersection, else it denies DelegationNotActive / DelegationScopeMissing.
+public sealed record PdpDelegationGrantDto(
+    string GrantId,
+    string ManagerId,
+    string DelegateId,
+    DateTimeOffset ExpiresAt,
+    IReadOnlyList<string> Scopes);
 
 public sealed record PdpAccessRequestDto(
     PdpSubjectDto Subject,
