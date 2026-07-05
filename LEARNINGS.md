@@ -251,6 +251,28 @@ Docker-free and green while a documented local run validates the CI-invisible su
 
 ## Applied
 
+### LRN-077
+
+```yaml
+id: LRN-077
+date: 2026-07-05
+category: process
+source_cs: CS40
+status: applied
+tags: [branch-protection, ruleset, merge-gates, bypass, review-evidence, copilot-review, dependabot]
+claim_area: ci-merge-gating
+```
+
+**Problem:** After branch protection was added, even a fully-green PR could not merge without admin bypass, so 100% of merges routed through admin override — defeating the "not bypassed" goal — despite the ruleset already having required status checks + a `pull_request` rule.
+
+**Finding:** The root cause was the ruleset's **`update` ("Restrict updates") rule** — a bare `{"type":"update"}` rule that lets *only bypass actors* update matching refs, making every non-admin merge to `main` impossible. **Removing `update`** (while keeping the `pull_request` rule + required checks, which already block direct pushes) restored bypass-free merges without permitting direct pushes; rule-suite results flipped `bypass` → `pass`. Two coupled lessons: (1) **never add a bare `update`/`creation` ruleset rule** if you want PR-based bypass-free merges — it locks the ref to bypass-actors-only. (2) **Enforce Copilot review via the `copilot-review-attached` required *status check*, not the `copilot_code_review` ruleset rule**: Copilot only ever submits *COMMENTED* reviews (never *APPROVED*), so a hard `copilot_code_review` rule deadlocks every PR into bypass. Operating under the resulting required review-evidence gates follows **LRN-068**'s loop, with one refinement: the reliable way to (re-)request Copilot on the current HEAD is the REST call `gh api repos/<o>/<r>/pulls/<n>/requested_reviewers -X POST -f "reviewers[]=copilot-pull-request-reviewer[bot]"` (the GraphQL `gh pr edit --add-reviewer "…[bot]"` can fail with "Could not resolve user").
+
+**Evidence:** CS40 — ruleset `push to main` (id 18513457) required checks = [`build-test`, `structural-gate`, `read-only-gates`, `copilot-review-attached`, `independence-invariant`]; `update` + `copilot_code_review` + `code_coverage` + `code_quality` removed; Admin-only bypass; thread-resolution on. PRs #143 (policy doc), #145 (WORKBOARD), #148 (close-out) all merged **bypass-free** — rule-suite for merge commit `9e1c7b…` = `pass`, not bypass. Policy: `docs/ci/review-pr-hardening.md`.
+
+**Implications carried forward:** This delivers the required-status-check enforcement that deferred **LRN-035** / **LRN-040** were awaiting (`build-test` is now required-to-merge). Durable harness-side gaps hit while enforcing the gates are tracked upstream: `agent-harness` **#496** (`structural-gate` managed/composed drift on Dependabot GitHub-Actions bumps to managed workflows), **#497** (`review-gates` should auto-rerun `copilot-review-attached` via a `pull_request_review` trigger), and corroborated **#393** (port `review-gates` bot-author/fork skip-reasons).
+
+**Disposition:** **Applied by CS40** (content PR #143, close-out #148, 2026-07-05). Residual harness fixes tracked upstream (#496, #497, #393); the deferred CI-enforcement learnings LRN-035/040 are now satisfiable and can be flipped `deferred → applied` at the next harvest.
+
 ### LRN-003
 
 ```yaml
