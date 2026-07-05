@@ -1,6 +1,6 @@
 # CS54 — Codify out-of-process PDP adapter safety conventions
 
-**Status:** planned
+**Status:** active
 **Owner:** —
 **Branch:** —
 **Started:** —
@@ -72,7 +72,20 @@ Consolidate the four recurring **out-of-process / full-decision PDP engine-adapt
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| (populated at claim time per § Claim) | planned | — | — |
+| Add the "Out-of-process engine adapter safety" section to `docs/authz/pdp-contract.md` — all four patterns (h2c `AppContext` switch placement + `https://` fail-closed rejection + URI/scheme validation; lowercase gRPC metadata/`CallCredentials` keys + offline casing regression test; full-decision fail-closed response-mapping checklist; env-gated `<ENGINE>_TEST_ENDPOINT` soft-skip integration test), each with a concept-anchored worked-example citation to the shipped SpiceDb/Cerbos adapter | pending | yoga-ae | Documentation-only (Decision #6). Cite by file + concept, never line number (Decision #7). |
+| Add a short "PDP engine adapters" pointer entry to the `CONVENTIONS.md` `conventions.project` local block (edit only between the `harness:local-start id=conventions.project` / `harness:local-end` markers) | pending | yoga-ae | Discoverable index pointing at the new `pdp-contract.md` section (Decision #1). |
+| Validate: `dotnet build` + `dotnet test` stay green (no code changes) and `harness lint` passes (text-encoding gate — LF / no-BOM) | pending | yoga-ae | Exit criteria. |
+| Close-out: docs + restart state | pending | yoga-ae | Update `WORKBOARD.md` + `CONTEXT.md` so a fresh agent can restart from the actual state (conventions codified in `pdp-contract.md`, pointer in `CONVENTIONS.md`). |
+| Close-out: learnings + follow-ups | pending | yoga-ae | Flip LRN-072/073/074/076 to `status: applied` in `LEARNINGS.md`, each `**Disposition:**` citing this CS + the merge commit; file any residual learnings. |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae |
+| Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
 
