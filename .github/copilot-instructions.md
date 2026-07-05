@@ -53,14 +53,14 @@ and escalate — do not fix it in-band.
 JSON schemas in `schemas/` define the canonical shape of every harness
 artefact. If your deliverable conflicts with a schema, fix the deliverable,
 not the schema, unless the CS plan explicitly assigns you a schema change.
-Run `npx -y github:henrik-me/agent-harness#v0.16.0 sync --mode=check` (validates your config against the
-schema) and `npx -y github:henrik-me/agent-harness#v0.16.0 lint` to confirm conformance before reporting
+Run `npx -y github:henrik-me/agent-harness#v0.17.0 sync --mode=check` (validates your config against the
+schema) and `npx -y github:henrik-me/agent-harness#v0.17.0 lint` to confirm conformance before reporting
 back.
 
 ### 5 — Mandatory briefing preamble (orchestrator-side)
 
-The orchestrator MUST paste the canonical sub-agent briefing preamble (defined
-in `OPERATIONS.md § Mandatory briefing preamble`) verbatim into every sub-agent
+The orchestrator MUST paste the canonical sub-agent briefing preamble (emitted
+by `npx -y github:henrik-me/agent-harness#v0.17.0 dispatch` from the harness-owned `DISPATCH-PREAMBLE.md`) verbatim into every sub-agent
 prompt, including small or "obvious" ones. Reference is not enough — verbatim
 paste is the discipline that prevents process steps from being forgotten.
 Sub-agents should reject (or surface as a learning candidate) any dispatch
@@ -190,7 +190,7 @@ PR-body linting and any other harness-registered checks. If `harness` is not
 on the PATH, invoke it via:
 
 ```
-npx -y github:henrik-me/agent-harness#v0.16.0 lint
+npx -y github:henrik-me/agent-harness#v0.17.0 lint
 ```
 
 ---

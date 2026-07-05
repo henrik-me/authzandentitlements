@@ -145,15 +145,28 @@ Every CS produces exactly three PRs in sequence:
 
 **Auto-merge branch patterns.** A `workboard-only`-labelled PR auto-merges only
 when its branch matches one of `cs<NN>/(claim|close|close-out)`,
-`workboard/cs<NN>-(claim|close|close-out)`, or `docs/file-planned-cs<NN>(-<slug>)?`
-(the planned-CS filing PR), where `<NN>` is the CS number plus an optional
-lowercase suffix letter (e.g. `cs64b`). A workboard-scoped PR whose branch does
-**not** match — notably a `workboard/cs<NN>-pause` PR — should still carry the
-`workboard-only` label (so the review-evidence gates skip), but its
-`validate-and-approve` job then **fails** the branch-name check, so an admin must
-squash-merge it (`gh pr merge <n> --admin --squash`). Match an eligible pattern
-exactly (the filing branch is `docs/file-planned-cs<NN>…`, not `docs/file-cs<NN>…`)
-to keep auto-merge.
+`workboard/cs<NN>-(claim|close|close-out)`, `docs/file-planned-cs<NN>(-<slug>)?`
+(the planned-CS filing PR), or `workboard/maint-[A-Za-z0-9][A-Za-z0-9._-]*` (an
+ad-hoc workboard-allowlist maintenance PR — see below), where `<NN>` is the CS
+number plus an optional lowercase suffix letter (e.g. `cs64b`). A workboard-scoped
+PR whose branch does **not** match — notably a `workboard/cs<NN>-pause` PR —
+should still carry the `workboard-only` label (so the review-evidence gates skip),
+but its `validate-and-approve` job then **fails** the branch-name check, so an
+admin must squash-merge it (`gh pr merge <n> --admin --squash`). Match an eligible
+pattern exactly (the filing branch is `docs/file-planned-cs<NN>…`, not
+`docs/file-cs<NN>…`) to keep auto-merge.
+
+**Maintenance-PR branch pattern.** The `workboard/maint-<name>` pattern
+(`workboard/maint-[A-Za-z0-9][A-Za-z0-9._-]*`) covers ad-hoc workboard-allowlist
+**maintenance** PRs — a standalone `CONTEXT.md` or `LEARNINGS.md` correction, say
+— that are not claim/close/close-out or CS-filing PRs and so would otherwise fail
+the branch-name check. It is deliberately bounded: anchored and slash-free (the
+character class after `maint-` excludes `/`, so it cannot broaden into a
+`workboard/*` wildcard), and it requires at least one name character after
+`maint-`. The `is_allowed()` path allowlist still constrains **which** files such
+a PR may change, so a `workboard/maint-context-typo` PR that touches only
+allowlisted paths auto-merges like a claim/close PR while the auto-approve surface
+stays tightly bounded.
 
 Every active/done CS file must include explicit `## Tasks` rows for:
 
@@ -190,15 +203,24 @@ unless its basename is declared in an optional `.harness-closeout-allow-drop` fi
 **What:** move a planned CS into flight — run the preflight + harvest gate, cut
 the `cs<NN>/claim` branch, `git mv` the CS file `planned → active`, and add the
 WORKBOARD Active Work row. **When:** at the start of a CS, from an up-to-date
-`main`, before any implementation work. **How:** run `npx -y github:henrik-me/agent-harness#v0.16.0 claim CS<NN>`
+`main`, before any implementation work. **How:** run `npx -y github:henrik-me/agent-harness#v0.17.0 claim CS<NN>`
 (dry-run by default; `--apply` executes the branch cut + rename + WORKBOARD
 edit). It NEVER commits and NEVER pushes — you own the commit message
 (`Claim CS<NN>` with the `Co-authored-by: Copilot` trailer) and the
 `workboard-only`-labelled claim PR (user reviews; squash-merge — see
 [§ Three-PR shape](#three-pr-shape)). The full preflights and executable steps
-live in `npx -y github:henrik-me/agent-harness#v0.16.0 claim --help`; use the directory form for
+live in `npx -y github:henrik-me/agent-harness#v0.17.0 claim --help`; use the directory form for
 artifact-bearing CSs (see
 [TRACKING.md § Clickstop lifecycle](TRACKING.md#clickstop-lifecycle)).
+
+**Opening the claim PR — label at creation (CS71).** Open the workboard-only
+claim PR with `--label workboard-only` supplied in the `gh pr create` command
+itself: `gh pr create --base main --label workboard-only --title "..." --body-file ...`.
+Do **not** add the label post-hoc via `gh pr edit --add-label` — that fires a
+separate `labeled` event and creates a race (PR #305 green vs PR #306 red on
+the same command; see CS71 Background). Since CS71, evidence gates are also
+**path-derived** (a correctly-shaped workboard PR is green without the label),
+but the label is **still required** for `workboard-auto-approve.yml` to auto-merge.
 
 ### Pre-claim harvest gate (CS04+)
 
@@ -213,7 +235,7 @@ before the workboard-claim PR lands.
 Before claiming any CS, verify no strategic planning content lives outside
 the canonical `project/clickstops/{planned,active,done}/**` arc:
 
-1. Run `npx -y github:henrik-me/agent-harness#v0.16.0 lint` — must exit 0 (it includes the
+1. Run `npx -y github:henrik-me/agent-harness#v0.17.0 lint` — must exit 0 (it includes the
    planning-locality check).
 2. If the orchestrator's session-state plan file (`~/.copilot/session-state/<id>/plan.md`)
    contains anything beyond (a) which CS this session is currently executing
@@ -229,7 +251,7 @@ the canonical `project/clickstops/{planned,active,done}/**` arc:
    **Scope clarification (CS55 / LRN-137):** C35-13 applies to the
    harness repo only. Cross-repo handoff issues filed into OTHER
    repositories (e.g. `henrik-me/sub-invaders`) are governed by Hard
-   Rule § 6 in `INSTRUCTIONS.md` / `.github/copilot-instructions.md`
+   Rule § 6 in `INSTRUCTIONS.md` / `.github/copilot-instructions.md` *(if your consumer syncs them)*
    and the `## Cross-repo procedures` section below. In those repos,
    the orchestrator MUST file an issue (rather than commit/push/PR
    directly) and is expected to create exactly one tracking issue
@@ -244,6 +266,14 @@ preflight: it refuses to proceed unless the active CS file's
 rename and the WORKBOARD row removal, and refuses to mark the close-out
 PR-ready until `CONTEXT.md` has also been updated (freshness gate). The
 verb NEVER commits — you own the commit message and the PR.
+
+**Opening the close-out PR — label at creation (CS71).** Same rule as the claim
+PR: open with `--label workboard-only` in the `gh pr create` command itself;
+do **not** add it post-hoc via `gh pr edit --add-label` (that fires a separate
+`labeled` event and creates the same race as the claim PR). Since CS71, evidence
+gates are also **path-derived** (a correctly-shaped close-out PR is green without
+the label), but the label is **still required** for `workboard-auto-approve.yml`
+to auto-merge.
 
 This gate is **mandatory** before opening the close-out PR and before
 the `active → done` rename. Run it against the merged content HEAD (or the
@@ -521,24 +551,45 @@ Example Active Work row for a downstream hotfix:
 
 #### Workboard-only PR admin-bypass fallback
 
-Consumer repos that have not installed the G3 workboard GitHub App may instead
-configure a per-repo secret named `WORKBOARD_MERGE_TOKEN`. The token should be
-a fine-grained PAT with repository permissions `contents: write` and
-`pull-requests: write`; the token owner must also be allowed to bypass the
-`main-protection` ruleset (typically by being a `RepositoryAdmin` bypass actor,
-per [LRN-080](LEARNINGS.md#lrn-080)). If you manage ruleset bypass actors via
-`gh`/API, refresh your local auth first with `gh auth refresh -s admin:org`;
-otherwise create the fine-grained PAT in GitHub's developer settings UI and add
-it to the consumer repo as the `WORKBOARD_MERGE_TOKEN` Actions secret.
+**The zero-secret default is maintainer admin-override.** The sanctioned way to
+merge a `workboard-only` PR — whether or not its branch matched an auto-merge
+pattern — is for a maintainer to squash-merge it directly with
+`gh pr merge <n> --admin --squash`. This needs **no** secret, App, or PAT — but
+it does require the repo's `main-protection` ruleset to grant repo admins an
+explicit bypass actor (`actor_type: RepositoryRole`, `actor_id: 5`,
+`bypass_mode: always`); GitHub rulesets do **not** exempt admins automatically
+(per [LRN-080](LEARNINGS.md#lrn-080)). The self-host ruleset carries this bypass;
+the harness-generated minimal ruleset (`minimalReviewRuleset()` /
+`infra/main-protection-ruleset.json`) ships with `bypass_actors: []`, so a
+consumer that wants this zero-secret admin path must first add the repo-admin
+bypass to its `main-protection` ruleset (verify with
+`gh api repos/<owner>/<repo>/rulesets/<id>`). The `validate-and-approve` workflow only
+*auto-approves* eligible PRs — it is a convenience, not a prerequisite for
+merging. Treat the App/PAT automation below as **optional** — worthwhile for
+higher-volume or multi-maintainer setups that want hands-off merges — not as a
+required or intended path.
 
-The fallback degrades gracefully. When the secret is absent, the workflow keeps
-running the label/branch/actor/path validation and then either uses the existing
-GitHub App path (if `WORKBOARD_BOT_APP_ID` + `WORKBOARD_BOT_PRIVATE_KEY` are
-configured) or logs `validation-only` so the owner knows a manual admin merge is
-still required. The PAT cannot expand the workboard-only surface: the workflow
-uses it only after the same actor allowlist, same-repository, immutable-head,
-and path-allowlist gates pass, and the admin merge re-checks the PR head plus
-reported non-workboard status checks before invoking `gh pr merge --admin`.
+Consumer repos that want that hands-off automation but have not installed the G3
+workboard GitHub App may instead configure a per-repo secret named
+`WORKBOARD_MERGE_TOKEN`. The token should be a fine-grained PAT with repository
+permissions `contents: write` and `pull-requests: write`; the token owner must
+also be allowed to bypass the `main-protection` ruleset (typically by being a
+`RepositoryAdmin` bypass actor, per [LRN-080](LEARNINGS.md#lrn-080)). If you
+manage ruleset bypass actors via `gh`/API, refresh your local auth first with
+`gh auth refresh -s admin:org`; otherwise create the fine-grained PAT in GitHub's
+developer settings UI and add it to the consumer repo as the
+`WORKBOARD_MERGE_TOKEN` Actions secret.
+
+The automation degrades to that default gracefully. When neither the App nor the
+PAT is configured, the workflow keeps running the label/branch/actor/path
+validation and then either uses the existing GitHub App path (if
+`WORKBOARD_BOT_APP_ID` + `WORKBOARD_BOT_PRIVATE_KEY` are configured) or logs
+`validation-only` — signalling that the maintainer finishes the merge with the
+zero-secret admin-override above. The PAT cannot expand the workboard-only
+surface: the workflow uses it only after the same actor allowlist,
+same-repository, immutable-head, and path-allowlist gates pass, and the admin
+merge re-checks the PR head plus reported non-workboard status checks before
+invoking `gh pr merge --admin`.
 
 ---
 
@@ -580,7 +631,7 @@ If you need to leave a CS mid-flight:
 This section governs orchestrator behaviour when work crosses the boundary
 of `henrik-me/agent-harness` into other repositories (e.g. consumer repos
 such as `henrik-me/sub-invaders`). It is the operational complement to
-Hard Rule § 6 in `INSTRUCTIONS.md` / `.github/copilot-instructions.md`.
+Hard Rule § 6 in `INSTRUCTIONS.md` / `.github/copilot-instructions.md` *(if your consumer syncs them)*.
 
 ### Handoff pattern: issue-only, never direct PR
 
@@ -615,7 +666,7 @@ the `sub-invaders-bootstrap-summary.md` misrouting
 3. If no tracking issue exists, idempotently create exactly ONE issue
    per workstream using the procedure below.
 
-**Issue-creation procedure (idempotent, non-mutating to consumer labels):**
+**Issue-creation procedure (idempotent, non-destructive / non-overwriting (no `--force`)):**
 
 1. **Pre-create existence check (idempotency guard).** Before creating,
    search for an existing tracking issue in the target repo to avoid
@@ -681,9 +732,9 @@ the `sub-invaders-bootstrap-summary.md` misrouting
    - **Acceptance criteria:** how the consumer agent will know the
      work is complete.
    - **Verification steps:** which harness checks / lint commands to
-     run on the consumer side (e.g. `npx -y github:henrik-me/agent-harness#v0.16.0 lint`).
+     run on the consumer side (e.g. `npx -y github:henrik-me/agent-harness#v0.17.0 lint`).
    - **Relevant LRNs / docs:** links to applicable `LEARNINGS.md`
-     entries and the harness `OPERATIONS.md` / `INSTRUCTIONS.md`
+     entries and the harness `OPERATIONS.md` / `INSTRUCTIONS.md` *(if your consumer syncs it)*
      sections that govern the handoff.
    - **Harness PR / tag links:** the merged harness PR and tag (if
      any) that supply the artefact the consumer will adopt.
@@ -882,9 +933,10 @@ structured report**. Both requirements are non-negotiable — without them the
 orchestrator loses observability and the work loses traceability.
 
 `harness dispatch` (CS64) emits the canonical sub-agent briefing preamble
-verbatim from this document's [§ Mandatory briefing preamble](#mandatory-briefing-preamble-copy-verbatim-into-every-dispatch)
-fence (the CRITICAL PREFLIGHT block + File ownership + Required reading +
-Conventions + Self-checks + Reporting independence + Mandatory report shape).
+verbatim from the harness-owned managed [`DISPATCH-PREAMBLE.md`](DISPATCH-PREAMBLE.md)
+(see [§ Mandatory briefing preamble](#mandatory-briefing-preamble-copy-verbatim-into-every-dispatch)) —
+the CRITICAL PREFLIGHT block + File ownership + Required reading +
+Conventions + Self-checks + Reporting independence + Mandatory report shape.
 Paste its output as the first thing in every sub-agent prompt to satisfy the
 "verbatim paste, not reference" discipline that LRN-068 captures. The verb is
 deterministic and read-only.
@@ -937,8 +989,8 @@ standardization in [LRN-021](LEARNINGS.md#lrn-021).
 
 List paths explicitly — do not say "read whatever you need":
 
-- `INSTRUCTIONS.md`, `CONVENTIONS.md`, the active CS file, the cs-plan.
-- All ADRs in `docs/adr/` that touch the deliverables area. When briefing
+- `INSTRUCTIONS.md` *(if your consumer syncs it)*, `CONVENTIONS.md`, the active CS file, the cs-plan.
+- All ADRs that touch the deliverables area. When briefing
   a schema-author sub-agent, cross-check every ADR: ADR constraints
   frequently exceed what the cs-plan deliverables list restates (validated
   in [LRN-007](LEARNINGS.md#lrn-007) — omitting ADR 0002 cost three sub-agents a re-dispatch cycle).
@@ -1071,7 +1123,7 @@ source of drift between what a sub-agent reports and what lands on disk.
 
 ### Mandatory briefing preamble (copy verbatim into every dispatch)
 
-The orchestrator MUST paste the block below verbatim into every sub-agent
+The orchestrator MUST paste the canonical preamble block verbatim into every sub-agent
 dispatch prompt — including small or seemingly "obvious" ones. This is not
 a style preference; it is the discipline that prevents individual requirements
 (preflight SHA recording, BOM check, file-ownership scope, report-shape
@@ -1091,6 +1143,14 @@ scope** (agent role, CS, exact owned files, what NOT to touch), **Required
 reading** (explicit paths for this CS), **Deliverables**, **Decision
 authority**, and any additional task-specific conventions. Do not modify the
 pasted block itself.
+
+The preamble text itself is **not** duplicated in this document. It is the
+harness-owned managed file [`DISPATCH-PREAMBLE.md`](DISPATCH-PREAMBLE.md), from
+which `npx -y github:henrik-me/agent-harness#v0.17.0 dispatch` machine-extracts and emits it verbatim (CS86
+C86-2). Run `npx -y github:henrik-me/agent-harness#v0.17.0 dispatch` and paste the emitted block — do not
+hand-copy or reconstruct it. Per-language variants are emitted by
+`npx -y github:henrik-me/agent-harness#v0.17.0 dispatch --language-profile <name>` (see § Language profiles
+below).
 
 ### Subcommand authoring: never `git checkout` the consumer working repo ([LRN-124](LEARNINGS.md#lrn-124))
 
@@ -1121,297 +1181,32 @@ Any new subcommand that reaches a git ref is covered automatically: the CS47
 bisection enumerates the live `COMMAND_REGISTRY`, so a new subcommand that is
 neither exercised nor allow-listed (with rationale) fails the suite.
 
-```text
-## CRITICAL PREFLIGHT (LRN-021)
-
-1. Run `git log --oneline -1` NOW and record the SHA. Include it in your
-   report as `PREFLIGHT SHA: <sha>`.
-2. You MUST NOT commit, push, rebase, reset, `git add`, or `gh pr ...` at
-   any point. The orchestrator commits at CS end.
-3. At the end of your work, re-run `git log --oneline -1`. It MUST equal
-   the preflight SHA. Include it as `FINAL SHA: <sha>`.
-4. Run `git status --short` and include the output in your report. Only
-   your owned files should appear; nothing must be staged.
-5. State literally in your report: "No commit was created."
-
-## File ownership (LRN-016)
-
-OWN EXCLUSIVELY — you may read AND write only the files listed in the
-Identity + scope section of this dispatch. You MUST NOT modify, rename,
-or delete any file outside that list. Curiosity reads (grep/view) are
-fine; writes are not.
-
-Rationale: parallel sub-agents share a working tree. If two agents write
-the same file, the later writer silently overwrites the earlier one's work
-with no error or warning. Non-overlapping ownership is the only safe
-parallel model (validated across CS03 where stubs silently replaced rich
-APIs — see LRN-016).
-
-## Required reading
-
-Read every path listed in the Required reading section of this dispatch.
-Do not infer what to read — only the explicit list counts. "Read what you
-need" produces silent gaps that surface as integration failures later.
-
-## Conventions to follow
-
-- LF line endings, no BOM. After every file write on Windows, normalize:
-  strip BOM if present (first 3 bytes must NOT be 0xEF 0xBB 0xBF), replace
-  \r\n with \n. All content comparisons must normalize in the read step.
-  (LRN-006, LRN-018, LRN-065)
-
-- No dot-notation placeholders (LRN-049). Use flat keys only:
-  `ae` not `{{project.agent_suffix}}`. Dot-notation is not
-  supported by the template engine and will be emitted literally.
-
-- Cross-repo path discipline (LRN-105). When a sub-agent operates in a repo
-  OTHER than the orchestrator's, every path in the briefing must be rooted
-  in the executing repo. For composed-block edits in a consumer repo:
-  edit `<consumer-root>/<file>` between `<​!-- harness:local-start id=X -->`
-  markers, NOT `template/composed/<file>` (that path only exists in the
-  harness repo). Disambiguate any `template/`, `scripts/`, or other
-  directory name that exists in both repos with different semantics.
-
-- Fail-closed parsers (LRN-033). Malformed JSON/YAML/etc → clear error
-  message to stderr + process.exit(1). NEVER silent default. NEVER let a
-  stack trace be the only error signal.
-
-<!-- harness:dispatch-language-conventions -->
-
-## Self-checks before reporting
-
-Run all of the following and include each result in SELF-CHECKS RUN:
-
-1. `git status --short` — only owned files appear; nothing staged.
-2. `git log --oneline -1` — must match preflight SHA.
-3. Text-encoding + line-ending validation (BOM + line endings; LRN-065,
-   LRN-074): `npx -y github:henrik-me/agent-harness#v0.16.0 lint` must exit 0. The encoding check
-   runs as part of the lint aggregate over the whole cwd (not just
-   modified files); it catches CRLF/bare-\r line endings introduced by
-   Windows core.autocrlf or stale editor settings.
-
-<!-- harness:dispatch-language-self-checks -->
-
-## Reporting independence (CS48 / issue #142)
-
-**Self-review carries zero review weight.** Any implementer self-review of
-the diff is a debugging aid, not a review-of-record. The orchestrator MUST
-dispatch a separate reviewer sub-agent (per REVIEWS.md § Phase 2) whose model
-differs from every implementer model used in the CS. The `harness review <pr>` CLI obtains the rubber-duck review; do not
-pre-empt that step or present implementer self-review as review evidence.
-
-Required final report field: `IMPLEMENTER MODEL USED` (the model-id(s)
-materially used for the sub-agent's work), so the orchestrator can update the
-CS sub-agent ledger and the PR-body `## Model audit` table.
-
-## Mandatory report shape
-
-Reports missing any field are rejected; orchestrator re-dispatches with
-missing fields explicitly listed.
-
-    STATUS: complete | partial | blocked
-    PREFLIGHT SHA: <sha>
-    FINAL SHA: <sha>
-    SUMMARY: <one paragraph>
-    IMPLEMENTER MODEL USED: <model-id(s) materially used for this work; used by the CS sub-agent ledger and PR-body ## Model audit>
-    FILES CHANGED:
-      - <path> (created | edited | deleted) — <one-line why> — <line count>
-    SELF-CHECKS RUN:
-      - git status / git log / text-encoding / [other checks]: pass | fail
-    DECISIONS MADE:
-      - <decision> — rationale
-    ESCALATIONS: (none) | <issue> — recommended path
-    LEARNINGS CANDIDATES: (none) | <category>: <problem>: <finding>: <evidence>
-    NEXT STEPS (if partial/blocked):
-      - <what's needed to complete>
-```
-
 #### Language profiles
 
-The `## Conventions to follow` and `## Self-checks before reporting` sections
-inside the core fence above each end with an injection marker
-(`<!-- harness:dispatch-language-conventions -->` /
-`<!-- harness:dispatch-language-self-checks -->`). `harness dispatch` replaces
-each marker with the matching part of the language profile selected by
-`dispatch.language_profile` in `harness.config.json` (default `node`) or the
-`--language-profile <name>` override, so a non-Node consumer (e.g. a .NET
-project) no longer has to negate Node/ESM/npm conventions in every dispatch.
-Each profile below lives in its own ```text fence whose first content line is
-`## LANGUAGE PROFILE: <name>`, split by `<!-- harness:profile-self-checks -->`
-into a conventions part and a self-checks part. The language-agnostic core
-(preflight, file ownership, required reading, fail-closed, report shape) is
-emitted for every profile.
-
-```text
-## LANGUAGE PROFILE: node
-
-### conventions
-
-- ESM `.mjs` only, Node 20+ stdlib. No CommonJS `require()`, no `.cjs`
-  files, no npm dependencies unless explicitly authorized in this dispatch.
-
-- Fresh git worktrees/checkouts need their own `npm install` before running
-  dependency-backed harness linters; `node_modules` is gitignored and
-  per-checkout, not shared from the parent worktree.
-
-- `requireValue(args, i, flagName)` guard for every value-taking CLI flag
-  (LRN-040). Must verify args[i+1] exists AND reject tokens starting with
-  `-`, exiting code 2 + usage message. Bare `if (args[i+1])` silently
-  consumes the next flag as a value.
-
-- Schema is source of truth (LRN-039). Read `schemas/*.schema.json` BEFORE
-  writing any field access against harness.config.json, .harness-lock.json,
-  or any other structured config. Do not guess field names.
-
-- Stdout for success output; stderr for errors and warnings (LRN-044).
-  `--quiet` suppresses success stdout only. Errors always go to stderr.
-
-- Consumer-root-relative paths (LRN-050). Scripts run from the consumer's
-  cwd, not the harness source location. Never use `import.meta.url` or
-  `process.cwd()` to resolve consumer-repo files.
-
-<!-- harness:profile-self-checks -->
-
-### self-checks
-
-4. If tests were added/modified: `node --test` — report count delta
-   (e.g. "23 → 27 tests; all pass").
-5. For any .mjs files authored: `node -c <file>` exits 0.
-6. If template files were modified (anything under `template/`),
-   `npx -y github:henrik-me/agent-harness#v0.16.0 lint` must exit 0 — the lint aggregate includes the
-   templates linter (LRN-049/050/051: no dot-notation placeholders, no
-   relative-up paths, no self-referencing TODO/FIXME tokens in PR-template
-   files).
-```
-
-```text
-## LANGUAGE PROFILE: dotnet
-
-### conventions
-
-- C#/.NET 8+ on the .NET SDK toolchain. A new service or library owns its
-  `.csproj` together with its solution `.sln` entry and, once introduced,
-  `Directory.Packages.props` as a single ownership bundle, so the project
-  file, solution registration, and central-package pins move together
-  (issue #423 / the CS10 Aspire-service ownership finding).
-
-- NuGet central package management: declare each package version once in
-  `Directory.Packages.props` (`<PackageVersion Include="..." Version="..." />`)
-  and reference it from a `.csproj` with a version-less
-  `<PackageReference Include="..." />`. Do not pin versions per project.
-
-- Argument parsing, file layout, and tooling follow .NET/C# idioms rather
-  than the Node-profile equivalents; honor the project's established analyzer
-  settings (nullable reference types, warnings-as-errors) instead of
-  introducing new ones.
-
-- Fail-closed parsing still applies (agnostic doctrine restated for the .NET
-  toolchain): malformed JSON/config → a clear stderr error + non-zero exit,
-  never a silent default.
-
-<!-- harness:profile-self-checks -->
-
-### self-checks
-
-4. `dotnet build` — the affected projects/solution build with no errors.
-5. `dotnet test` — report the pass/fail count (e.g. "42 passed, 0 failed").
-6. `dotnet format --verify-no-changes` — formatting + whitespace conform
-   (non-zero exit if any file would be reformatted).
-```
+Per-language dispatch profiles (`node` default, `dotnet`) live in
+[`DISPATCH-PREAMBLE.md`](DISPATCH-PREAMBLE.md) and are emitted by
+`npx -y github:henrik-me/agent-harness#v0.17.0 dispatch --language-profile <name>`, which splices the
+selected profile's conventions + self-checks into the language-agnostic core.
+`node` is the default (`dispatch.language_profile` in `harness.config.json`, or
+the `--language-profile` override). Run the command and paste the emitted block
+rather than copying the profile text here.
 
 ### Canonical reviewer preamble (CS35 C35-1)
 
-When dispatching a rubber-duck reviewer manually (per [REVIEWS.md § 2.1](REVIEWS.md#21-review-model)),
-the orchestrator MUST paste the block below verbatim into the dispatch.
-For content PRs on CS52+, prefer `harness review <pr>` (see
-[§ Reviewer dispatch via `harness review`](#reviewer-dispatch-via-harness-review-cs52));
-it composes the same guardrailed prompt for the manual MVP. The harness CLI
-still does not call an LLM API; the orchestrator dispatches the emitted prompt
-and paste-protocols the structured reviewer output.
+The canonical rubber-duck reviewer-dispatch preamble is maintained in its
+authoritative home, [REVIEWS.md § 2.9 Canonical reviewer preamble](REVIEWS.md#29-canonical-reviewer-preamble-cs35-c35-1)
+(relocated there in CS86). For content PRs on CS52+, prefer `harness review <pr>`
+(see [§ Reviewer dispatch via `harness review`](#reviewer-dispatch-via-harness-review-cs52));
+it composes the same guardrailed prompt. The harness CLI still does not call an
+LLM API; the orchestrator dispatches the emitted prompt and paste-protocols the
+structured reviewer output.
 
-The block is delimited by sentinel markers so `tests/operations-reviewer-preamble.test.mjs`
-can assert presence and required-field coverage:
-
-<!-- harness:reviewer-preamble:start -->
 ## Reviewer dispatch — canonical preamble
 
-**role:** Independent rubber-duck reviewer for the active CS.
-
-**scope:** Review the diff at the current HEAD against the base branch,
-the active CS file (Decisions, Deliverables, Tasks), the test count delta,
-and any sub-agent reports. Produce findings classified per
-REVIEWS.md § 2.6 (Blocking | Non-blocking | Suggestion). For doc-heavy or
-prose PRs, you MUST ALSO perform fact-claim verification per REVIEWS.md
-§ 2.6a: (F1) every `--flag` mentioned actually exists in `bin/harness.mjs`
-help text, library code, or pass-through `scripts/*.mjs` (e.g.
-`harness review-output` forwards to `scripts/check-review-output.mjs`);
-(F2) every file path mentioned actually exists
-in the tree at this HEAD; (F3) every doctrine-strength claim (`required`,
-`mandatory`, `enforces`, `recommended`, `optional`) matches the cited
-source's wording verbatim or via a documented synonym; (F4) every LRN/CS
-summary stays within the source entry's Problem/Finding scope (no
-generalisation); (F5) cross-doc claims (CHANGELOG vs OPERATIONS vs README
-vs LRN) are mutually consistent. Do NOT issue a Go verdict on a doc PR
-based on diff-internal coherence alone — cross-check claims against the
-shipped surfaces they reference. For changes that add or edit a config or
-schema reader, you MUST ALSO perform schema-conformance verification per
-REVIEWS.md § 2.6b: (S1) the reader requires no field the schema marks
-optional/defaulted; (S2) each default-when-absent matches the schema's
-declared `default` (or a documented divergence); (S3) present-but-malformed
-values fail closed against the schema's `type`/`pattern`/`enum`. For
-**plan reviews** of planned/active CS files (per
-[Plan review attestation procedure (CS35b)](#plan-review-attestation-procedure-cs35b)),
-you MUST ALSO perform plan-side fact-claim verification per REVIEWS.md
-§ 2.6c across **all** reviewer-consumed plan sections (Background,
-Decisions, Deliverables, Sub-agent fan-out, Exit criteria, Risks +
-open questions, and any cross-CS dependencies the plan declares —
-not only the hashed Decisions+Deliverables): (F1) every named `--flag`
-exists (or is explicitly described as not-yet-existing — for plans
-whose deliverables include adding a new flag); (F2) every
-`path:line` citation actually contains what the plan asserts at the
-analyzed HEAD (open the file — line numbers drift across snapshots and
-syncs); (F3) doctrine-strength claims match the cited source verbatim;
-(F4) LRN/CS scope summaries stay within the source entry's scope;
-(F5) cross-doc claims are mutually consistent; (F6) every
-state-of-the-world claim (release/tag/PR/issue/label state) is verified
-via a non-mutating CLI probe (`gh release list --repo <owner>/<repo> --limit N`,
-`gh api repos/<owner>/<repo>/releases --jq 'map(select(.tag_name=="<tag>"))'`
-covering BOTH published and draft, `git ls-remote origin refs/tags/<tag>`,
-`gh pr view <num> --repo <owner>/<repo>`, `gh issue view <num> --repo <owner>/<repo>`,
-`gh label list --repo <owner>/<repo>`) and the probe is recorded
-in the plan's Background or Constraints. Inherited findings (citations
-from other repos, prior snapshots, or earlier CS plans) MUST be
-re-verified against the current HEAD. Do NOT issue a Go verdict on a plan
-based on prose-internal coherence alone.
-
-**independence-invariant:** Your model MUST NOT appear in the active CS file's
-`## Model audit` `Implementer models` field. If it does, refuse the dispatch
-and instruct the orchestrator to escalate per the C35-2 fallback ladder.
-Beyond model independence, agent-identity independence (CS35 C35-18) also
-applies: your GitHub username MUST differ from the implementer agent's.
-
-**model-fallback-ladder (per CS35 C35-2):** GPT-highest-available
-(5.5 → 5.4 → ...) → Claude Sonnet-highest (4.7 → 4.6 → ...) → orchestrator's
-own model (last resort, requires explicit user waiver and is forbidden for
-HIGH-RISK CSs per REVIEWS.md § 2.3).
-
-**output-schema-link:** Your report MUST conform to REVIEWS.md § 2.6
-(Findings taxonomy) and § 2.7 (Finding disposition). For
-plan-vs-implementation reviews, also conform to OPERATIONS.md
-§ Plan-vs-implementation review (close-out gate). Always report a verdict:
-`Go` / `Needs-Fix` / `Block`.
-
-**required-output-fields:** Every plan-vs-implementation review row you (or the orchestrator on your behalf) record in the active CS file's `## Plan-vs-implementation review` table MUST contain these five fields, in this order:
-
-- `model:` the reviewer model identifier (e.g., `gpt-5.5`) — drawn from the C35-2 fallback ladder above; must satisfy the independence invariant against `Implementer models`.
-- `branch HEAD SHA:` the full 40-char SHA you reviewed against. Per CS35 C35-3 stale-diff doctrine, a verdict row whose SHA ≠ current HEAD at merge time is INVALID and forces a re-review (A4 enforces this mechanically in CS36).
-- `R-round:` `R1` / `R2` / `R3`. Capped at 3 rounds per C35-2; if R3 returns Needs-Fix, the orchestrator MUST escalate to the user rather than open R4.
-- `verdict:` exactly one of `Go` / `Needs-Fix` / `Block` (matches `output-schema-link` above and the A3/A4 PR-evidence parsers in CS36).
-- `evidence link:` a PR comment URL, commit SHA, or file:line reference that cites the primary artefact(s) supporting the verdict. No vibes-based verdicts.
-<!-- harness:reviewer-preamble:end -->
-
-After pasting the block, append CS-specific context (which CS, which files
-changed, which prior review rounds are on file). Do not modify the block itself.
+This canonical reviewer preamble now lives in
+[REVIEWS.md § 2.9 Canonical reviewer preamble](REVIEWS.md#29-canonical-reviewer-preamble-cs35-c35-1); this stub heading
+is retained so existing `#reviewer-dispatch--canonical-preamble` links keep
+resolving.
 
 ### Post-review validation (CS40 — `harness review-output`)
 
@@ -1426,7 +1221,7 @@ The invocation (`--review-output`, `--round`, `--base`/`--head`,
 `--prev-head` for `Rn`, the `--repo`/`--pr`/`--reviewer-model` independence
 guard, and `--update-pr`), the validated predicates (Analyzed-HEAD line,
 per-file enumeration match, finding-row + verdict grammar), and the exit codes
-all live in `npx -y github:henrik-me/agent-harness#v0.16.0 review-output --help`. The aggregator
+all live in `npx -y github:henrik-me/agent-harness#v0.17.0 review-output --help`. The aggregator
 `harness pr-evidence` does NOT include this gate (per C40-8 — it requires the
 reviewer-output file, which is unavailable in CI); this is a standalone
 orchestrator-side step.
@@ -1570,7 +1365,7 @@ evidence updates.
 **What:** validate the target PR, refuse workboard-only or fork PRs, enforce the
 reviewer-model independence invariant, emit the manual MVP rubber-duck prompt,
 optionally trigger/poll Copilot, and idempotently update `## Review log` plus
-`## Model audit`. **How:** run `npx -y github:henrik-me/agent-harness#v0.16.0 review --help` for the full
+`## Model audit`. **How:** run `npx -y github:henrik-me/agent-harness#v0.17.0 review --help` for the full
 flag set (`--dry-run` to preview the round, `--no-poll` to dispatch only,
 `--rubber-duck-only` for local review without Copilot, `--copilot-only` for a
 Copilot retry after a valid local Go row exists, plus `--model` / `--round`) and
@@ -1597,16 +1392,16 @@ REJECTS the Copilot reviewer ID with "Could not resolve to User node"
 because the Copilot reviewer is `__typename: Bot`, not `User`. The
 documented engagement primitive is therefore the REST-backed
 `gh pr edit --add-reviewer` invocation that `harness copilot-engage`
-wraps — NOT a GraphQL mutation. See `docs/adr/0004-copilot-graphql-spike.md`
-for the full transcript.
+wraps — NOT a GraphQL mutation. See the project's ADR-0004 (the Copilot
+GraphQL spike) for the full transcript.
 
 ### Recommended invocation (CS41+):
 
-Run `npx -y github:henrik-me/agent-harness#v0.16.0 copilot-engage <pr-number>` to request the Copilot
+Run `npx -y github:henrik-me/agent-harness#v0.17.0 copilot-engage <pr-number>` to request the Copilot
 review and poll for a completed review at the PR head. **How:** the full flag
 set (`--repo`, auto-detected from the git remote when omitted; `--head`,
 `--no-poll`, `--poll-timeout`, `--submitted-after`, `--cache-dir`) and exit
-codes live in `npx -y github:henrik-me/agent-harness#v0.16.0 copilot-engage --help`. Key doctrine the
+codes live in `npx -y github:henrik-me/agent-harness#v0.17.0 copilot-engage --help`. Key doctrine the
 help encodes: by default the poll HEAD is the PR's GitHub `headRefOid` (not the
 local checkout, with a warning when they differ); the `--submitted-after` floor
 enforces the A5 ordering doctrine so a stale Copilot review predating the latest
@@ -1619,8 +1414,7 @@ a `User`. The CLI resolves its Bot identity via the
 `node(id: $id) { ... on Bot { databaseId login } }` GraphQL fragment with the
 hardcoded Copilot Bot node ID `BOT_kgDOCnlnWA` (7-day identity cache per C41-2),
 required because `user(login: 'copilot-pull-request-reviewer')` returns `null`.
-See [LRN-009](LEARNINGS.md#lrn-009) and
-[ADR-0004 § ADR4-2](docs/adr/0004-copilot-graphql-spike.md#adr4-2).
+See [LRN-009](LEARNINGS.md#lrn-009) and the project's ADR-0004 § ADR4-2.
 
 The poll predicate is identical to the A5+A16 gate
 (`scripts/check-copilot-review.mjs`) so "engage CLI says satisfied" =
@@ -1729,7 +1523,7 @@ two scripts would double the API spend without adding signal (per ADR4-3).
 ```sh
 PR_BODY=$(mktemp)
 gh pr view <num> --json body --jq .body > "$PR_BODY"
-npx -y github:henrik-me/agent-harness#v0.16.0 pr-evidence \
+npx -y github:henrik-me/agent-harness#v0.17.0 pr-evidence \
   --base "$(gh pr view <num> --json baseRefOid --jq .baseRefOid)" \
   --head "$(gh pr view <num> --json headRefOid --jq .headRefOid)" \
   --pr-body "$PR_BODY"
@@ -1748,7 +1542,7 @@ file class so consumers can keep custom prose, and prints branch-protection
 instructions per C38a-7/8) and the next `harness sync` lands the workflow
 in the consumer repo.
 
-The workflow is split into TWO jobs per [ADR4-8 (`docs/adr/0004-copilot-graphql-spike.md`)](https://github.com/henrik-me/agent-harness/blob/main/docs/adr/0004-copilot-graphql-spike.md):
+The workflow is split into TWO jobs per the project's ADR-0004 (ADR4-8):
 
 - **`read-only-gates`** runs on `pull_request` (`opened`, `synchronize`,
   `reopened`, `edited` per [LRN-100](LEARNINGS.md#lrn-100)) with
@@ -1790,6 +1584,17 @@ skip applicability and passes via `--skip-reasons <csv>`:
 | `bot-author` | skip | skip | skip | run | A6 still runs because plan attestation is not author-dependent. |
 | `fork-source` | run | run | run | run | Read-only gates remain in force; A16 (CS41) is the gate this reason will skip. |
 
+**Path-derived skip (CS71).** Since CS71, the `workboard-only` evidence-gate
+skip is also **path-derived**: a PR whose entire diff is confined to the
+workboard path allowlist (`WORKBOARD.md`, `CONTEXT.md`, `LEARNINGS.md`,
+`project/clickstops/(planned|active|done)/`) skips the `review-gates` and
+`pr-evidence-lint` evidence gates **regardless of label presence**. The
+`workboard-only` label is therefore **not required to keep gates green** — a
+correctly-shaped, unlabelled workboard PR produces a green first run. The label
+**is still required** for `workboard-auto-approve.yml` to auto-merge; a
+correctly-shaped, unlabelled workboard PR is green yet will not auto-merge
+until labelled (intended).
+
 The harness MUST NOT call `gh pr view` or any other authenticated API to
 determine skip applicability — caller computes and passes the CSV. This
 keeps `harness pr-evidence` callable from forked PR contexts where the
@@ -1830,7 +1635,7 @@ operations:
 1. **Patches `harness.config.json`** with a `review_gates` block — by default
    `{ enabled: true, copilot_required: true, gate_set: ['B1','A3','A4','A5','A16','A6'] }`.
    The default gate set is the CS37 spike PASS branch — full A5+A16
-   enforcement (per [ADR4-1](https://github.com/henrik-me/agent-harness/blob/main/docs/adr/0004-copilot-graphql-spike.md)).
+   enforcement (per the project's ADR-0004, ADR4-1).
    Custom gate sets are accepted via direct config edit; the schema enum
    bounds the vocabulary.
 2. **Migrates `.github/pull_request_template.md`** from `managed.files`
@@ -2269,6 +2074,29 @@ Each `open` entry needs a status flip to `applied` / `obsolete` / `deferred`
 (with `deferred_until: <date>`) before any future public-facing release gate
 per the bounded-before-claim invariant above.
 
+### CHANGELOG-on-every-CS-close-out
+
+A CS whose deliverables touch the **distributed harness surface** — the files
+that ship to consumers on `harness sync`: `template/`, `lib/`, `scripts/*.mjs`,
+`bin/`, `scaffolds/`, `schemas/`, `package.json`, `package-lock.json` — adds
+its `[Unreleased]` `CHANGELOG.md` bullet as part of its own close-out, rather
+than deferring reconciliation to a retroactive sweep at release-cut time
+(LRN-101). CSs that touch only repo-internal artefacts (e.g. `LEARNINGS.md`,
+`CONTEXT.md`, `WORKBOARD.md`, clickstop files) are exempt.
+
+`check-clickstop` enforces this mechanically: for an `active/` or (post-cutoff)
+`done/` clickstop whose `## Deliverables` section names a distributed-surface
+path, the `## Tasks` table must include an explicit CHANGELOG-touch row (a row
+mentioning `changelog` together with a verb such as
+`touch`/`update`/`entry`/`bullet`/`append`/`add`). Distributed-surface
+detection consults the `excluded[]` list in `harness.config.json`: a path that
+matches a surface glob but is also an explicit sync exclusion is **not** treated
+as distributed surface (it does not ship), so a consumer that excludes, say,
+`lib/` will not get CHANGELOG enforcement on `lib/`-touching CSs (intended).
+The check is date-grandfathered — `done/` CSs closed before the enforcement
+cutoff are never flagged — so it locks in the convention going forward without
+retroactively tripping the closed backlog.
+
 ---
 
 ## SemVer policy
@@ -2319,6 +2147,57 @@ worked" from "this was never implemented". Exit codes:
 
 ---
 
+## Dependency-bump adoption
+
+A Dependabot (or any bot / maintenance) dependency PR cannot clear the
+review-evidence gates on its own: it carries no `## Model audit` / `## Review
+log`, so `copilot-review-attached`, `independence-invariant`, and
+`review-log-evidence` all fail against it. This section is the repeatable
+procedure for adopting such a bump through those gates on a `deps/<pkg>-<ver>`
+branch (the sanctioned shape for dependency/maintenance PRs — see the
+branch-naming convention in [INSTRUCTIONS.md](INSTRUCTIONS.md) *(if your consumer syncs it)*). It builds on
+existing doctrine rather than restating it: the solo-orchestrator merge path
+lives in
+[§ Content/release-PR admin-merge (solo-orchestrator reality)](#contentrelease-pr-admin-merge-solo-orchestrator-reality)
+(CS59 C59-3), and the related Dependabot-alert readback plus stale-bot-PR /
+source-template-propagation audit discipline is captured in
+[LRN-081](LEARNINGS.md#lrn-081).
+
+Adopt a dependency bump with these ordered steps:
+
+1. **Re-create the bump on a `deps/<pkg>-<ver>` branch** cut from current
+   `origin/main`. If a step allocates a throwaway clone to regenerate the
+   lockfile, it MUST go through the shared `lib/disposers.mjs` clone /
+   `assertSafeRef` re-creation primitives that CS64b (C64b-2) mandates for any
+   verb that allocates a clone — never hand-roll a temp dir or pass an
+   unguarded `git` ref.
+2. **Tighten the semver range to the patched version and regenerate the
+   lockfile** (`npm install`), so the adopted bump is pinned to the fix rather
+   than a floating range.
+3. **Run the tests and the linter** — `node --test tests/*.test.mjs` and
+   `harness lint` must both be green.
+4. **Generate the review evidence with `harness review`, not by hand.** The PR
+   body needs `## Model audit` + `## Review log` blocks per
+   [REVIEWS.md § 2.8](REVIEWS.md#28-pr-body-requirements) (implementer model ≠
+   reviewer model). Because a `deps/<pkg>-<ver>` PR has no `cs<NN>/` id and thus
+   no clickstop file to parse, `harness review <pr> --implementer-models <csv>`
+   sources the implementer set from the flag and/or the PR body's existing
+   `## Model audit` on a non-CS branch (C68-3) — so the evidence is produced by
+   `harness review`, not hand-authored.
+5. **Obtain the independent reviews** — a GPT-5.5 rubber-duck `Go` plus a
+   Copilot review — then confirm the review-evidence gates
+   (`copilot-review-attached`, `independence-invariant`, `review-log-evidence`)
+   are green.
+6. **Merge via owner override** — `gh pr merge --squash --admin <pr>`, under the
+   narrow solo-orchestrator conditions documented in
+   [§ Content/release-PR admin-merge (solo-orchestrator reality)](#contentrelease-pr-admin-merge-solo-orchestrator-reality).
+   Do not widen that scope here.
+7. **Close / supersede the original Dependabot PR** — it is replaced by the
+   `deps/` re-creation.
+8. **Verify post-merge `main` is green.**
+
+---
+
 ## Release process
 
 The mechanical procedure for cutting a harness release (tag + GitHub Release +
@@ -2357,7 +2236,7 @@ own CS — file a `planned_cs<NN>_release-v<x.y.z>` plan and follow the standard
 
 - Current pinned version (`package.json` `version` field).
 - Target version chosen per `§ SemVer policy` (e.g. `0.8.0`).
-- A clean `main` (bootstrap sanity-check passes per `INSTRUCTIONS.md`).
+- A clean `main` (bootstrap sanity-check passes per `INSTRUCTIONS.md` *(if your consumer syncs it)*).
 
 ### Pre-release audit ([LRN-101](LEARNINGS.md#lrn-101))
 
@@ -2437,13 +2316,13 @@ All file edits land on the `cs<NN>/content` branch:
 4. **Validate.** From the repo root:
 
    ```bash
-   npx -y github:henrik-me/agent-harness#v0.16.0 lint --quiet     # expect: 0 failed
+   npx -y github:henrik-me/agent-harness#v0.17.0 lint --quiet     # expect: 0 failed
    node --test tests/*.test.mjs        # expect: 0 failed
    ```
 
 5. **Local review.** GPT-5.5 rubber-duck mandatory per
    [§ Plan-vs-implementation review (close-out gate)](#plan-vs-implementation-review-close-out-gate)
-   and `INSTRUCTIONS.md § Every CS`. Record model + timestamp + verdict in
+   and `INSTRUCTIONS.md § Every CS` *(if your consumer syncs it)*. Record model + timestamp + verdict in
    the PR body's `## Model audit` + `## Review log` sections.
 
 6. **Open the content PR.** Use the standard `pull_request_template.md`.
@@ -2519,7 +2398,7 @@ review-of-record paths are:
 
 - The PR author cannot self-approve.
 - The Copilot PR reviewer is engaged per the documented mechanics in
-  [ADR-0004](docs/adr/0004-copilot-graphql-spike.md) (accepted review states
+  the project's ADR-0004 (accepted review states
   `{APPROVED, COMMENTED, CHANGES_REQUESTED}` per the CS37 spike). In observed
   harness-repo history, Copilot reviews on content/release PRs have
   consistently landed as `COMMENTED` — not `APPROVED` — so the Copilot
@@ -2574,7 +2453,7 @@ npm version <x.y.z> --no-git-tag-version
 #   then: sweep README pins v<prev> → v<x.y.z>
 
 # 4. Validate
-npx -y github:henrik-me/agent-harness#v0.16.0 lint --quiet
+npx -y github:henrik-me/agent-harness#v0.17.0 lint --quiet
 node --test tests/*.test.mjs
 
 # 5-7. Review + engage Copilot + merge
@@ -2787,7 +2666,7 @@ bypasses these helpers.
 
 ### Commit-trailer hook (`install-hooks`)
 
-`npx -y github:henrik-me/agent-harness#v0.16.0 install-hooks` installs an **opt-in** git `prepare-commit-msg`
+`npx -y github:henrik-me/agent-harness#v0.17.0 install-hooks` installs an **opt-in** git `prepare-commit-msg`
 hook (CS100, [#421](https://github.com/henrik-me/agent-harness/issues/421)) into
 the repository's active hooks directory. The hook appends the canonical
 `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>` trailer to
@@ -2796,7 +2675,7 @@ so the commit-trailers (B1) gate passes by construction and you no longer need t
 `git commit --amend` a `git merge` that integrates `main` into a long-running CS
 branch (the recurring LRN-018 friction).
 
-- **Opt-in only.** `npx -y github:henrik-me/agent-harness#v0.16.0 init` never installs the hook; it is written
+- **Opt-in only.** `npx -y github:henrik-me/agent-harness#v0.17.0 init` never installs the hook; it is written
   solely when you run `install-hooks` explicitly.
 - **Merge-safe placement.** The trailer is inserted **above** git's comment /
   scissors template (not at end-of-file), so it survives git's message cleanup on

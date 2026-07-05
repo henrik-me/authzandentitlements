@@ -101,24 +101,31 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           reasons=""
-          # workboard-only label short-circuits all gates (per C35-19) — but ONLY
-          # when the diff is confined to the workboard path allowlist (CS63 C63-7).
-          # A mislabeled PR touching files outside the allowlist is REJECTED here,
-          # not skipped, so the label cannot be used to bypass review on content.
-          if printf '%s' "$PR_LABELS" | grep -Fq '"workboard-only"'; then
-            # CS63 R8: rename/copy-source aware — check BOTH the current path and the
-            # previous (rename/copy source) path so a PR cannot rename a non-allowlisted
-            # file into an allowlisted path to dodge the workboard-only skip.
-            # Fail CLOSED on a gh api error (auth/rate-limit/network): capture the file
-            # list first so a failure is not masked by the grep's `|| true` below.
-            files=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUM}/files" --jq '.[] | .filename, (.previous_filename // empty)') || { echo "::error ::workboard-only scope check: gh api failed; refusing to confirm bypass."; exit 1; }
+          has_label=false
+          if printf '%s' "$PR_LABELS" | grep -Fq '"workboard-only"'; then has_label=true; fi
+          # Fetch the changed-file list ONCE (rename/copy-source aware). Fail-closed:
+          #  - label present + api error -> exit 1 (cannot confirm the labelled bypass is legitimate; CS63).
+          #  - label absent  + api error -> run full gates (reasons unset); cannot derive the skip.
+          if files=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUM}/files" --jq '.[] | .filename, (.previous_filename // empty)'); then
+            # harness:workboard-allowlist
             outside=$(printf '%s\n' "$files" | grep -Ev '^(WORKBOARD\.md|CONTEXT\.md|LEARNINGS\.md)$|^project/clickstops/(planned|active|done)/' || true)
-            if [ -n "$outside" ]; then
+            if [ -z "$outside" ]; then
+              # Diff confined to the allowlist -> workboard-only regardless of label (D71-2 path-derived).
+              reasons="${reasons:+$reasons,}workboard-only"
+              if [ "$has_label" = false ]; then
+                echo "::notice ::workboard-only skip derived from allowlist-confined diff (label absent). Label still required for auto-merge."
+              fi
+            elif [ "$has_label" = true ]; then
+              # Labelled but touches files OUTSIDE the allowlist -> REJECT (guard intact, CS63 C63-7).
               echo "::error ::workboard-only label present but the PR changes files OUTSIDE the workboard allowlist (WORKBOARD.md / CONTEXT.md / LEARNINGS.md / project/clickstops/). Remove the label or split the PR."
               printf '%s\n' "$outside" | sed 's/^/::error ::  outside-allowlist: /'
               exit 1
             fi
-            reasons="${reasons:+$reasons,}workboard-only"
+          elif [ "$has_label" = true ]; then
+            echo "::error ::workboard-only scope check: gh api failed; refusing to confirm bypass."
+            exit 1
+          else
+            echo "::notice ::workboard-only path-derivation: gh api failed; running full gates (fail-closed)."
           fi
           # Bot-author detection: GitHub App / bot accounts have a [bot] suffix on login.
           if printf '%s' "$PR_AUTHOR_LOGIN" | grep -Eq '\[bot\]$'; then

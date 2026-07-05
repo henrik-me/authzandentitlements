@@ -266,7 +266,7 @@ the orchestrator MUST include language equivalent to: *"verify F1–F5 above
 against the shipped surfaces — do not rely on the diff being internally
 coherent."* The canonical reviewer preamble's `**scope:**` field already
 references this expectation (see
-[OPERATIONS.md § Reviewer dispatch — canonical preamble](OPERATIONS.md#reviewer-dispatch--canonical-preamble)).
+[§ 2.9 Reviewer dispatch — canonical preamble](#reviewer-dispatch--canonical-preamble)).
 
 **Executable path (CS66).** `harness review-doc <pr>` is the canonical
 executable entry point for this F1–F5 checklist: it composes a reviewer prompt
@@ -363,7 +363,7 @@ surface.
 | # | Check | Source of truth |
 |---|---|---|
 | F1 | Every `--flag` named in the plan exists in the CLI surface (or is explicitly described as not-yet-existing). | `bin/harness.mjs` (`SUBCOMMAND_HELP` blocks and `cmdXxx` argument parsers); `lib/<module>.mjs`; `scripts/*.mjs` pass-throughs. |
-| F2 | Every file path named in the plan exists in the tree (or is explicitly flagged as to-be-created). For citations of the form `path/to/file:N`, the reviewer MUST open the file at the analyzed HEAD and confirm line N contains what the plan asserts. A "stray fence at L680" claim requires confirming the fence has no matching opener at the analyzed HEAD — line numbers drift across snapshots, across syncs, and across edits between plan draft and plan review. | Repo filesystem at the analyzed HEAD. |
+| F2 | Every file path named in the plan exists in the tree (or is explicitly flagged as to-be-created). For citations of the form `path/to/file:N`, the reviewer MUST open the file at the analyzed HEAD and confirm line N contains what the plan asserts. A "stray fence at L680" claim requires confirming the fence has no matching opener at the analyzed HEAD — line numbers drift across snapshots, across syncs, and across edits between plan draft and plan review. **Additionally**, for a deliverable of the form *modify / edit file X*, X MUST resolve to a **live shipped or loaded surface** — one referenced by `harness.config.json` `managed.files` / `composed.files`, by code, or by `harness sync` — not merely an existing path; a path that exists but is a dead orphan or the wrong surface (e.g. an unreferenced `template/managed/...` copy of a file that actually ships from `template/composed/...`) fails this check even though the existence test above passes. This is distinct from LRN-139's false line-citation mode (there the path exists and is live but the cited line is wrong). See LRN-152. | Repo filesystem at the analyzed HEAD; `harness.config.json` `managed.files` / `composed.files` for deliverable-target resolution. |
 | F3 | Every doctrine-strength claim (`required`, `mandatory`, `enforces`, `recommended`, `optional`) attributed to another doc matches that doc's wording verbatim or via a documented synonym. | The cited doc (OPERATIONS.md, REVIEWS.md, INSTRUCTIONS.md, README.md, etc.). |
 | F4 | Every summary of a LEARNINGS.md or CS entry stays within the source entry's stated `Problem` / `Finding` / `Decision` scope. No generalisation beyond what the source asserts. | The LRN/CS entry itself. |
 | F5 | Cross-doc claims are mutually consistent across the surfaces named in the plan (CHANGELOG vs OPERATIONS vs REVIEWS vs LRN). | The other doc(s) and code referenced. |
@@ -386,7 +386,7 @@ claim in Background or Constraints, list the CLI probe you ran (or are
 about to run) to verify it; if the plan does not include such a probe for
 a state-of-the-world premise, return `Needs-Fix`."* The canonical reviewer
 preamble in
-[OPERATIONS.md § Reviewer dispatch — canonical preamble](OPERATIONS.md#reviewer-dispatch--canonical-preamble)
+[§ 2.9 Reviewer dispatch — canonical preamble](#reviewer-dispatch--canonical-preamble)
 carries this expectation; the CS35b plan-review attestation procedure
 cross-references this section.
 
@@ -470,6 +470,102 @@ Every content PR body must record the following fields before merge:
 - `model` — **MUST be the bare reviewer-model identifier** (e.g. `gpt-5.5`, `claude-sonnet-4.6`, `claude-opus-4.7`). Decorations like `gpt-5.5 (R2)`, `gpt-5.5 (reviewer)`, `gpt-5.5 (PvI)`, `gpt-5.5 (narrow re-attest)` are not permitted — they historically slipped past the PR-side `review-log-evidence` gate because `normalizeModel()` in `scripts/checks/check-review-log-evidence.mjs` collapsed them away from the primary reviewer ID (`gpt-5.5 (R2)` → `gpt-5.5-r2`), failed the primary-reviewer check, and were then approved via the fallback-rationale path (LRN-136). Display-form inputs that contain whitespace (e.g. `Claude Opus 4.7`) are also rejected — the bare-id regex `/^[A-Za-z0-9._-]+$/` only accepts unbroken identifiers (the case-normalization happens downstream in `normalizeModel()`, so `gpt-5.5` and `GPT-5.5` are treated equivalently for the audit-match check; both pass the bare-id check). Put round / role annotations in the `actor` column instead. Mechanically enforced since CS54 by `scripts/checks/check-review-log-evidence.mjs` (bare-id check fires for every row BEFORE `reviewerModelApproved()`). Note: this is a separate concern from the independence invariant (`scripts/checks/check-independence-invariant.mjs`), which reads `## Model audit`'s `Reviewer model` rather than the Review log `model` cell.
 - `verdict` — one of `Go`, `Conditional Go`, `Needs-Fix` (historical spelling `Go-with-amendments` is accepted but not preferred).
 - `evidence_link` — URL to the rubber-duck report comment, sub-agent transcript, or other artefact backing the verdict.
+
+### 2.9 Canonical reviewer preamble (CS35 C35-1)
+
+When dispatching a rubber-duck reviewer manually (per [§ 2.1](#21-review-model)),
+the orchestrator MUST paste the block below verbatim into the dispatch. For
+content PRs on CS52+, prefer `harness review <pr>` (see
+[§ 2.4.1](#241-canonical-orchestrator-command-harness-review)); it composes the
+same guardrailed prompt for the manual MVP. The harness CLI still does not call
+an LLM API; the orchestrator dispatches the emitted prompt and paste-protocols
+the structured reviewer output.
+
+This is the authoritative home for the reviewer-dispatch preamble (relocated
+here from OPERATIONS.md in CS86). The block is delimited by sentinel markers so
+`tests/operations-reviewer-preamble.test.mjs` can assert presence and
+required-field coverage:
+
+<!-- harness:reviewer-preamble:start -->
+## Reviewer dispatch — canonical preamble
+
+**role:** Independent rubber-duck reviewer for the active CS.
+
+**scope:** Review the diff at the current HEAD against the base branch,
+the active CS file (Decisions, Deliverables, Tasks), the test count delta,
+and any sub-agent reports. Produce findings classified per
+REVIEWS.md § 2.6 (Blocking | Non-blocking | Suggestion). For doc-heavy or
+prose PRs, you MUST ALSO perform fact-claim verification per REVIEWS.md
+§ 2.6a: (F1) every `--flag` mentioned actually exists in `bin/harness.mjs`
+help text, library code, or pass-through `scripts/*.mjs` (e.g.
+`harness review-output` forwards to `scripts/check-review-output.mjs`);
+(F2) every file path mentioned actually exists
+in the tree at this HEAD; (F3) every doctrine-strength claim (`required`,
+`mandatory`, `enforces`, `recommended`, `optional`) matches the cited
+source's wording verbatim or via a documented synonym; (F4) every LRN/CS
+summary stays within the source entry's Problem/Finding scope (no
+generalisation); (F5) cross-doc claims (CHANGELOG vs OPERATIONS vs README
+vs LRN) are mutually consistent. Do NOT issue a Go verdict on a doc PR
+based on diff-internal coherence alone — cross-check claims against the
+shipped surfaces they reference. For changes that add or edit a config or
+schema reader, you MUST ALSO perform schema-conformance verification per
+REVIEWS.md § 2.6b: (S1) the reader requires no field the schema marks
+optional/defaulted; (S2) each default-when-absent matches the schema's
+declared `default` (or a documented divergence); (S3) present-but-malformed
+values fail closed against the schema's `type`/`pattern`/`enum`. For
+**plan reviews** of planned/active CS files (per
+[Plan review attestation procedure (CS35b)](OPERATIONS.md#plan-review-attestation-procedure-cs35b)),
+you MUST ALSO perform plan-side fact-claim verification per REVIEWS.md
+§ 2.6c across **all** reviewer-consumed plan sections (Background,
+Decisions, Deliverables, Sub-agent fan-out, Exit criteria, Risks +
+open questions, and any cross-CS dependencies the plan declares —
+not only the hashed Decisions+Deliverables): (F1) every named `--flag`
+exists (or is explicitly described as not-yet-existing — for plans
+whose deliverables include adding a new flag); (F2) every
+`path:line` citation actually contains what the plan asserts at the
+analyzed HEAD (open the file — line numbers drift across snapshots and
+syncs); (F3) doctrine-strength claims match the cited source verbatim;
+(F4) LRN/CS scope summaries stay within the source entry's scope;
+(F5) cross-doc claims are mutually consistent; (F6) every
+state-of-the-world claim (release/tag/PR/issue/label state) is verified
+via a non-mutating CLI probe (`gh release list --repo <owner>/<repo> --limit N`,
+`gh api repos/<owner>/<repo>/releases --jq 'map(select(.tag_name=="<tag>"))'`
+covering BOTH published and draft, `git ls-remote origin refs/tags/<tag>`,
+`gh pr view <num> --repo <owner>/<repo>`, `gh issue view <num> --repo <owner>/<repo>`,
+`gh label list --repo <owner>/<repo>`) and the probe is recorded
+in the plan's Background or Constraints. Inherited findings (citations
+from other repos, prior snapshots, or earlier CS plans) MUST be
+re-verified against the current HEAD. Do NOT issue a Go verdict on a plan
+based on prose-internal coherence alone.
+
+**independence-invariant:** Your model MUST NOT appear in the active CS file's
+`## Model audit` `Implementer models` field. If it does, refuse the dispatch
+and instruct the orchestrator to escalate per the C35-2 fallback ladder.
+Beyond model independence, agent-identity independence (CS35 C35-18) also
+applies: your GitHub username MUST differ from the implementer agent's.
+
+**model-fallback-ladder (per CS35 C35-2):** GPT-highest-available
+(5.5 → 5.4 → ...) → Claude Sonnet-highest (4.7 → 4.6 → ...) → orchestrator's
+own model (last resort, requires explicit user waiver and is forbidden for
+HIGH-RISK CSs per REVIEWS.md § 2.3).
+
+**output-schema-link:** Your report MUST conform to REVIEWS.md § 2.6
+(Findings taxonomy) and § 2.7 (Finding disposition). For
+plan-vs-implementation reviews, also conform to OPERATIONS.md
+§ Plan-vs-implementation review (close-out gate). Always report a verdict:
+`Go` / `Needs-Fix` / `Block`.
+
+**required-output-fields:** Every plan-vs-implementation review row you (or the orchestrator on your behalf) record in the active CS file's `## Plan-vs-implementation review` table MUST contain these five fields, in this order:
+
+- `model:` the reviewer model identifier (e.g., `gpt-5.5`) — drawn from the C35-2 fallback ladder above; must satisfy the independence invariant against `Implementer models`.
+- `branch HEAD SHA:` the full 40-char SHA you reviewed against. Per CS35 C35-3 stale-diff doctrine, a verdict row whose SHA ≠ current HEAD at merge time is INVALID and forces a re-review (A4 enforces this mechanically in CS36).
+- `R-round:` `R1` / `R2` / `R3`. Capped at 3 rounds per C35-2; if R3 returns Needs-Fix, the orchestrator MUST escalate to the user rather than open R4.
+- `verdict:` exactly one of `Go` / `Needs-Fix` / `Block` (matches `output-schema-link` above and the A3/A4 PR-evidence parsers in CS36).
+- `evidence link:` a PR comment URL, commit SHA, or file:line reference that cites the primary artefact(s) supporting the verdict. No vibes-based verdicts.
+<!-- harness:reviewer-preamble:end -->
+
+After pasting the block, append CS-specific context (which CS, which files
+changed, which prior review rounds are on file). Do not modify the block itself.
 
 ## Model audit
 
@@ -623,7 +719,7 @@ confusion between them surfaced on SI PR #79 (LRN-136 chase).
 
 | Block | When it runs | Who reads it | Purpose |
 |---|---|---|---|
-| `review_gates.*` | Install time (`harness init`, `harness sync`) and CI workflow time | `pr-evidence-lint.yml` workflow + install machinery | Configures the **PR-evidence CI gate set** (B1, A2..A6, A16) wired into every content PR. |
+| `review_gates.*` | Install time (`harness init`, `harness sync`) and CI workflow time | `.github/workflows/pr-evidence-lint.yml` workflow + install machinery | Configures the **PR-evidence CI gate set** (B1, A2..A6, A16) wired into every content PR. |
 | `reviews.*` | Orchestrator runtime (`harness review <pr>`) and PR-side CI status checks | The `harness review` CLI + the PR-side `review-gates.yml` status checks | Configures the **rubber-duck reviewer model defaults**, fallback policy, Copilot trigger, gate enforcement toggles, and HIGH-RISK clickstop list. |
 
 **Rule of thumb:** if you're wiring CI workflow gates or the gate set itself,

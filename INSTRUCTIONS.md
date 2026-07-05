@@ -90,7 +90,7 @@ Re-read this section after every `git pull`, even if INSTRUCTIONS.md did not cha
   broken-tree failure, **stop and investigate** before claiming new work.
 
   ```bash
-  npx -y github:henrik-me/agent-harness#v0.16.0 startup --pull-ff-only
+  npx -y github:henrik-me/agent-harness#v0.17.0 startup --pull-ff-only
   ```
 
   Once `startup` passes, `harness status` prints a one-screen resume snapshot
@@ -107,8 +107,8 @@ Re-read this section after every `git pull`, even if INSTRUCTIONS.md did not cha
   git log -3 --oneline                                  # last 3 commits on main
   git tag --list 'v*' | tail -5                         # latest release tags (if applicable)
   node --test tests/*.test.mjs                          # expect: all pass
-  npx -y github:henrik-me/agent-harness#v0.16.0 lint --quiet                     # expect: 0 failed
-  npx -y github:henrik-me/agent-harness#v0.16.0 sync --mode=check --cwd .        # expect: "No drift detected"
+  npx -y github:henrik-me/agent-harness#v0.17.0 lint --quiet                     # expect: 0 failed
+  npx -y github:henrik-me/agent-harness#v0.17.0 sync --mode=check --cwd .        # expect: "No drift detected"
   git ls-files project/clickstops/{planned,active}/ | sort   # show in-flight clickstop arc; resume rather than restart
   ```
 
@@ -246,7 +246,9 @@ record.
     generalisation beyond what the source asserts); (e) cross-doc claims
     (CHANGELOG vs OPERATIONS vs README vs LRN) are mutually consistent.
 - **Branch naming:** `cs<NN>/<slug>` for CS work; `workboard/cs<NN>-claim`,
-  `workboard/cs<NN>-close`, etc. for WORKBOARD-only PRs.
+  `workboard/cs<NN>-close`, etc. for WORKBOARD-only PRs; `deps/<pkg>-<ver>` for
+  dependency/maintenance (Dependabot adoption) PRs (see
+  [OPERATIONS.md § Dependency-bump adoption](OPERATIONS.md#dependency-bump-adoption)).
 - **Commit trailers:** every commit must include
   `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
 - **Mid-CS sync prohibition:** do not run `harness sync` mid-clickstop unless
@@ -266,8 +268,9 @@ record.
 - **Report shape:** every sub-agent must respond with the canonical report shape from
   [OPERATIONS.md § Sub-agent report shape](OPERATIONS.md#sub-agent-report-shape-mandatory).
   Reports missing this structure are rejected and the sub-agent is re-dispatched.
-- **Sub-agent briefing preamble**: every sub-agent dispatch MUST paste the canonical preamble from
-  [OPERATIONS.md § Mandatory briefing preamble](OPERATIONS.md#mandatory-briefing-preamble-copy-verbatim-into-every-dispatch)
+- **Sub-agent briefing preamble**: every sub-agent dispatch MUST paste the canonical preamble —
+  emitted verbatim by `npx -y github:henrik-me/agent-harness#v0.17.0 dispatch` from the harness-owned `DISPATCH-PREAMBLE.md`
+  (see [OPERATIONS.md § Mandatory briefing preamble](OPERATIONS.md#mandatory-briefing-preamble-copy-verbatim-into-every-dispatch)) —
   verbatim into the prompt. Verbatim paste (not just reference) is the discipline that prevents
   process steps from being forgotten.
 
