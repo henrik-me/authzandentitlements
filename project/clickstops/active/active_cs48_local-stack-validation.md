@@ -69,12 +69,12 @@ Validate the current .NET Aspire stack in detail **locally**, exercise the real 
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Build baseline (`dotnet build AuthzEntitlements.sln`) | in-progress | yoga-ae-c2 | 0 warnings / 0 errors expected |
-| Full test suite (`dotnet test`) | pending | yoga-ae-c2 | record per-suite counts across the nine test projects |
-| `aspire run` end-to-end smoke | pending | yoga-ae-c2 | container-backed bring-up; exercise authn / PDP + playground fan-out / entitlements-quota / audit verify / break-glass-delegation |
-| Opt-in engine checks | pending | yoga-ae-c2 | `opa`/`openfga`/`spicedb`/`cerbos`/`unleash` (Docker) or record unavailability |
-| Observability assessment | pending | yoga-ae-c2 | what the demo/lab shows today + warranted/not-warranted recommendation feeding CS43/CS44 |
-| Validation report + demo runbook | pending | yoga-ae-c2 | `docs/validation/` report + demo runbook |
+| Build baseline (`dotnet build AuthzEntitlements.sln`) | done | yoga-ae-c2 | 0 warnings / 0 errors |
+| Full test suite (`dotnet test`) | done | yoga-ae-c2 | **1648 passed, 0 failed, 0 skipped** across the nine test projects |
+| `aspire run` end-to-end smoke | done | yoga-ae-c2 | **found + fixed a demo-blocking defect** (2 Aspire resource-name collisions); post-fix the AppHost boots, dashboard serves, infra healthy |
+| Opt-in engine checks | partial | yoga-ae-c2 | `opa`/`openfga-server`/`spicedb`/`cerbos`/`unleash-server` are explicit-start; not exhaustively driven in the bounded smoke — recorded as a manual pass in the runbook |
+| Observability assessment | done | yoga-ae-c2 | current Grafana/OTLP + Aspire dashboard sufficient for the demo; CS43/CS44 OpenMeter **not warranted yet** (feeds their hold precondition #3) |
+| Validation report + demo runbook | done | yoga-ae-c2 | `docs/validation/local-stack-validation.md` + `docs/demo/local-demo-runbook.md` |
 | Close-out: docs + restart state | pending | yoga-ae-c2 | update WORKBOARD, CONTEXT.md, and cross-reference the validation from the CS27/CS43/CS44 hold gates so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | yoga-ae-c2 | file/disposition learnings in LEARNINGS.md; open follow-up CSs for any validation gaps found |
 
@@ -89,7 +89,12 @@ Validate the current .NET Aspire stack in detail **locally**, exercise the real 
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- **Build + tests green:** `dotnet build` 0/0; `dotnet test` **1648 passed / 0 failed / 0 skipped** (Authz.Pdp 893, Governance 174, Bank.Web 172, Bank.Api 96, Edge 82, Audit 72, Compliance 64, Benchmarks 52, Entitlements 43).
+- **Demo-blocking defect found + fixed (`AppHost.cs`):** `aspire run` crashed on startup — two Aspire resource-name collisions (`unleash` container vs `unleash` DB; `openfga` container vs `openfga` DB; Aspire names are case-insensitive + must be unique). Latent because no CI runs the AppHost and unit tests never exercise `Program.Main`. Fixed in-band (Decision #8) by renaming the container resources to `unleash-server` / `openfga-server` (DB names + all C# variable references unchanged). Post-fix the AppHost boots, the dashboard serves (`:17254`), and `postgres`/`keycloak`/`observability` come up healthy with ≥1 service `/alive=Healthy`.
+- **Deliverables:** `docs/validation/local-stack-validation.md` (report incl. observability assessment) + `docs/demo/local-demo-runbook.md`.
+- **Observability (feeds CS43/CS44 precondition #3):** current Grafana/OTLP + Aspire dashboard + lightweight OTel quota meter are sufficient for the demo; full OpenMeter (CS43/CS44) **not warranted yet** on observability grounds.
+- **Learning candidate (file at close-out):** the AppHost has no CI coverage → a boot-blocking resource-name collision shipped undetected; add a minimal "AppHost application-model builds without throwing" smoke test so future collisions fail CI. (Propose as a follow-up CS.)
+- **Holds:** this CS does NOT lift CS27/CS43/CS44 (Decision #7) — it satisfies their precondition #1 (documented local validation) and informs #3; lifting still needs explicit user go-ahead.
 
 ## Plan-vs-implementation review
 
