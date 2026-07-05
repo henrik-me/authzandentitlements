@@ -185,11 +185,21 @@ accounted for.
   before committing. Treat
   the dotnet-profile `dotnet format --verify-no-changes` self-check as advisory until a repo
   `.editorconfig` with `end_of_line = lf` exists (LRN-036).
+- **`dotnet sln add` / `dotnet sln remove` on Windows rewrites `AuthzEntitlements.sln` with CRLF +
+  a UTF-8 BOM**, which fails the same `text-encoding` gate. After any `dotnet sln` edit, re-normalize
+  the `.sln` to LF / no-BOM before committing (strip a leading `EF BB BF`, replace `\r\n`→`\n` — e.g.
+  `$sln = 'AuthzEntitlements.sln'; [IO.File]::WriteAllText($sln, ([IO.File]::ReadAllText($sln) -replace "\r\n","\n"), (New-Object Text.UTF8Encoding $false))`)
+  and confirm the `git diff` contains only the intended project-registration lines. The same applies
+  to any Windows tool that rewrites tracked text (LRN-079).
 - **Cross-SDK project references:** `<FrameworkReference Include="Microsoft.AspNetCore.App" />`
   does **not** propagate transitively from a referenced `Sdk.Web` project to a plain
   `Microsoft.NET.Sdk` console/test project — any project that touches ASP.NET-Core types must
   declare it itself. Freeze a shared reflection-based `JsonSerializerOptions` with
   `MakeReadOnly(populateMissingResolver: true)` — the parameterless overload throws (LRN-046).
+- **Every xUnit test `.cs` needs an explicit `using Xunit;`** even though the test projects enable
+  `ImplicitUsings` — `ImplicitUsings` does not bring in the `Xunit` namespace, so omitting it yields
+  `CS0246` (`Fact` / `FactAttribute` not found). Mirror the existing suites (e.g.
+  `tests/AuthzEntitlements.Edge.Gateway.Tests/*.cs`), which all carry it (LRN-080).
 
 ### Fail-closed authorization + entitlements (security)
 
