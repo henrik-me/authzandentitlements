@@ -28,6 +28,66 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ```yaml
 id: LRN-069
+date: 2026-07-04
+category: operational
+source_cs: CS27
+status: open
+tags: [hold, claim-gate, cloud-deploy, validation-gate]
+claim_area: cs27
+```
+
+**Problem:** CS27 (Azure deployment of the app) must not be started before the current stack is validated in detail locally and a maintainer explicitly puts cloud deployment in scope. Cloud/Azure (or any other cloud) deployment is out of scope at this time.
+
+**Finding:** Deliberate forward **claim-gate** backstop, not a retrospective finding. `harness claim CS27` runs `harness harvest --claim-area cs27`; this `open` / `claim_area: cs27` entry surfaces at the **weekly** `harness harvest` immediately and at the **before-claim** gate once ≥14 days stale (harvest v0.16.0 gates `claim_area` matches by `--stale-days`, default 14 — verified empirically). `category: operational` scopes it to CS27's claim only (no noise on unrelated claims). Per the bounded-before-claim invariant a CS27 claim PR must not open while this is undispositioned. The always-on immediate guards are the CS file's `## Hold / claim gate` + CS27's HIGH-RISK registration in `harness.config.json` (`reviews.high_risk_clickstops`).
+
+**Evidence:** `project/clickstops/planned/planned_cs27_azure-app-deploy.md` (`## Hold / claim gate`); `harness.config.json` `reviews.high_risk_clickstops`; user directive 2026-07-04 ("not in scope at this time to deploy to azure ... no deployments until validated locally").
+
+**Disposition:** **open** — intentional hold. Lift only when (1) the current stack is validated locally + documented, (2) a maintainer confirms cloud deploy is in scope, and (3) demo/lab observability is warranted. On lift, flip `status` and record the confirming maintainer + date here.
+
+### LRN-070
+
+```yaml
+id: LRN-070
+date: 2026-07-04
+category: operational
+source_cs: CS43
+status: open
+tags: [hold, claim-gate, observability, validation-gate]
+claim_area: cs43
+```
+
+**Problem:** CS43 (full OpenMeter metering, local) must not be started before the current stack is validated in detail locally and the demo/lab is confirmed to genuinely need full metering. Although CS43 is local-only, it adds heavy net-new infra (Kafka/ClickHouse/Redis).
+
+**Finding:** Deliberate forward **claim-gate** backstop. `harness claim CS43` runs `harness harvest --claim-area cs43`; this `open` / `claim_area: cs43` entry surfaces at the **weekly** harvest immediately and at the **before-claim** gate once ≥14 days stale (harvest v0.16.0 gates `claim_area` matches by `--stale-days`, default 14). `category: operational` scopes it to CS43's claim only. Per the bounded-before-claim invariant a CS43 claim PR must not open while this is undispositioned. The always-on immediate guards are the CS file's `## Hold / claim gate` + CS43's HIGH-RISK registration in `harness.config.json`.
+
+**Evidence:** `project/clickstops/planned/planned_cs43_full-openmeter-metering-local.md` (`## Hold / claim gate`); `harness.config.json` `reviews.high_risk_clickstops`; user directive 2026-07-04 ("proper detailed validation of the current stack ... until additional details on the observability is warranted for the demo/lab").
+
+**Disposition:** **open** — intentional hold. Lift only when (1) the current stack is validated locally + documented, (2) a maintainer confirms this work is in scope, and (3) the demo/lab observability need is warranted. On lift, flip `status` and record the confirming maintainer + date here.
+
+### LRN-071
+
+```yaml
+id: LRN-071
+date: 2026-07-04
+category: operational
+source_cs: CS44
+status: open
+tags: [hold, claim-gate, cloud-deploy, validation-gate]
+claim_area: cs44
+```
+
+**Problem:** CS44 (Azure deployment of OpenMeter) must not be started before the current stack + local OpenMeter (CS43) are validated locally and a maintainer explicitly puts cloud deployment in scope. Cloud/Azure deployment is out of scope at this time.
+
+**Finding:** Deliberate forward **claim-gate** backstop. `harness claim CS44` runs `harness harvest --claim-area cs44`; this `open` / `claim_area: cs44` entry surfaces at the **weekly** harvest immediately and at the **before-claim** gate once ≥14 days stale (harvest v0.16.0 gates `claim_area` matches by `--stale-days`, default 14). `category: operational` scopes it to CS44's claim only. Per the bounded-before-claim invariant a CS44 claim PR must not open while this is undispositioned. The always-on immediate guards are the CS file's `## Hold / claim gate` + CS44's HIGH-RISK registration in `harness.config.json`; CS44 also depends on CS27 + CS43 being implemented first.
+
+**Evidence:** `project/clickstops/planned/planned_cs44_openmeter-azure-deploy.md` (`## Hold / claim gate`); `harness.config.json` `reviews.high_risk_clickstops`; user directive 2026-07-04 ("not in scope at this time to deploy to azure or any other cloud ... no deployments until validated locally").
+
+**Disposition:** **open** — intentional hold. Lift only when (1) the current stack + local OpenMeter are validated locally + documented, (2) a maintainer confirms cloud deploy is in scope, and (3) demo/lab observability is warranted. On lift, flip `status` and record the confirming maintainer + date here.
+
+### LRN-072
+
+```yaml
+id: LRN-072
 date: 2026-07-05
 category: tooling
 source_cs: CS26
@@ -59,10 +119,10 @@ logs.
 - Any future cleartext-gRPC adapter (CS46 Keto/Topaz) must set the switch in an early static ctor
   and reject `https://`; a green offline suite does NOT prove the live gRPC path works.
 
-### LRN-070
+### LRN-073
 
 ```yaml
-id: LRN-070
+id: LRN-073
 date: 2026-07-05
 category: tooling
 source_cs: CS26
@@ -87,10 +147,10 @@ log ("lowercased gRPC metadata key (authorization)").
 - Any gRPC adapter using metadata / `CallCredentials` (CS46 Keto/Topaz) must lowercase every
   metadata key.
 
-### LRN-071
+### LRN-074
 
 ```yaml
-id: LRN-071
+id: LRN-074
 date: 2026-07-05
 category: architectural
 source_cs: CS26
@@ -121,10 +181,10 @@ returns null when `outputs.Count != 1`, so a multi-rule activation fails closed,
 - When adding any full-decision engine (CS46 Topaz OPA bundle), enumerate every way the engine
   output can be unknown / empty / ambiguous and fail each closed, with explicit tests.
 
-### LRN-072
+### LRN-075
 
 ```yaml
-id: LRN-072
+id: LRN-075
 date: 2026-07-05
 category: architectural
 source_cs: CS26
@@ -156,10 +216,10 @@ lines 80-94 (the in-adapter fail-closed guard on `Subject.Actor`/`Context.Delega
   OBO/delegation/break-glass guard; do not ship a non-reference engine without it.
 - This entry stays `open`, tracked by planned CS45; flip to `applied` at CS45 close-out.
 
-### LRN-073
+### LRN-076
 
 ```yaml
-id: LRN-073
+id: LRN-076
 date: 2026-07-05
 category: process
 source_cs: CS26

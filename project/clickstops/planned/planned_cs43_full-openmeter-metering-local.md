@@ -9,10 +9,24 @@
 **Lane:** Expansion
 **Filed by:** yoga-ae-c2 on 2026-07-04 — split from the original CS27 ("Full OpenMeter metering + Azure deployment") per user decision (2026-07-04). This CS covers full OpenMeter metering running **locally** in Docker via Aspire opt-in containers; Azure deployment of OpenMeter is CS44, and Azure deployment of the app (with lightweight metering) is the rescoped CS27.
 **Depends on:** CS10, CS12
+**Hold:** ⛔ HELD — do NOT apply a claim (`harness claim CS43 --apply`) or open a claim PR without explicit user confirmation. Held pending detailed local validation of the current stack + demo/lab observability justification. See the **Hold / claim gate** section below.
 
 ## Goal
 
 Add an **opt-in** OpenMeter metering provider (Kafka + ClickHouse + Postgres + Redis) behind the existing entitlements/quota seam, wired into the Aspire AppHost as opt-in containers that stay off the default deterministic, Docker-free path. The lightweight Postgres + OTel counter **remains the default**; OpenMeter is a config-gated alternative.
+
+## Hold / claim gate
+
+⛔ **This CS is HELD. Do not apply a claim (`harness claim CS43 --apply`) or open a claim PR until every precondition below is satisfied and a maintainer has explicitly lifted the hold.** (A default dry-run `harness claim` preflight/harvest scan is harmless.) This CS is local/Docker only (no cloud), but it adds heavy net-new infra (Kafka/ClickHouse/Redis), so it stays held until the current stack is validated and the demo/lab genuinely needs full metering. Cloud deployment of this stack is a separate CS (CS44) and is **out of scope at this time**.
+
+**Preconditions — all must be true before claiming:**
+
+1. **Local validation first.** The current Aspire stack has been validated in detail locally (build + full test suite + `aspire run` smoke of the real scenarios) and that validation is documented. No new infra work starts before this.
+2. **Explicit user go-ahead.** A maintainer has explicitly confirmed this work is now in scope and lifted this hold (record who + when here when lifting).
+3. **Observability warranted.** The additional metering/observability detail this work would introduce is confirmed as actually needed for the demo/lab — not speculative.
+4. **Elevated review.** Registered HIGH-RISK in `harness.config.json` (`reviews.high_risk_clickstops`) → GPT-5.5-only reviews, no Sonnet fallback, 5–8 rounds ([REVIEWS.md](../../../REVIEWS.md) § 2.3).
+
+**Guard / enforcement (layered):** (1) this `## Hold / claim gate` is the always-on contract — claiming CS43 requires reading this planned file, so the hold is unavoidable at claim time; (2) CS43 is registered HIGH-RISK in `harness.config.json` (`reviews.high_risk_clickstops`), mechanically raising the review bar; (3) `LEARNINGS.md` **LRN-070** (`status: open`, `claim_area: cs43`) is a before-claim backstop — it shows at the weekly `harness harvest` immediately and at `harness claim CS43` once ≥14 days stale (harvest v0.16.0 staleness-gates `claim_area` matches), and per the bounded-before-claim invariant a claim PR must not open while it is undispositioned. **To lift:** satisfy the preconditions, record the user confirmation above, flip LRN-070 (`status` + a `**Disposition:**`), and remove this ⛔ block.
 
 ## Background
 

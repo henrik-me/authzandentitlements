@@ -46,7 +46,7 @@ Broaden engine coverage by adding more adapters behind the same abstraction/play
 | Add Keto/Oso/Topaz | descoped | yoga-ae-c4 | Split into follow-ups (PR #144): Keto+Topaz → CS46; Oso → CS47 (de-scope — no pinnable in-process .NET path). CS26 closes on the 2 shipped engines (SpiceDB #134, Cerbos #139). |
 | Wire into catalog + playground | done | yoga-ae-c4 | SpiceDB + Cerbos registered in AddPdp (PdpServiceCollectionExtensions.cs) so PlaygroundFanoutService auto-includes them (dynamic enumeration over all registered providers) + explicit opt-in entries in Playground.razor; both answer the scenario catalog (SpiceDB 759/759 offline; Cerbos 22-scenario Decision+reason parity vs a real container). |
 | Close-out: docs + restart state | done | yoga-ae-c4 | CONTEXT.md updated with the CS26-complete narrative; WORKBOARD row removed at close-out; adapter/playground/head-to-head docs shipped in #134/#139. |
-| Close-out: learnings + follow-ups | done | yoga-ae-c4 | Filed LRN-069..073; follow-ups CS45 (OBO guard) + CS46 (Keto+Topaz) + CS47 (Oso de-scope) filed & merged (PR #144). |
+| Close-out: learnings + follow-ups | done | yoga-ae-c4 | Filed LRN-072..076; follow-ups CS45 (OBO guard) + CS46 (Keto+Topaz) + CS47 (Oso de-scope) filed & merged (PR #144). |
 
 ## Notes / Learnings
 
@@ -62,10 +62,10 @@ Broaden engine coverage by adding more adapters behind the same abstraction/play
 - **Test posture.** SpiceDB PDP suite 759/759 offline (no container); Cerbos 874/874 offline plus a
   22-scenario `Decision`+reason parity run validated against a real `ghcr.io/cerbos/cerbos:0.53.0`
   container via the env-gated integration test.
-- **Learnings filed (LRN-069..073):** LRN-069 (h2c cleartext-gRPC `Http2UnencryptedSupport` switch
-  in an early static ctor), LRN-070 (lowercase gRPC metadata keys), LRN-071 (full-decision
-  fail-closed obligation/output-token taxonomy), LRN-072 (cross-cutting OBO/delegation/break-glass
-  fail-OPEN on engine swap → CS45), LRN-073 (full-decision policy parity is CI-invisible → env-gated
+- **Learnings filed (LRN-072..076):** LRN-072 (h2c cleartext-gRPC `Http2UnencryptedSupport` switch
+  in an early static ctor), LRN-073 (lowercase gRPC metadata keys), LRN-074 (full-decision
+  fail-closed obligation/output-token taxonomy), LRN-075 (cross-cutting OBO/delegation/break-glass
+  fail-OPEN on engine swap → CS45), LRN-076 (full-decision policy parity is CI-invisible → env-gated
   pinned-container test).
 
 ## Model audit
