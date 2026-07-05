@@ -181,25 +181,28 @@
         }
     }
 
-    // Opens the entry in the Playground pre-filled with the CAPTURED fields plus the recorded verdict
-    // for comparison. The audit row does not store ABAC inputs, so this is a pre-fill (not a silent
-    // auto-replay): the user completes the missing fields and runs the fan-out themselves.
-    private string ReplayUrl(AuditEntryDto entry)
+    // Opens the entry in the Playground pre-filled for comparison. Passes the entry's SEQUENCE plus
+    // small scalar fields; the Playground fetches the full audit entry (including its request
+    // snapshot) by that sequence and, when a snapshot is present, reconstructs the ORIGINAL request
+    // faithfully (all ABAC inputs). Otherwise it falls back to the CS15 best-effort pre-fill of the
+    // scalar fields plus an "uncaptured inputs" banner. The recorded verdict is passed for immediate
+    // side-by-side comparison. The (potentially large) snapshot is deliberately NOT put on the URL —
+    // it is fetched — so replay works for the full snapshot size range, not just short snapshots.
+    private static string ReplayUrl(AuditEntryDto entry)
     {
-        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(
-            "playground",
-            new Dictionary<string, string?>
-            {
-                ["subject"] = entry.SubjectId,
-                ["action"] = entry.Action,
-                ["resourceType"] = entry.ResourceType,
-                ["resourceId"] = entry.ResourceId,
-                ["tenant"] = entry.Tenant,
-                ["recordedDecision"] = entry.Decision,
-                ["recordedReason"] = entry.Reason,
-                ["sequence"] = entry.Sequence.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            });
-        return query;
+        var parameters = new Dictionary<string, string?>
+        {
+            ["subject"] = entry.SubjectId,
+            ["action"] = entry.Action,
+            ["resourceType"] = entry.ResourceType,
+            ["resourceId"] = entry.ResourceId,
+            ["tenant"] = entry.Tenant,
+            ["recordedDecision"] = entry.Decision,
+            ["recordedReason"] = entry.Reason,
+            ["replaySequence"] = entry.Sequence.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        };
+
+        return Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("playground", parameters);
     }
 
     private static string ShortHash(string hash) =>

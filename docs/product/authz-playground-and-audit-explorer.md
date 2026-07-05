@@ -151,27 +151,67 @@ Search the tamper-evident decision log and confirm its integrity.
 
 ## Replay design — a deliberate fidelity trade-off
 
-Replay is **"open in Playground"**, not a one-click re-run. The Audit Explorer
-pre-fills the Playground with the **captured** audit fields — subject, action,
-resource type/id, and tenant — and shows the **recorded decision** alongside the
-live cross-engine fan-out for comparison. A banner on the pre-filled page states
-the audit log captures only a single `tenant` value (mapped to the subject) and
-none of the ABAC inputs (`amount`, `maker`, `status`, subject `roles`, context
-`scopes`, or the resource `tenant`/`branch`), which the user must complete to
-reproduce the original decision — a cross-tenant `TenantMismatch` needs a resource
-tenant distinct from the subject.
+Replay is **"open in Playground"**, not a one-click re-run: the Audit Explorer
+pre-fills the Playground form and shows the **recorded decision** alongside the
+live cross-engine fan-out for comparison, but the user runs the fan-out. The
+"Replay in Playground" link carries the entry's **sequence** (not the snapshot
+itself); the Playground fetches the full audit entry — including its request
+snapshot — by that sequence from the audit query API, so faithful replay works
+across the **entire snapshot size range** (up to the ingest cap), not just short
+snapshots that would fit in a URL. There are two fidelity tiers, chosen per row
+by whether it carries a **request snapshot**.
 
-This is a deliberate choice, not a hidden limitation. The CS13 tamper-evident
-row stores `subject id / action / resource type+id / a single tenant / decision /
-reason / trace` but **not** the ABAC inputs (amount, maker, status, roles, scopes,
-or a distinct resource tenant/branch). A naïve auto-replay would re-run with those
-inputs missing and spuriously diverge from the recorded verdict, which would mislead.
-Pre-filling the Playground keeps the security-critical audit store untouched
-while still making replay useful.
+**Faithful replay (snapshot present).** As of CS36 (LRN-057) the PDP captures a
+canonical JSON **snapshot of the whole `AccessRequest`** — subject (incl.
+`roles` and any on-behalf-of actor), action, resource (incl. `amount`, `maker`,
+`status`, and a distinct `tenant`/`branch`), and context `scopes` — alongside
+each decision. When a row carries one, the Audit Explorer reconstructs the
+**original request 1:1**, recovering every ABAC input the older best-effort
+pre-fill could not. The pre-filled page notes that the replayed request is
+**reconstructed context, not part of the tamper-evident hash** (see below).
 
-**Faithful 1:1 replay** — storing a full request snapshot per audit row — is a
-**deferred follow-up**. It changes the security-critical audit component, so it
-warrants its own clickstop and review rather than riding along here.
+**Best-effort replay (no snapshot).** Rows without a snapshot — older entries,
+non-PDP producers, or a snapshot that failed open to null (see below) — fall
+back to the original behavior: the Playground is pre-filled only with the
+**captured** audit fields (subject, action, resource type/id, and the single
+`tenant` mapped to the subject), and a banner states that the ABAC inputs
+(`amount`, `maker`, `status`, subject `roles`, context `scopes`, and a distinct
+resource `tenant`/`branch`) are not captured and must be completed to reproduce
+the original decision — a cross-tenant `TenantMismatch` needs a resource tenant
+distinct from the subject.
+
+### The snapshot is non-authoritative (not hashed)
+
+The request snapshot is a **replay convenience, not audit-of-record**. It is
+persisted as a **nullable, NON-hashed column** — the same posture as the
+server-stamped `ReceivedAtUtc` — and is **deliberately excluded** from
+`AuditHashChain.ComputeRowHash`. Adding or changing a snapshot therefore never
+alters a row's `RowHash` and `/verify` stays green: the tamper-evident chain
+still binds exactly the CS13 content fields (`subject id / action / resource
+type+id / tenant / decision / reason / trace / producer`) and nothing more. The
+replay UI labels the reconstructed request accordingly so a snapshot is never
+mistaken for chain-protected evidence.
+
+Two safeguards keep the snapshot from ever endangering the audit write, both
+**failing open to null** (the row is still audited; replay just degrades to
+best-effort) and both emitting a **sanitized `ILogger` warning** so the
+degradation stays observable:
+
+- **Serialization fail-open.** If snapshot serialization throws for any reason,
+  the PDP captures `null` rather than faulting the decision path, and logs a
+  sanitized `serializer-failure` warning.
+- **Size guard.** The ingest endpoint drops a snapshot longer than the
+  **effective** cap (`RequestSnapshotOptions.EffectiveMaxSnapshotChars` — the
+  configurable `MaxSnapshotChars`, bound from the `Audit:RequestSnapshot`
+  section (default 16 KB = `RequestSnapshotGuard.DefaultMaxSnapshotChars`),
+  **clamped to `[1, DefaultMaxSnapshotChars]`** so a misconfigured value can
+  never exceed the persisted column width and fail the write) to `null` rather
+  than persisting an unbounded blob, logging a sanitized `oversize` warning.
+  Real snapshots are a few hundred bytes.
+
+The snapshot carries only the request attributes already present in the decision
+inputs (no new PII is introduced), consistent with the data-minimization posture
+of the audit store.
 
 ## Fail-closed behavior
 

@@ -1,3 +1,4 @@
+using AuthzEntitlements.Audit.Service.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuthzEntitlements.Audit.Service.Data;
@@ -33,6 +34,13 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options)
             e.Property(a => a.Reason).IsRequired().HasMaxLength(512);
             e.Property(a => a.Tenant).HasMaxLength(100);
             e.Property(a => a.Producer).IsRequired().HasMaxLength(50);
+
+            // CS36 (LRN-057): the non-hashed replay snapshot. Nullable and bounded to the DEFAULT
+            // size-guard cap (RequestSnapshotGuard.DefaultMaxSnapshotChars) so the persisted column
+            // can never hold an over-size blob; the authoritative ingest cap is configurable and
+            // defaults to this width. Not part of the row hash (like ReceivedAtUtc).
+            e.Property(a => a.RequestSnapshot)
+                .HasMaxLength(RequestSnapshotGuard.DefaultMaxSnapshotChars);
 
             // The chain hashes are fixed-width lowercase-hex SHA-256 digests.
             e.Property(a => a.PrevHash).IsRequired().IsFixedLength().HasMaxLength(64);

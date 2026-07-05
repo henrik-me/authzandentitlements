@@ -370,6 +370,9 @@ public sealed record PlaygroundFanoutResponseDto(
 // ---- Audit.Service read model (mirror Audit.Service/Contracts/AuditResponses.cs) ----
 
 // One tamper-evident audit-log row (mirror AuditEntryView). PrevHash/RowHash link the chain.
+// RequestSnapshot (CS36) is the canonical JSON of the original AccessRequest when the row carries
+// one — used for a faithful "Replay in Playground" pre-fill; null for rows without a snapshot. It
+// is NON-hashed (reconstructed replay context), not part of the tamper-evident chain.
 public sealed record AuditEntryDto(
     long Sequence,
     DateTimeOffset TimestampUtc,
@@ -384,7 +387,8 @@ public sealed record AuditEntryDto(
     string? Tenant,
     string Producer,
     string PrevHash,
-    string RowHash);
+    string RowHash,
+    string? RequestSnapshot = null);
 
 // The result of recomputing the whole hash chain (mirror ChainVerificationResponse): Valid plus,
 // when broken, the sequence and reason the recomputation first diverged.

@@ -27,4 +27,8 @@ public sealed record AuditEntryView(
     string? Tenant,
     string Producer,
     string PrevHash,
-    string RowHash);
+    string RowHash,
+    // CS36 (LRN-057): the non-hashed canonical request snapshot, returned so the Audit Explorer can
+    // replay the decision faithfully. Null for rows without one (older rows / non-PDP producers /
+    // over-size or unserializable snapshots). Trailing + defaulted so existing constructions compile.
+    string? RequestSnapshot = null);

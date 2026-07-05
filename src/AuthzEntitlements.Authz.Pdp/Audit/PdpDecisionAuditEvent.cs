@@ -37,4 +37,11 @@ public sealed record PdpDecisionAuditEvent(
     // Audit.Service hash-chain/schema is untouched (it tolerates extra fields).
     bool BreakGlass = false,
     string? BreakGlassGrantId = null,
-    string? DelegationId = null);
+    string? DelegationId = null,
+    // CS36 faithful replay (LRN-057): a deterministic canonical JSON snapshot of the WHOLE
+    // AccessRequest (subject/action/resource/context incl. every ABAC input) so the Audit Explorer
+    // can replay the decision 1:1. Additive/defaulted so every existing positional construction keeps
+    // compiling. Fail-open: null when serialization failed (the decision is still audited). It is
+    // persisted NON-hashed (like the server's ReceivedAtUtc) and is never part of the tamper-evident
+    // chain; the forwarded JSON simply gains an optional field the Audit.Service tolerates.
+    string? RequestSnapshot = null);

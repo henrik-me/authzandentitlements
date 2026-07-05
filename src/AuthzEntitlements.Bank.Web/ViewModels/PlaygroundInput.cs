@@ -16,6 +16,17 @@ public sealed class PlaygroundInput
     // Comma-separated role list (e.g. "Teller, BranchManager"). Split, trimmed, blanks dropped.
     public string Roles { get; set; } = string.Empty;
 
+    // Optional on-behalf-of (OBO) delegate acting FOR the subject: type ("agent"|"service"), id, and
+    // the delegated capability scopes (comma-separated). All blank ⇒ a direct/human call (Actor null),
+    // so the common non-OBO case leaves these empty. Reconstructed 1:1 from a replayed snapshot so an
+    // OBO decision replays as the SAME request rather than a direct one.
+    public string? ActorType { get; set; }
+
+    public string? ActorId { get; set; }
+
+    // Comma-separated delegated scope list for the OBO actor. Split, trimmed, blanks dropped.
+    public string ActorScopes { get; set; } = string.Empty;
+
     // Subject tenant/branch. When the resource-specific fields below are blank, the resource inherits
     // these, so the common single-tenant case needs only these two.
     public string? Tenant { get; set; }
@@ -31,6 +42,11 @@ public sealed class PlaygroundInput
     // Resource tenant. Set it different from the subject Tenant to model a cross-tenant request (the
     // reference engine denies with TenantMismatch); blank ⇒ falls back to the subject Tenant.
     public string? ResourceTenant { get; set; }
+
+    // Resource branch, INDEPENDENT of the subject Branch. Set it different from the subject Branch to
+    // model a cross-branch request; blank ⇒ falls back to the subject Branch (so the common
+    // single-branch case, and every non-replay form, stays byte-identical to authoring one Branch).
+    public string? ResourceBranch { get; set; }
 
     public decimal? Amount { get; set; }
 
@@ -51,17 +67,35 @@ public sealed class PlaygroundInput
                 SubjectId?.Trim() ?? string.Empty,
                 SplitCsv(Roles),
                 NullIfBlank(Tenant),
-                NullIfBlank(Branch)),
+                NullIfBlank(Branch),
+                BuildActor()),
             new PdpActionDto(Action?.Trim() ?? string.Empty),
             new PdpResourceDto(
                 ResourceType?.Trim() ?? string.Empty,
                 NullIfBlank(ResourceId),
                 NullIfBlank(ResourceTenant) ?? NullIfBlank(Tenant),
-                NullIfBlank(Branch),
+                NullIfBlank(ResourceBranch) ?? NullIfBlank(Branch),
                 Amount,
                 NullIfBlank(MakerId),
                 NullIfBlank(Status)),
             new PdpContextDto(SplitCsv(Scopes)));
+
+    // Builds the OBO actor from the form, or null unless a COMPLETE delegate (BOTH type and id) is
+    // authored — a partial actor (only one field) is invalid at the PDP boundary (subject.actor.type
+    // and .id are both required when the actor is present), so it degrades to a direct/human call
+    // (null Actor), byte-identical to omitting it. When a complete delegate IS present, its
+    // type/id/scopes reconstruct the recorded Actor exactly.
+    private PdpActorDto? BuildActor()
+    {
+        var type = NullIfBlank(ActorType);
+        var id = NullIfBlank(ActorId);
+        if (type is null || id is null)
+        {
+            return null;
+        }
+
+        return new PdpActorDto(type, id, SplitCsv(ActorScopes));
+    }
 
     private static IReadOnlyList<string> SplitCsv(string? value) =>
         string.IsNullOrWhiteSpace(value)

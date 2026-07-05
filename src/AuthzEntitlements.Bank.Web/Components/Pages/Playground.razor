@@ -3,6 +3,7 @@
 @rendermode RenderMode.InteractiveServer
 @using AuthzEntitlements.Bank.Web.ViewModels
 @inject IPdpClient Pdp
+@inject IAuditClient AuditApi
 @inject IConfiguration Configuration
 
 @* AuthZ Playground (CS15): author one authorization request (or pick a preset), fan it out across
@@ -23,13 +24,40 @@
 
 @if (_replaySequence is not null)
 {
-    <p class="notice" role="note">
-        Reconstructed from audit entry <strong>#@_replaySequence</strong> — recorded decision:
-        <strong>@_recordedDecision</strong> (@_recordedReason). The audit log captures only a single
-        tenant (mapped to the subject) and none of the ABAC inputs (amount, maker, status, roles,
-        scopes, resource tenant/branch); complete them below to reproduce the original decision — a
-        cross-tenant <code>TenantMismatch</code> needs a Resource tenant distinct from the subject.
-    </p>
+    @if (_faithfulReplay)
+    {
+        <p class="notice" role="note">
+            Faithfully reconstructed from the request snapshot of audit entry
+            <strong>#@_replaySequence</strong> — recorded decision: <strong>@_recordedDecision</strong>
+            (@_recordedReason). The form below reproduces the <strong>original request 1:1</strong>
+            (roles, scopes, amount, maker, status, resource tenant/branch, and any on-behalf-of actor).
+            Note the replayed request is
+            <strong>reconstructed context, not part of the tamper-evident hash</strong>: the snapshot is a
+            non-hashed convenience field, so only the recorded decision fields are chain-protected.
+            Run the fan-out to reproduce the original decision.
+        </p>
+    }
+    else if (_entryFetched)
+    {
+        <p class="notice" role="note">
+            Reconstructed from audit entry <strong>#@_replaySequence</strong> — recorded decision:
+            <strong>@_recordedDecision</strong> (@_recordedReason). This row has no request snapshot, so
+            the audit log captures only a single tenant (mapped to the subject) and none of the ABAC
+            inputs (amount, maker, status, roles, scopes, resource tenant/branch); complete them below to
+            reproduce the original decision — a cross-tenant <code>TenantMismatch</code> needs a Resource
+            tenant distinct from the subject.
+        </p>
+    }
+    else
+    {
+        <p class="notice" role="note">
+            Reconstructed from audit entry <strong>#@_replaySequence</strong> — recorded decision:
+            <strong>@_recordedDecision</strong> (@_recordedReason). The full audit entry <strong>could not
+            be fetched</strong>, so this is a <strong>best-effort</strong> pre-fill from the link's
+            captured scalar fields (the row may still carry a request snapshot); complete the ABAC inputs
+            below to reproduce the original decision.
+        </p>
+    }
 }
 
 <div class="notice" role="group" aria-label="Authorization request">
@@ -44,10 +72,21 @@
         <label>Resource type<br /><input @bind="_input.ResourceType" /></label>
         <label>Resource id<br /><input @bind="_input.ResourceId" /></label>
         <label>Resource tenant<br /><input @bind="_input.ResourceTenant" placeholder="(defaults to Tenant)" /></label>
+        <label>Resource branch<br /><input @bind="_input.ResourceBranch" placeholder="(defaults to Branch)" /></label>
         <label>Amount<br /><input type="number" step="0.01" @bind="_input.Amount" /></label>
         <label>Maker id<br /><input @bind="_input.MakerId" /></label>
         <label>Status<br /><input @bind="_input.Status" /></label>
         <label>Scopes (comma-separated)<br /><input @bind="_input.Scopes" /></label>
+    </div>
+
+    <h3>On-behalf-of delegate (optional)</h3>
+    <p class="hint">Model an agent or workload acting <strong>for</strong> the subject. Leave blank for a
+        direct/human call. When set, the decision is constrained to the intersection of the subject's
+        rights and the delegate's scopes.</p>
+    <div class="form-grid">
+        <label>Actor type<br /><input @bind="_input.ActorType" placeholder="agent | service" /></label>
+        <label>Actor id<br /><input @bind="_input.ActorId" /></label>
+        <label>Actor scopes (comma-separated)<br /><input @bind="_input.ActorScopes" /></label>
     </div>
 
     <h2>Presets</h2>
@@ -227,7 +266,7 @@
             "bank.transactions.write"),
     ];
 
-    private readonly PlaygroundInput _input = new();
+    private PlaygroundInput _input = new();
 
     private readonly List<EngineChoice> _engines =
     [
@@ -245,9 +284,11 @@
     private PlaygroundFanoutResponseDto? _response;
     private string? _observabilityBaseUrl;
 
-    // Replay pre-fill parameters (from an Audit Explorer "Replay in Playground" link). The audit
-    // row captures only these fields — not the ABAC inputs — so they seed the form and the recorded
-    // verdict is shown for comparison, but the user must complete the rest before running.
+    // Replay pre-fill parameters (from an Audit Explorer "Replay in Playground" link). The link
+    // carries only the entry's SEQUENCE plus small scalar fields; the (potentially large) request
+    // snapshot is NOT put on the URL — the page fetches the full audit entry by sequence below so
+    // faithful replay works across the entire snapshot size range. The scalars seed the best-effort
+    // pre-fill and recorded verdict immediately, and are the fallback if the entry fetch fails.
     [SupplyParameterFromQuery] private string? Subject { get; set; }
     [SupplyParameterFromQuery] private string? Action { get; set; }
     [SupplyParameterFromQuery] private string? ResourceType { get; set; }
@@ -255,27 +296,59 @@
     [SupplyParameterFromQuery] private string? Tenant { get; set; }
     [SupplyParameterFromQuery] private string? RecordedDecision { get; set; }
     [SupplyParameterFromQuery] private string? RecordedReason { get; set; }
-    [SupplyParameterFromQuery] private long? Sequence { get; set; }
+    [SupplyParameterFromQuery] private long? ReplaySequence { get; set; }
 
     private long? _replaySequence;
     private string? _recordedDecision;
     private string? _recordedReason;
+    private bool _faithfulReplay;
+    private bool _entryFetched;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         var baseUrl = Configuration["Observability:BaseUrl"];
         _observabilityBaseUrl = string.IsNullOrWhiteSpace(baseUrl) ? null : baseUrl;
 
-        if (Sequence is not null)
+        if (ReplaySequence is not { } sequence)
         {
-            _replaySequence = Sequence;
-            _recordedDecision = RecordedDecision;
-            _recordedReason = RecordedReason;
-            _input.SubjectId = Subject ?? string.Empty;
-            _input.Action = Action ?? string.Empty;
-            _input.ResourceType = ResourceType ?? string.Empty;
-            _input.ResourceId = ResourceId;
-            _input.Tenant = Tenant;
+            return;
+        }
+
+        _replaySequence = sequence;
+        // Seed the recorded verdict from the URL for immediate display; refreshed from the fetched
+        // entry below when available.
+        _recordedDecision = RecordedDecision;
+        _recordedReason = RecordedReason;
+
+        // Fetch the full audit entry — including its RequestSnapshot (up to the ingest size cap, far
+        // larger than any URL could safely carry) — so faithful replay works for every snapshot size.
+        // The audit client fails closed to null on any error, so a null/empty result simply degrades
+        // to the CS15 best-effort pre-fill + banner below; it never throws.
+        var entries = await AuditApi.GetEntriesAsync(new AuditQuery(Sequence: sequence));
+        var entry = entries?.FirstOrDefault(e => e.Sequence == sequence);
+        _entryFetched = entry is not null;
+        if (entry is not null)
+        {
+            _recordedDecision = entry.Decision;
+            _recordedReason = entry.Reason;
+        }
+
+        // Prefer a faithful reconstruction from the fetched request snapshot; a null/malformed
+        // snapshot (or a failed fetch) falls back to the CS15 best-effort pre-fill of the captured
+        // scalar fields, preferring the fetched entry's values and falling back to the URL scalars.
+        var reconstructed = ReplayPrefill.FromSnapshot(entry?.RequestSnapshot);
+        if (reconstructed is not null)
+        {
+            _input = reconstructed;
+            _faithfulReplay = true;
+        }
+        else
+        {
+            _input.SubjectId = entry?.SubjectId ?? Subject ?? string.Empty;
+            _input.Action = entry?.Action ?? Action ?? string.Empty;
+            _input.ResourceType = entry?.ResourceType ?? ResourceType ?? string.Empty;
+            _input.ResourceId = entry?.ResourceId ?? ResourceId;
+            _input.Tenant = entry?.Tenant ?? Tenant;
         }
     }
 
@@ -284,12 +357,16 @@
         _input.SubjectType = "user";
         _input.SubjectId = preset.SubjectId;
         _input.Roles = preset.Roles;
+        _input.ActorType = null;
+        _input.ActorId = null;
+        _input.ActorScopes = string.Empty;
         _input.Tenant = preset.Tenant;
         _input.Branch = null;
         _input.Action = preset.Action;
         _input.ResourceType = preset.ResourceType;
         _input.ResourceId = null;
         _input.ResourceTenant = preset.ResourceTenant;
+        _input.ResourceBranch = null;
         _input.Amount = preset.Amount;
         _input.MakerId = preset.MakerId;
         _input.Status = preset.Status;
