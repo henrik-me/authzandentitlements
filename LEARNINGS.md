@@ -60,7 +60,7 @@ tags: [dotnet, sln, windows, line-endings, text-encoding, cpm]
 
 **Evidence:** CS50 (PR #168) — post-`dotnet sln add` the file carried CRLF + BOM; normalizing kept the diff to the 15 added registration lines and `harness lint` passed 23/0. Mirrors the create/edit-tool CRLF behaviour already noted in CONVENTIONS.md (LF, no BOM).
 
-**Disposition:** **open** — candidate for the CONVENTIONS.md project-local block at the next harvest (git/tooling convention).
+**Disposition:** **open** — filed into **CS53** (`project/clickstops/planned/planned_cs53_dotnet-tooling-conventions.md`, open-learnings harvest 2026-07-05) to codify this into the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS53 closes.
 
 ### LRN-080
 
@@ -79,7 +79,7 @@ tags: [xunit, dotnet, usings, test-project]
 
 **Evidence:** CS50 (PR #168) — `tests/AuthzEntitlements.AppHost.Tests/AppHostApplicationModelSmokeTests.cs` includes `using Xunit;`; all existing test files do the same.
 
-**Disposition:** **open** — minor convention; candidate for CONVENTIONS.md consolidation at harvest.
+**Disposition:** **open** — filed into **CS53** (`project/clickstops/planned/planned_cs53_dotnet-tooling-conventions.md`, open-learnings harvest 2026-07-05) to codify this into the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS53 closes.
 
 ### LRN-081
 
@@ -253,6 +253,8 @@ logs.
 - Any future cleartext-gRPC adapter (CS46 Keto/Topaz) must set the switch in an early static ctor
   and reject `https://`; a green offline suite does NOT prove the live gRPC path works.
 
+**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
+
 ### LRN-073
 
 ```yaml
@@ -280,6 +282,8 @@ log ("lowercased gRPC metadata key (authorization)").
 **Implications carried forward:**
 - Any gRPC adapter using metadata / `CallCredentials` (CS46 Keto/Topaz) must lowercase every
   metadata key.
+
+**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
 
 ### LRN-074
 
@@ -314,6 +318,8 @@ returns null when `outputs.Count != 1`, so a multi-rule activation fails closed,
 **Implications carried forward:**
 - When adding any full-decision engine (CS46 Topaz OPA bundle), enumerate every way the engine
   output can be unknown / empty / ambiguous and fail each closed, with explicit tests.
+
+**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
 
 ### LRN-075
 
@@ -383,6 +389,8 @@ Docker-free and green while a documented local run validates the CI-invisible su
 - CS46 Keto/Topaz must carry env-gated integration tests validating the live policy/directory
   against a pinned container; treat a green offline suite as necessary-but-insufficient for
   out-of-process engines.
+
+**Disposition:** **open** — filed into **CS54** (`project/clickstops/planned/planned_cs54_pdp-adapter-conventions.md`, open-learnings harvest 2026-07-05) to codify this out-of-process adapter convention into `docs/authz/pdp-contract.md` + the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS54 closes.
 
 ## Applied
 
@@ -1827,6 +1835,53 @@ tags: [blazor, dotnet, static-ssr, oidc, warnings-as-errors]
 
 **Disposition:** Consolidated into `CONVENTIONS.md` `conventions.project` local block by **CS33** (PR #119, `8c71a23`).
 
+### LRN-035
+
+```yaml
+id: LRN-035
+date: 2026-07-04
+category: process
+source_cs: CS17
+status: applied
+tags: [ci, testing, posture, process]
+```
+
+**Problem:** CS17's exit criterion "policy changes are gated by CI tests" collides with this repo's DELIBERATE posture that GitHub Actions run process-gates-only (`harness lint` + drift + review-evidence) while .NET build/test is the LOCAL correctness gate (CONTEXT.md; `.github/workflows/` carry no dotnet step). Adding an active `.NET` CI workflow would change that posture AND interacts with the `workflow-pins` gate (actions must be SHA-pinned).
+
+**Finding:** When a CS deliverable's literal wording conflicts with an established repo posture/decision, do NOT silently change the posture. Deliver the INTENT (here: a runnable policy test suite of +59 golden/property/conformance tests that any policy change must pass) + a documented, ready-to-adopt opt-in path (a `policy-tests.yml` snippet in `docs/authz/policy-lifecycle.md`), and ESCALATE the posture decision to the maintainer (PR #55 Notes). The plan-vs-impl review marked CI-gating `diverged` (intentional), not `dropped`, and returned GO.
+
+**Evidence:** `docs/authz/policy-lifecycle.md` CI note + adoption snippet; PR #55 Notes (escalation); the plan-vs-impl review in `done_cs17_*` (D1-CI = diverged, Outcome GO).
+
+**Implications carried forward:**
+- **Core gap addressed by CS28** (maintainer approved adopting .NET in CI on 2026-07-04): CS28 adds `.github/workflows/dotnet-ci.yml` — full-solution `dotnet build` + `dotnet test` on `pull_request` + `push`→`main`. **Advisory** (see residual below); the "no .NET in CI" gap itself is closed. This learning is now **`deferred`** (see Disposition) for the enforcement follow-up — the advisory check cannot yet be made required-to-merge on the current private tier.
+- **Residual (needs branch protection → public repo or GitHub Pro):** the check cannot be required-to-merge, and the merge-order class (CS13↔CS16-style stale-green logical conflicts) is only fully *prevented* by require-up-to-date / a merge queue. CS28's `push`→`main` run detects it reactively; full prevention is a CS28 follow-up.
+- Future eval/testing CSs (CS23/CS24) that mention "CI" can now rely on the CS28 `dotnet-ci` check.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): deferred. CS28 added an **advisory** `.github/workflows/dotnet-ci.yml` build+test gate; making it a **required** merge check needs branch-protection required-status-checks, unavailable on this private free-tier repo (discipline-only disposition — see `.harness-known-constraints.md` and INSTRUCTIONS.md § Re-evaluating private-tier disposition). Re-evaluate on tier change (private→public or Free→Pro) or by the deferred_until date. Harvest 2026-07-04 (CS37): still deferred; the required-status-check enforcement residual is being delivered by yoga-ae-c5's branch-protection / CI-merge-gating maintenance (planned CS40 'Review & PR merge-gate hardening'); deferred_until 2026-10-01 not reached — re-evaluate when CS40 lands or by the deferred_until date. Landed on main: PR #135 (commit c2bea79). Harvest 2026-07-05 (open-learnings harvest, yoga-ae-c2): **applied.** CS40 (done — "Review & PR merge-gate hardening") delivered the required-status-check enforcement this entry was deferred pending; verified 2026-07-05 the "push to main" ruleset now REQUIRES the `build-test` check (full-solution `dotnet build` + `dotnet test` from `.github/workflows/dotnet-ci.yml`), so a cross-CS .NET break can no longer silently merge to `main`. Residual: `strict_required_status_checks_policy` is false (no require-up-to-date) and no merge queue exists, so full prevention of stale-green cross-CS logical conflicts remains a branch-protection posture follow-up (yoga-ae-c5 domain) — tracked, not blocking.
+
+### LRN-040
+
+```yaml
+id: LRN-040
+date: 2026-07-04
+category: process
+source_cs: CS11
+status: applied
+tags: [ci, dotnet, merge, multi-agent, main-green]
+```
+
+**Problem:** During CS11 close-out, merging latest `main` into the content branch surfaced that `origin/main` itself did NOT compile: CS13's `HttpForwardingAuditSinkTests.SampleEvent` omitted the `DeterminingRule`/`PolicyReferences`/`Narrative` fields that CS16 made **required** on `PdpDecisionAuditEvent`. Two concurrently-developed CSs (CS13, CS16) changed a shared contract + a consumer of it, and the later merge did not rebuild against the earlier — so `main` went red and stayed red until an out-of-band hotfix.
+
+**Finding:** Because this repo's CI is **process-gates-only** (`harness lint` + drift + review-evidence; no `dotnet build`/`test` step — see CONTEXT.md + the CS17 CI-posture learning), a cross-CS **.NET build break lands on `main` undetected** by CI. The LOCAL full-solution `dotnet build`/`dotnet test` is the ONLY code-correctness gate. Mitigations for a multi-orchestrator fleet: (1) before opening/merging a content PR, `git merge origin/main` locally and run the **whole-solution** `dotnet build` + `dotnet test` (not just your project) — this catches a concurrent CS's contract change against your code AND a pre-existing main break; (2) when `main` is very active, merge-latest + **admin squash-merge promptly** — CS11 hit **4 sequential `main` advances** during its review, forcing 3 re-merges, and a slow review cadence loses the race; (3) additive merge conflicts from two CSs adding a service (sln/AppHost/csproj) resolve by keeping BOTH — take `--theirs` for the `.sln` then `dotnet sln add` your projects to regenerate GUIDs/build-configs cleanly.
+
+**Evidence:** CS11 close-out (this session): `origin/main` `d75d6ea` failed `dotnet build` (CS7036 missing `DeterminingRule` in `HttpForwardingAuditSinkTests.cs`) → fixed in the CS11 merge and independently hotfixed on main by **PR #60 "restore green main after CS13xCS16 audit-event merge"**; 3 re-merges (`3823f97`, `5b41c84`, `0fa1f0f`) across advances `9f2df6f`→`4139355`→`d75d6ea`→`2ddc857`.
+
+**Implications carried forward:**
+- Every orchestrator: run the whole-solution `dotnet build`/`dotnet test` against the latest-`main`-merged HEAD immediately before merging a content PR; do not rely on CI to catch .NET breaks.
+- Consider (as a future CS, mindful of the deliberate process-only-CI posture + `workflow-pins` gate — see the CS17 learning) whether a SHA-pinned .NET build/test CI job is worth adding to catch cross-CS contract breaks automatically.
+
+**Disposition:** Harvest 2026-07-04 (CS28h): deferred. CS28 added an **advisory** `.github/workflows/dotnet-ci.yml` build+test gate; making it a **required** merge check needs branch-protection required-status-checks, unavailable on this private free-tier repo (discipline-only disposition — see `.harness-known-constraints.md` and INSTRUCTIONS.md § Re-evaluating private-tier disposition). Re-evaluate on tier change (private→public or Free→Pro) or by the deferred_until date. Harvest 2026-07-04 (CS37): still deferred; the required-status-check enforcement residual is being delivered by yoga-ae-c5's branch-protection / CI-merge-gating maintenance (planned CS40 'Review & PR merge-gate hardening'); deferred_until 2026-10-01 not reached — re-evaluate when CS40 lands or by the deferred_until date. Landed on main: PR #135 (commit c2bea79). Harvest 2026-07-05 (open-learnings harvest, yoga-ae-c2): **applied.** The required CI gate this entry called for has landed: CS40 (done) made the `build-test` check REQUIRED on the "push to main" ruleset (verified 2026-07-05), so a cross-CS .NET build break like the CS13xCS16 case can no longer silently merge to `main`; the shipped `.github/workflows/dotnet-ci.yml` runs the whole-solution `dotnet build` + `dotnet test`. Residual: require-up-to-date (`strict_required_status_checks_policy`) is off and there is no merge queue, so the stale-green ordering class is not yet fully prevented — a branch-protection posture follow-up (yoga-ae-c5 domain).
+
 ## Obsolete
 
 ### LRN-006
@@ -1847,54 +1902,3 @@ tags: [harness, review, cli, escalation]
 **Evidence:** this session; `harness review 5 --rubber-duck-only --no-poll` → exit 2 with the lookup error; `--dry-run` variant → exit 0; file present via `git ls-files`.
 
 **Disposition:** obsolete — fixed upstream in **agent-harness v0.13.0** (CS93; `henrik-me/agent-harness#407` closed COMPLETED — `findClickstopFile` in `lib/review.mjs` now normalizes the padded/zero-stripped CS id on both sides and resolves directory-form + done-stage clickstops). This repo bumped its pin to v0.13.0 and removed the temporary `.github/copilot-instructions.md` workaround note; `harness review 5` verified working (exit 0, resolves `done_cs02_…`).
-
-## Deferred
-
-### LRN-035
-
-```yaml
-id: LRN-035
-date: 2026-07-04
-category: process
-source_cs: CS17
-status: deferred
-deferred_until: 2026-10-01
-tags: [ci, testing, posture, process]
-```
-
-**Problem:** CS17's exit criterion "policy changes are gated by CI tests" collides with this repo's DELIBERATE posture that GitHub Actions run process-gates-only (`harness lint` + drift + review-evidence) while .NET build/test is the LOCAL correctness gate (CONTEXT.md; `.github/workflows/` carry no dotnet step). Adding an active `.NET` CI workflow would change that posture AND interacts with the `workflow-pins` gate (actions must be SHA-pinned).
-
-**Finding:** When a CS deliverable's literal wording conflicts with an established repo posture/decision, do NOT silently change the posture. Deliver the INTENT (here: a runnable policy test suite of +59 golden/property/conformance tests that any policy change must pass) + a documented, ready-to-adopt opt-in path (a `policy-tests.yml` snippet in `docs/authz/policy-lifecycle.md`), and ESCALATE the posture decision to the maintainer (PR #55 Notes). The plan-vs-impl review marked CI-gating `diverged` (intentional), not `dropped`, and returned GO.
-
-**Evidence:** `docs/authz/policy-lifecycle.md` CI note + adoption snippet; PR #55 Notes (escalation); the plan-vs-impl review in `done_cs17_*` (D1-CI = diverged, Outcome GO).
-
-**Implications carried forward:**
-- **Core gap addressed by CS28** (maintainer approved adopting .NET in CI on 2026-07-04): CS28 adds `.github/workflows/dotnet-ci.yml` — full-solution `dotnet build` + `dotnet test` on `pull_request` + `push`→`main`. **Advisory** (see residual below); the "no .NET in CI" gap itself is closed. This learning is now **`deferred`** (see Disposition) for the enforcement follow-up — the advisory check cannot yet be made required-to-merge on the current private tier.
-- **Residual (needs branch protection → public repo or GitHub Pro):** the check cannot be required-to-merge, and the merge-order class (CS13↔CS16-style stale-green logical conflicts) is only fully *prevented* by require-up-to-date / a merge queue. CS28's `push`→`main` run detects it reactively; full prevention is a CS28 follow-up.
-- Future eval/testing CSs (CS23/CS24) that mention "CI" can now rely on the CS28 `dotnet-ci` check.
-
-**Disposition:** Harvest 2026-07-04 (CS28h): deferred. CS28 added an **advisory** `.github/workflows/dotnet-ci.yml` build+test gate; making it a **required** merge check needs branch-protection required-status-checks, unavailable on this private free-tier repo (discipline-only disposition — see `.harness-known-constraints.md` and INSTRUCTIONS.md § Re-evaluating private-tier disposition). Re-evaluate on tier change (private→public or Free→Pro) or by the deferred_until date. Harvest 2026-07-04 (CS37): still deferred; the required-status-check enforcement residual is being delivered by yoga-ae-c5's branch-protection / CI-merge-gating maintenance (planned CS40 'Review & PR merge-gate hardening'); deferred_until 2026-10-01 not reached — re-evaluate when CS40 lands or by the deferred_until date. Landed on main: PR #135 (commit c2bea79).
-
-### LRN-040
-
-```yaml
-id: LRN-040
-date: 2026-07-04
-category: process
-source_cs: CS11
-status: deferred
-deferred_until: 2026-10-01
-tags: [ci, dotnet, merge, multi-agent, main-green]
-```
-
-**Problem:** During CS11 close-out, merging latest `main` into the content branch surfaced that `origin/main` itself did NOT compile: CS13's `HttpForwardingAuditSinkTests.SampleEvent` omitted the `DeterminingRule`/`PolicyReferences`/`Narrative` fields that CS16 made **required** on `PdpDecisionAuditEvent`. Two concurrently-developed CSs (CS13, CS16) changed a shared contract + a consumer of it, and the later merge did not rebuild against the earlier — so `main` went red and stayed red until an out-of-band hotfix.
-
-**Finding:** Because this repo's CI is **process-gates-only** (`harness lint` + drift + review-evidence; no `dotnet build`/`test` step — see CONTEXT.md + the CS17 CI-posture learning), a cross-CS **.NET build break lands on `main` undetected** by CI. The LOCAL full-solution `dotnet build`/`dotnet test` is the ONLY code-correctness gate. Mitigations for a multi-orchestrator fleet: (1) before opening/merging a content PR, `git merge origin/main` locally and run the **whole-solution** `dotnet build` + `dotnet test` (not just your project) — this catches a concurrent CS's contract change against your code AND a pre-existing main break; (2) when `main` is very active, merge-latest + **admin squash-merge promptly** — CS11 hit **4 sequential `main` advances** during its review, forcing 3 re-merges, and a slow review cadence loses the race; (3) additive merge conflicts from two CSs adding a service (sln/AppHost/csproj) resolve by keeping BOTH — take `--theirs` for the `.sln` then `dotnet sln add` your projects to regenerate GUIDs/build-configs cleanly.
-
-**Evidence:** CS11 close-out (this session): `origin/main` `d75d6ea` failed `dotnet build` (CS7036 missing `DeterminingRule` in `HttpForwardingAuditSinkTests.cs`) → fixed in the CS11 merge and independently hotfixed on main by **PR #60 "restore green main after CS13xCS16 audit-event merge"**; 3 re-merges (`3823f97`, `5b41c84`, `0fa1f0f`) across advances `9f2df6f`→`4139355`→`d75d6ea`→`2ddc857`.
-
-**Implications carried forward:**
-- Every orchestrator: run the whole-solution `dotnet build`/`dotnet test` against the latest-`main`-merged HEAD immediately before merging a content PR; do not rely on CI to catch .NET breaks.
-- Consider (as a future CS, mindful of the deliberate process-only-CI posture + `workflow-pins` gate — see the CS17 learning) whether a SHA-pinned .NET build/test CI job is worth adding to catch cross-CS contract breaks automatically.
-
-**Disposition:** Harvest 2026-07-04 (CS28h): deferred. CS28 added an **advisory** `.github/workflows/dotnet-ci.yml` build+test gate; making it a **required** merge check needs branch-protection required-status-checks, unavailable on this private free-tier repo (discipline-only disposition — see `.harness-known-constraints.md` and INSTRUCTIONS.md § Re-evaluating private-tier disposition). Re-evaluate on tier change (private→public or Free→Pro) or by the deferred_until date. Harvest 2026-07-04 (CS37): still deferred; the required-status-check enforcement residual is being delivered by yoga-ae-c5's branch-protection / CI-merge-gating maintenance (planned CS40 'Review & PR merge-gate hardening'); deferred_until 2026-10-01 not reached — re-evaluate when CS40 lands or by the deferred_until date. Landed on main: PR #135 (commit c2bea79).
