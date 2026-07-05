@@ -47,6 +47,16 @@ public sealed class ReplayPrefillTests
         // A JSON object with none of subject/action/resource degrades to best-effort (null).
         Assert.Null(ReplayPrefill.FromSnapshot("{\"unrelated\":true}"));
 
+    [Theory]
+    // Objects present but a required scalar is blank/absent — the snapshot is non-hashed so a
+    // partial/tampered one must fall back to best-effort rather than claim a "faithful" replay of an
+    // invalid request.
+    [InlineData("{\"subject\":{\"id\":\"\"},\"action\":{\"name\":\"a\"},\"resource\":{\"type\":\"account\"}}")]
+    [InlineData("{\"subject\":{\"id\":\"u1\"},\"action\":{\"name\":\"  \"},\"resource\":{\"type\":\"account\"}}")]
+    [InlineData("{\"subject\":{\"id\":\"u1\"},\"action\":{\"name\":\"a\"},\"resource\":{}}")]
+    public void FromSnapshot_BlankRequiredScalar_ReturnsNull(string snapshot) =>
+        Assert.Null(ReplayPrefill.FromSnapshot(snapshot));
+
     [Fact]
     public void FromSnapshot_FaithfullyReconstructsEveryField()
     {

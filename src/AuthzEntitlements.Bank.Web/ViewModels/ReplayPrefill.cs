@@ -39,6 +39,18 @@ public static class ReplayPrefill
             return null;
         }
 
+        // A genuine snapshot (from RequestSnapshotSerializer over a real AccessRequest) always carries
+        // the required scalars. Since the snapshot is NON-hashed (a tampered or future-partial one is
+        // possible), require subject.id / action.name / resource.type to be present + non-blank — a
+        // partial snapshot must fall back to the best-effort replay + banner rather than claim a
+        // "faithful" reconstruction of an invalid request.
+        if (string.IsNullOrWhiteSpace(request.Subject.Id)
+            || string.IsNullOrWhiteSpace(request.Action.Name)
+            || string.IsNullOrWhiteSpace(request.Resource.Type))
+        {
+            return null;
+        }
+
         var subject = request.Subject;
         var resource = request.Resource;
         var actor = subject.Actor;
