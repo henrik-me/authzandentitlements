@@ -1,6 +1,6 @@
 # Review & PR merge-gate policy (CS40)
 
-How `main` is protected in `henrik-me/authzandentitlements`, why, and the operational conventions that keep merges **bypass-free**. Owner: the "push to main" repository ruleset (id `18513457`). This doc is the human-readable companion to that ruleset.
+How `main` is protected in `henrik-me/authzandentitlements`, why, and the operational conventions that keep merges **bypass-free**. Owner: the "push to main" repository ruleset (id `18513457`). This doc is a **non-authoritative human summary**; the **live ruleset is the operational source of truth** — query it with `gh api repos/henrik-me/authzandentitlements/rulesets/18513457`. See [Source of truth & the committed spec](#source-of-truth--the-committed-spec) for how this relates to the committed `infra/main-protection-ruleset.json`.
 
 ## TL;DR
 
@@ -10,7 +10,7 @@ How `main` is protected in `henrik-me/authzandentitlements`, why, and the operat
 
 ## Required status checks
 
-The ruleset requires these five checks (all produced by GitHub Actions, `integration_id` 15368):
+The live ruleset (id `18513457`) currently requires these five checks (all produced by GitHub Actions, `integration_id` 15368). This table summarizes the live state — it is **not** the source of truth; verify against the ruleset itself:
 
 | Check | Workflow | Enforces |
 |---|---|---|
@@ -21,6 +21,19 @@ The ruleset requires these five checks (all produced by GitHub Actions, `integra
 | `independence-invariant` | `review-gates.yml` | Reviewer model ≠ every implementer model |
 
 Plus the `pull_request` rule: squash-only, **all review threads must be resolved**, `code_scanning` (CodeQL) must be clean, and `creation`/`deletion`/`non_fast_forward` protect the branch.
+
+## Source of truth & the committed spec
+
+The **live ruleset** (id `18513457`, `gh api repos/henrik-me/authzandentitlements/rulesets/18513457`) is the operational source of truth. The repo also contains a committed spec, `infra/main-protection-ruleset.json`, which is the **harness-intended** ruleset: `harness sync --mode=apply` injects the four review-gate contexts — `review-log-evidence`, `copilot-review-attached`, `independence-invariant`, `review-threads-resolved` — into its `required_checks` when `reviews.enforce_gates=true`, and `sync --mode=check` fails when those contexts are missing (OPERATIONS.md, REVIEWS.md).
+
+That spec was authored while the repo was **private**, when repository rulesets could not be applied (private repos need GitHub Pro; the apply returned HTTP 403), so it was **never applied** — CI ran advisory-only. The repo is now **public** and the live ruleset was applied and hardened directly via the API during CS40. The committed spec therefore **drifts** from the live ruleset:
+
+- **In both:** `copilot-review-attached`, `independence-invariant`.
+- **Live-only:** `build-test`, `structural-gate`, `read-only-gates` (repo-specific build/lint/evidence checks the harness spec never listed).
+- **Spec-only:** `review-log-evidence` (runs as a sub-job of the review-gate workflows, not a standalone required context) and `review-threads-resolved` (enforced live via the `pull_request` rule's `required_review_thread_resolution`, not as a status check).
+
+Reconciling the drift is split by ownership: the now-stale "ruleset not applied / CI advisory-only" note in `CONTEXT.md` (consumer-owned) is corrected at CS40 close-out, while updating the committed `infra/main-protection-ruleset.json` spec itself — a harness-sync-managed artifact whose review contexts are injected by `harness sync` — is tracked as a CS40 follow-up (see the CS file) rather than hand-edited here.
+
 
 ## Why merges were previously stuck on admin bypass (fixed)
 
