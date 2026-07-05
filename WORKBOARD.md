@@ -15,6 +15,8 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 | yoga-ae-c5 | yoga | C:\src\authzandentitlements_copilot5 | 🟢 Active | 2026-07-04 |
 
 > **Repo-health / DevEx maintenance (yoga-ae-c5 · 2026-07-04, no CS):** Branch protection + Dependabot hardened — required build+test checks on the "push to main" ruleset, `.github/dependabot.yml` added, and all 15 open Dependabot alerts fixed. **CS34** (log-forging CWE-117 sanitization) done; **CS40** (review & PR merge-gate hardening) claimed. Removed the ruleset's **"Restrict updates"** rule that was forcing every merge through admin bypass — normal PRs can now merge once their required checks pass. Other orchestrators: ping yoga-ae-c5 before touching branch-protection, Dependabot, or `.github/workflows/`.
+>
+> **Update (yoga-ae-c5 · 2026-07-05, CS40):** the "push to main" ruleset now **requires 5 status checks** — `build-test`, `structural-gate`, `read-only-gates`, `copilot-review-attached`, `independence-invariant` — plus thread-resolution. **Impact on in-flight PRs:** to merge, your PR now needs (a) a proper review-evidence PR body (`## Model audit` + `## Review log`), (b) an attached **Copilot review** (request `Copilot` as reviewer), and (c) reviewer model ≠ every implementer model. Apply the `workboard-only` label **at PR creation** for workboard PRs so the review-evidence jobs skip cleanly. Policy: `docs/ci/review-pr-hardening.md` (in review, PR #143).
 
 ## Active Work
 
