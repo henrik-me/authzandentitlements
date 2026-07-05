@@ -1,10 +1,10 @@
 # CS37 — Weekly harvest: consolidate LRN-050..064 into project doc blocks
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs37/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-04
 **Filed by:** yoga-ae-c3 — 2026-07-04, weekly LRN harvest: dispositioning the post-CS33 open batch (LRN-050..064, filed by CS15/CS19/CS22/CS23/CS25) into project doc blocks + a follow-up code CS. (Renumbered from CS35 → CS37 on 2026-07-04 after a same-number filing collision with yoga-ae-c5's CS35 "Review & PR merge-gate hardening", PR #125; the GPT-5.5 plan-review attestation `5c301b582b81` over `## Decisions`+`## Deliverables` is unchanged by the renumber.)
 **Depends on:** none
 
@@ -107,15 +107,16 @@ None — project-local doc content + LEARNINGS dispositions + one new planned CS
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Consolidate code/domain LRNs (050/051/054/058/059/064) into CONVENTIONS.md `conventions.project` | pending | yoga-ae-c3 | agent-id=cs37-harvest-impl / role=doc-consolidation / report-status=pending / learnings=0 |
-| Consolidate review/CI/merge LRNs (052/053/055/056/060/061/063) into REVIEWS.md `reviews.project-gates` | pending | yoga-ae-c3 | agent-id=cs37-harvest-impl / role=doc-consolidation / report-status=pending / learnings=0 |
-| Flip LEARNINGS.md dispositions: LRN-050..056/058..064 → applied; LRN-059/062 → applied (already-landed); LRN-057 → open linked to CS36; LRN-035/040 → refreshed deferred note | pending | yoga-ae-c3 | agent-id=cs37-harvest-impl / role=learnings-disposition / report-status=pending / learnings=0 |
-| Close-out: docs + restart state | pending | yoga-ae-c3 | update CONTEXT.md harvest note |
-| Close-out: learnings + follow-ups | pending | yoga-ae-c3 | LRN-050..064 dispositioned; CS36 audit follow-up filed |
+| Consolidate code/domain LRNs (050/051/054/058/059/064) into CONVENTIONS.md `conventions.project` | done | yoga-ae-c3 | agent-id=cs37-harvest-impl / role=doc-consolidation / report-status=complete / learnings=0 |
+| Consolidate review/CI/merge LRNs (052/053/055/056/060/061/063) into REVIEWS.md `reviews.project-gates` | done | yoga-ae-c3 | agent-id=cs37-harvest-impl / role=doc-consolidation / report-status=complete / learnings=0 |
+| Flip LEARNINGS.md dispositions: LRN-050..056/058..064 → applied; LRN-059/062 → applied (already-landed); LRN-057 → open linked to CS36; LRN-035/040 → refreshed deferred note | done | yoga-ae-c3 | agent-id=cs37-harvest-impl / role=learnings-disposition / report-status=complete / learnings=0 |
+| Close-out: docs + restart state | done | yoga-ae-c3 | CONTEXT.md harvest note added (PR #135); landing refs appended to dispositions |
+| Close-out: learnings + follow-ups | done | yoga-ae-c3 | LRN-050..064 dispositioned; CS36 audit follow-up filed + GPT-5.5-plan-reviewed |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- Content implemented by one background sub-agent (`cs37-harvest-impl`, claude-opus-4.8); independent GPT-5.5 rubber-duck diff review (GO) + GPT-5.5 plan-vs-implementation review (GO). Merged as PR #135 (`c2bea79`).
+- The CS was **renumbered CS35 → CS37** after a same-number filing collision with yoga-ae-c5's CS35 (#125); the follow-up CS36 (audit request-snapshot) survived a parallel CS36 collision (yoga-ae-c5 moved their plan to CS40). No new repo learnings warranted (the sub-agent's one candidate — a briefing count-drift nit — is process-local, not durable).
 
 ## Model audit
 
@@ -128,4 +129,21 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-04T23:45:00Z
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| CONVENTIONS.md `conventions.project` extended (LRN-050/051/054/058/059/064) | match | All bullets/refinements inside the local block; LRN-054 co-cited with LRN-048; LRN-051 keeps the "inference until live scrape" caveat; no overstatement. |
+| REVIEWS.md `reviews.project-gates` extended (LRN-052/053/055/056/060/061/063) | match | All review/CI/merge gates inside the local block; citations accurate against source LRNs. |
+| LEARNINGS.md dispositions (14 applied+moved; LRN-057 open→CS36; LRN-035/040 deferred refreshed) | match | LRN-050..056/058..064 `applied` under `## Applied` with dispositions; LRN-057 `open` linked to planned CS36; LRN-035/040 `deferred`, `deferred_until` unchanged. |
+| planned_cs36 filed | match | Filed + GPT-5.5-plan-reviewed in the earlier renumber PR #129 (already satisfied). |
+| CONTEXT.md harvest sentence | match | Added, summarizing the LRN-050..064 disposition + CS36 + deferred CS40. |
+| Harness checks / sync / scope guard | match | `harness lint` 22/0; `sync --mode=check` no drift; commit `c2bea79` touches only the 2 local blocks + LEARNINGS + CONTEXT (no code/managed-core/`.github`). |
+
+**Test coverage:** N/A (docs + LEARNINGS only); `harness lint` and `sync --mode=check` pass.
+
+**Outcome GO:** All deliverables + exit criteria met; no mis-disposition, scope violation, or inaccurate LRN claim. (This close-out gate is distinct from — and confirms — the pre-merge GPT-5.5 diff review, also GO.)
