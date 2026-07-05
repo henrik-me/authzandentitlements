@@ -103,8 +103,8 @@ deterministic.
 
 1. As `teller1`, open **Accounts** (`/accounts`) and **New Transaction** (`/transactions/new`).
    Transactions below the threshold post directly.
-2. Submit a transaction above the **10,000** threshold — it becomes `Pending` and creates an
-   approval (maker-checker).
+2. Submit a transaction of **10,000** or more (the approval threshold) — it becomes `Pending` and
+   creates an approval (maker-checker).
 3. Sign in as `manager1`, open **Approvals** (`/approvals`), and approve/reject. Segregation-of-duties
    blocks the maker from approving their own work, the checker must be tenant-scoped and
    checker-eligible, and approvals are decide-once (optimistic concurrency).
