@@ -97,4 +97,22 @@ Formally **disposition Oso**: record the decision to **de-scope** it from the ex
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** gpt-5.5 (rubber-duck, independent plan-vs-implementation sub-agent `cs47-pvi-review`) — independent of the claude-opus-4.8 implementer
+**Date:** 2026-07-05T17:45:19Z
+**Outcome:** GO
+
+Reviewed the merged CS47 implementation at HEAD `2cc9f7ec832f227711e8958e2e6b84f7148d50f1` / PR #170 against the CS47 plan. Headline result: the disposition is complete, evidence-backed, docs-only, and the one planned narrative-file divergence is explicitly justified and acceptable.
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| D1 — ADR 0008 + README index | match | ADR 0008 records the de-scope, corrected evidence, ADR-0007 conflict, no adapter/pin/container, sources, and re-eval trigger; ADR README indexes 0008. |
+| D2 — eval-doc updates (matrix/market/survey) | match | Comparison matrix, market survey, and policy-engine survey all mark Oso evaluated → de-scoped, link ADR 0008, and replace the old self-host wording with dev-server-is-development-only wording. |
+| D3 — expansion narrative (Oso excluded, not a silent gap) | diverged | Plan named `adding-an-engine-adapter.md`, but that file has no roster; ADR 0008 + eval/TCO docs carry the Cerbos/SpiceDB/Keto/Topaz narrative and explicitly exclude Oso, so the divergence is acceptable. |
+| D4 — dated honesty caveat + sources | match | ADR 0008 has 2026-07-05 availability verification and primary sources; TCO retains dated pricing caveat/sources, including Oso Cloud. |
+| Exit criteria | match | Oso is intentionally de-scoped with rationale, ADR, eval entries, and re-eval trigger; expansion set is stated with Oso excluded; `harness lint` passed; HEAD changes are docs/clickstop only. |
+
+**Factual accuracy:** Corrected rationale is honest and consistent: no in-process .NET/Polar library, dev-server is pinnable but development-only, production is paid managed Oso Cloud. No surviving false unpinnable/latest-only claim except explicitly marked as corrected.
+**Scope:** Docs-only confirmed; no code, NuGet pin, or container added.
+**Test-coverage:** Docs-only — n/a; `harness lint` passed.
+
+Review-log row (for the close-out PR body): `model: gpt-5.5` · `HEAD SHA: 2cc9f7ec832f227711e8958e2e6b84f7148d50f1` · `verdict: Go` · `evidence: PR #170`
