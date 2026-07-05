@@ -1,11 +1,11 @@
 # CS47 — Oso disposition: de-scope from the expansion-engine set
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs47/content
 **Started:** 2026-07-05
-**Closed:** —
-**Filed by:** yoga-ae-c4 on 2026-07-04 — formalises the Oso recommendation surfaced during CS26; Oso was 1 of the 5 originally-planned expansion engines but the CS26 feasibility research found no viable pinnable, self-hostable, in-process .NET path.
+**Closed:** 2026-07-05
+**Filed by:** yoga-ae-c4 on 2026-07-04 — formalises the Oso recommendation surfaced during CS26; Oso was 1 of the 5 originally-planned expansion engines but the CS26 feasibility research found no in-process .NET/Polar library and no self-hostable production server for Oso (see ADR 0008).
 **Phase:** 7 — Expansion + Azure
 **Lane:** Expansion
 **Depends on:** CS23, CS25

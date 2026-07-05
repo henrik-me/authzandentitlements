@@ -40,6 +40,5 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
 | CS46 | CS46 — Keto + Topaz expansion engine adapters | 🟢 Active | yoga-ae | cs46/content | 2026-07-05 | — |
-| CS47 | CS47 — Oso disposition: de-scope from the expansion-engine set | 🟢 Active | yoga-ae-c4 | cs47/content | 2026-07-05 | — |
 
 > **Note:** WORKBOARD shows live coordination state only — active orchestrators and their active work. The queue lives in `project/clickstops/planned/` (priority order via filename + per-file `**Depends on:**`); historical record lives in `project/clickstops/done/`. Do not duplicate either here.
