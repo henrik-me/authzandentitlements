@@ -24,6 +24,8 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+## Applied
+
 ### LRN-003
 
 ```yaml
@@ -71,7 +73,89 @@ claim_area: security-hardening
 
 **Disposition:** **Applied by CS30** (content PR #95, squash `23e4036`, 2026-07-04): the re-evaluation ran and **retained** the `Microsoft.Build.*` 17.14.28 pin — EF Core Design 10.0.0-rc.1 still resolves the vulnerable 17.14.8 without it (verified: GHSA-w3q9-fxm7-j8fq High reappears). The drop-trigger (EF Core RC1→GA build referencing patched MSBuild) is now tracked durably in `docs/security/nuget-audit-reeval-2026-07-04.md`.
 
-## Applied
+### LRN-065
+
+```yaml
+id: LRN-065
+date: 2026-07-05
+category: architectural
+source_cs: CS21
+status: applied
+tags: [pdp, break-glass, security, fail-closed, elevation, integrity]
+```
+
+**Problem:** CS21 break-glass elevation initially keyed on `EvaluateCore`'s PRIMARY (first) deny reason: a base Deny whose `Reasons[0].Code` was in the elevatable set `{MissingScope, RoleNotAuthorized}` was raised to Permit under an active grant. But the rule evaluators check capability (scope/role) BEFORE integrity (tenant / maker-checker-SoD / subject-is-maker / pending) and short-circuit on the first failure — so a request that lacked capability AND violated an integrity invariant surfaced the elevatable capability reason, MASKING the integrity violation, and was wrongly elevated (bypassing tenant isolation / SoD). GPT-5.5 review R1 caught it.
+
+**Finding:** An elevation/override control that keys on the primary/first denial reason is UNSOUND whenever denials are short-circuited in a capability-before-integrity order. The fix is an INDEPENDENT hard-invariant guard (`PassesHardInvariants`) that re-checks every integrity invariant for the action, so elevation applies only to a PURE missing-capability denial. Reuse the provider's existing integrity predicates (no duplicated rule logic). Test the combined-failure class (missing capability AND integrity violation), not only pure-invariant denials — the "pure invariant" tests pass even when the control is broken.
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/ReferenceDecisionProvider.cs` `PassesHardInvariants` (CS21, commit `6ab32bb`); regression tests `BreakGlassTests.BreakGlass_DoesNotElevate_*_Masking*` (5) + 2 positive controls + catalog rows `break-glass-missing-scope-masking-{tenant-mismatch,sod}`.
+
+**Implications carried forward:** Any future override/elevation/emergency/admin-bypass control that raises a denial must RE-VERIFY the hard invariants independently, never trust the primary reason code; and its test suite must include capability+integrity combined-failure cases.
+
+**Disposition:** Applied to CONVENTIONS.md `conventions.project` (fail-closed/security) by the weekly LRN harvest 2026-07-05.
+
+### LRN-066
+
+```yaml
+id: LRN-066
+date: 2026-07-05
+category: architectural
+source_cs: CS21
+status: applied
+tags: [governance, retention, in-memory-store, break-glass, mandatory-review, control-interaction]
+```
+
+**Problem:** CS21 added a bounded in-memory retention cap to the break-glass grant store to prevent unbounded growth / DoS. The first version treated any EXPIRED grant as "terminal" and evicted terminal-first. But expired-but-UNREVIEWED break-glass grants ARE the pending-review queue the mandatory-post-review control depends on — so under over-cap writes the cap could silently drop a grant that still owed its mandatory review, making the control unenforceable and losing the audit correlation id. Copilot review caught it.
+
+**Finding:** A retention/eviction policy on a store that ALSO backs a mandatory-follow-up control must rank items still pending that follow-up as LEAST evictable, not "terminal". CS21 uses a 3-tier `EvictionRank`: reviewed (0, evict first) → still-active (1) → expired-but-unreviewed (2, evict LAST). When two controls share the same state, their retention semantics must be reconciled explicitly.
+
+**Evidence:** `src/AuthzEntitlements.Governance.Service/BreakGlass/BreakGlassGrantStore.cs` `EvictionRank` (CS21, commit `cfc1c96`); tests `Issue_OverCap_EvictsReviewedBeforeActive` + `Issue_OverCap_PreservesExpiredUnreviewedOverActive`.
+
+**Implications carried forward:** When adding retention/GC/eviction to any store, enumerate every downstream control that reads that store and confirm eviction never removes an item a control still needs (esp. mandatory-review / audit-completion queues).
+
+**Disposition:** Applied to CONVENTIONS.md `conventions.project` (fail-closed/security) by the weekly LRN harvest 2026-07-05.
+
+### LRN-067
+
+```yaml
+id: LRN-067
+date: 2026-07-05
+category: architectural
+source_cs: CS21
+status: applied
+tags: [pdp, delegation, obo, scopes, least-privilege, security]
+```
+
+**Problem:** CS21 manager→delegate delegation initially enforced only the DELEGATE's token scopes (`Actor.Scopes`, via the CS19 OBO intersection) plus an active grant, but NOT the manager's GRANT scopes. So a delegate whose token carried broader `agent.bank.*` scopes could use an active delegation grant for actions the manager never delegated. Copilot review caught it.
+
+**Finding:** Delegation authorization must bound the delegate by the INTERSECTION of the delegate's own capability (token) AND the delegator's granted scopes — the grant is authoritative for what was actually delegated. The PDP `DelegationGrant` must carry the delegated `Scopes` and require the action's required scope to be present in BOTH `Actor.Scopes` and the grant's `Scopes` (fail-closed on either).
+
+**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/ReferenceDecisionProvider.cs` `grantAllowsScope` + `Contracts/DelegationGrant.cs` `Scopes` (CS21, commit `01c52b0`); test `DelegationGrantTests` grant-scope-omit case + catalog row `delegation-grant-scope-omits-required-denies`.
+
+**Implications carried forward:** For any act-on-behalf-of / delegation model, enforce the delegator's grant as the least-privilege ceiling, not just the delegate's asserted capability.
+
+**Disposition:** Applied to CONVENTIONS.md `conventions.project` (fail-closed/security) by the weekly LRN harvest 2026-07-05.
+
+### LRN-068
+
+```yaml
+id: LRN-068
+date: 2026-07-05
+category: process
+source_cs: CS21
+status: applied
+tags: [copilot-review, review-evidence, merge-gates, convergence, multi-round]
+```
+
+**Problem:** CS21's content PR #120 went through 8 GitHub Copilot review rounds + 11 GPT-5.5 rounds. Copilot did NOT auto-re-review on push, re-flagged already-fixed items on re-review, and each fix push re-staled the `read-only-gates` review-log freshness check (the latest `## Review log` `analyzed_head` must equal the current HEAD) and the `copilot-review-attached` gate (which requires a Copilot review ON the current HEAD).
+
+**Finding:** Converging a multi-fix, security-sensitive PR under the Copilot-review + review-evidence gates requires a disciplined loop per fix push: (1) re-request Copilot (`gh pr edit --add-reviewer copilot-pull-request-reviewer`) for the new HEAD; (2) wait ~5–7 min for Copilot to review the CURRENT HEAD (it is slow and must be on HEAD); (3) get a fresh independent GPT-5.5 diff review of the delta and append a `## Review log` row with `analyzed_head == HEAD`; (4) resolve ALL threads — fix genuine findings, reply-and-resolve false re-flags pointing at the shipped fix; (5) re-run the stale `read-only-gates` / `review-threads-resolved` runs (thread resolution + PR-body edits don't always auto-trigger them). BATCH fixes into fewer commits to minimize rounds. Copilot's findings were genuinely valuable here (a real integrity-masking bypass, a retention-vs-review bug, a CWE-117 log-forging vector), so treat it as a serious reviewer, not noise — but budget significant wall-clock for the round-trip.
+
+**Evidence:** CS21 PR #120 — 8 Copilot rounds + 11 GPT-5.5 review rows in the PR body; `read-only-gates` repeatedly failed on `stale Go verdict (analyzed_head != HEAD)` and `COPILOT_OUTCOME: failure` until the current HEAD carried both a Copilot review and a matching Review-log row.
+
+**Implications carried forward:** Budget wall-clock for a security-sensitive PR's review convergence; keep the `## Review log` strictly in sync with HEAD; prefer larger batched fix commits over many tiny ones; expect Copilot re-flags and resolve them with a shipped-fix reply rather than re-fixing.
+
+**Disposition:** Applied to REVIEWS.md `reviews.project-gates` (review-of-record) by the weekly LRN harvest 2026-07-05.
 
 ### LRN-057
 
@@ -1432,79 +1516,3 @@ tags: [ci, dotnet, merge, multi-agent, main-green]
 - Consider (as a future CS, mindful of the deliberate process-only-CI posture + `workflow-pins` gate — see the CS17 learning) whether a SHA-pinned .NET build/test CI job is worth adding to catch cross-CS contract breaks automatically.
 
 **Disposition:** Harvest 2026-07-04 (CS28h): deferred. CS28 added an **advisory** `.github/workflows/dotnet-ci.yml` build+test gate; making it a **required** merge check needs branch-protection required-status-checks, unavailable on this private free-tier repo (discipline-only disposition — see `.harness-known-constraints.md` and INSTRUCTIONS.md § Re-evaluating private-tier disposition). Re-evaluate on tier change (private→public or Free→Pro) or by the deferred_until date. Harvest 2026-07-04 (CS37): still deferred; the required-status-check enforcement residual is being delivered by yoga-ae-c5's branch-protection / CI-merge-gating maintenance (planned CS40 'Review & PR merge-gate hardening'); deferred_until 2026-10-01 not reached — re-evaluate when CS40 lands or by the deferred_until date. Landed on main: PR #135 (commit c2bea79).
-
-### LRN-065
-
-```yaml
-id: LRN-065
-date: 2026-07-05
-category: architectural
-source_cs: CS21
-status: open
-tags: [pdp, break-glass, security, fail-closed, elevation, integrity]
-```
-
-**Problem:** CS21 break-glass elevation initially keyed on `EvaluateCore`'s PRIMARY (first) deny reason: a base Deny whose `Reasons[0].Code` was in the elevatable set `{MissingScope, RoleNotAuthorized}` was raised to Permit under an active grant. But the rule evaluators check capability (scope/role) BEFORE integrity (tenant / maker-checker-SoD / subject-is-maker / pending) and short-circuit on the first failure — so a request that lacked capability AND violated an integrity invariant surfaced the elevatable capability reason, MASKING the integrity violation, and was wrongly elevated (bypassing tenant isolation / SoD). GPT-5.5 review R1 caught it.
-
-**Finding:** An elevation/override control that keys on the primary/first denial reason is UNSOUND whenever denials are short-circuited in a capability-before-integrity order. The fix is an INDEPENDENT hard-invariant guard (`PassesHardInvariants`) that re-checks every integrity invariant for the action, so elevation applies only to a PURE missing-capability denial. Reuse the provider's existing integrity predicates (no duplicated rule logic). Test the combined-failure class (missing capability AND integrity violation), not only pure-invariant denials — the "pure invariant" tests pass even when the control is broken.
-
-**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/ReferenceDecisionProvider.cs` `PassesHardInvariants` (CS21, commit `6ab32bb`); regression tests `BreakGlassTests.BreakGlass_DoesNotElevate_*_Masking*` (5) + 2 positive controls + catalog rows `break-glass-missing-scope-masking-{tenant-mismatch,sod}`.
-
-**Implications carried forward:** Any future override/elevation/emergency/admin-bypass control that raises a denial must RE-VERIFY the hard invariants independently, never trust the primary reason code; and its test suite must include capability+integrity combined-failure cases.
-
-### LRN-066
-
-```yaml
-id: LRN-066
-date: 2026-07-05
-category: architectural
-source_cs: CS21
-status: open
-tags: [governance, retention, in-memory-store, break-glass, mandatory-review, control-interaction]
-```
-
-**Problem:** CS21 added a bounded in-memory retention cap to the break-glass grant store to prevent unbounded growth / DoS. The first version treated any EXPIRED grant as "terminal" and evicted terminal-first. But expired-but-UNREVIEWED break-glass grants ARE the pending-review queue the mandatory-post-review control depends on — so under over-cap writes the cap could silently drop a grant that still owed its mandatory review, making the control unenforceable and losing the audit correlation id. Copilot review caught it.
-
-**Finding:** A retention/eviction policy on a store that ALSO backs a mandatory-follow-up control must rank items still pending that follow-up as LEAST evictable, not "terminal". CS21 uses a 3-tier `EvictionRank`: reviewed (0, evict first) → still-active (1) → expired-but-unreviewed (2, evict LAST). When two controls share the same state, their retention semantics must be reconciled explicitly.
-
-**Evidence:** `src/AuthzEntitlements.Governance.Service/BreakGlass/BreakGlassGrantStore.cs` `EvictionRank` (CS21, commit `cfc1c96`); tests `Issue_OverCap_EvictsReviewedBeforeActive` + `Issue_OverCap_PreservesExpiredUnreviewedOverActive`.
-
-**Implications carried forward:** When adding retention/GC/eviction to any store, enumerate every downstream control that reads that store and confirm eviction never removes an item a control still needs (esp. mandatory-review / audit-completion queues).
-
-### LRN-067
-
-```yaml
-id: LRN-067
-date: 2026-07-05
-category: architectural
-source_cs: CS21
-status: open
-tags: [pdp, delegation, obo, scopes, least-privilege, security]
-```
-
-**Problem:** CS21 manager→delegate delegation initially enforced only the DELEGATE's token scopes (`Actor.Scopes`, via the CS19 OBO intersection) plus an active grant, but NOT the manager's GRANT scopes. So a delegate whose token carried broader `agent.bank.*` scopes could use an active delegation grant for actions the manager never delegated. Copilot review caught it.
-
-**Finding:** Delegation authorization must bound the delegate by the INTERSECTION of the delegate's own capability (token) AND the delegator's granted scopes — the grant is authoritative for what was actually delegated. The PDP `DelegationGrant` must carry the delegated `Scopes` and require the action's required scope to be present in BOTH `Actor.Scopes` and the grant's `Scopes` (fail-closed on either).
-
-**Evidence:** `src/AuthzEntitlements.Authz.Pdp/Providers/ReferenceDecisionProvider.cs` `grantAllowsScope` + `Contracts/DelegationGrant.cs` `Scopes` (CS21, commit `01c52b0`); test `DelegationGrantTests` grant-scope-omit case + catalog row `delegation-grant-scope-omits-required-denies`.
-
-**Implications carried forward:** For any act-on-behalf-of / delegation model, enforce the delegator's grant as the least-privilege ceiling, not just the delegate's asserted capability.
-
-### LRN-068
-
-```yaml
-id: LRN-068
-date: 2026-07-05
-category: process
-source_cs: CS21
-status: open
-tags: [copilot-review, review-evidence, merge-gates, convergence, multi-round]
-```
-
-**Problem:** CS21's content PR #120 went through 8 GitHub Copilot review rounds + 11 GPT-5.5 rounds. Copilot did NOT auto-re-review on push, re-flagged already-fixed items on re-review, and each fix push re-staled the `read-only-gates` review-log freshness check (the latest `## Review log` `analyzed_head` must equal the current HEAD) and the `copilot-review-attached` gate (which requires a Copilot review ON the current HEAD).
-
-**Finding:** Converging a multi-fix, security-sensitive PR under the Copilot-review + review-evidence gates requires a disciplined loop per fix push: (1) re-request Copilot (`gh pr edit --add-reviewer copilot-pull-request-reviewer`) for the new HEAD; (2) wait ~5–7 min for Copilot to review the CURRENT HEAD (it is slow and must be on HEAD); (3) get a fresh independent GPT-5.5 diff review of the delta and append a `## Review log` row with `analyzed_head == HEAD`; (4) resolve ALL threads — fix genuine findings, reply-and-resolve false re-flags pointing at the shipped fix; (5) re-run the stale `read-only-gates` / `review-threads-resolved` runs (thread resolution + PR-body edits don't always auto-trigger them). BATCH fixes into fewer commits to minimize rounds. Copilot's findings were genuinely valuable here (a real integrity-masking bypass, a retention-vs-review bug, a CWE-117 log-forging vector), so treat it as a serious reviewer, not noise — but budget significant wall-clock for the round-trip.
-
-**Evidence:** CS21 PR #120 — 8 Copilot rounds + 11 GPT-5.5 review rows in the PR body; `read-only-gates` repeatedly failed on `stale Go verdict (analyzed_head != HEAD)` and `COPILOT_OUTCOME: failure` until the current HEAD carried both a Copilot review and a matching Review-log row.
-
-**Implications carried forward:** Budget wall-clock for a security-sensitive PR's review convergence; keep the `## Review log` strictly in sync with HEAD; prefer larger batched fix commits over many tiny ones; expect Copilot re-flags and resolve them with a shipped-fix reply rather than re-fixing.

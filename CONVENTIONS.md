@@ -214,6 +214,25 @@ time; they have repeatedly been review blockers (LRN-011, LRN-017):
 - **Defense in depth.** Token/scope/role checks are an **outer** gate over domain
   invariants (maker-checker, SoD, tenant scoping), which still enforce independently —
   never the only line of defense.
+- **An override / elevation / emergency / admin-bypass control that raises a denial MUST
+  re-verify the hard integrity invariants independently** — never trust the primary/first deny
+  reason code. Rule evaluators check capability (scope/role) BEFORE integrity (tenant /
+  maker-checker-SoD / subject-is-maker / pending) and short-circuit on the first failure, so a
+  request lacking capability AND violating an integrity invariant surfaces the *elevatable*
+  capability reason and MASKS the integrity violation (bypassing tenant isolation / SoD). Gate
+  elevation behind an independent hard-invariant guard (`PassesHardInvariants`) that re-checks
+  every integrity invariant for the action (reuse the provider's existing integrity predicates —
+  no duplicated rule logic); elevation applies ONLY to a *pure* missing-capability denial. Test
+  the **capability+integrity combined-failure** class, not only pure-invariant denials (the
+  pure-invariant tests pass even when the control is broken) (LRN-065).
+- **A retention / eviction / GC policy on a store that ALSO backs a mandatory-follow-up control
+  must rank items still pending that follow-up as LEAST evictable**, never "terminal". The
+  break-glass grant store evicts by `EvictionRank`: `reviewed` (evict first) → `still-active` →
+  `expired-but-unreviewed` (evict LAST) — because expired-but-unreviewed grants ARE the
+  pending-review queue the mandatory-post-review control depends on, so a terminal-first policy
+  would silently drop a grant still owing its review (and its audit-correlation id). Before adding
+  retention to any store, enumerate every downstream control that reads it and confirm eviction
+  never drops an item a control still needs (mandatory-review / audit-completion queues) (LRN-066).
 - **Client sentinels are non-deserializable.** Fields that signal a *local* fail-closed
   state on a typed-client result (e.g. `IsUnavailable`, a sentinel `Reason`) must be
   `[JsonIgnore]` so a wire payload can never inject them; only the local `Unavailable(…)`
@@ -236,6 +255,13 @@ time; they have repeatedly been review blockers (LRN-011, LRN-017):
   constrained-delegation decision is the **intersection** (user-permit ∧ agent-delegated-scope),
   so an agent never exceeds the user; a base user-Deny and the `Actor==null` direct path are
   unchanged (LRN-058).
+- **Delegation / act-on-behalf-of authorization must bound the delegate by the intersection of
+  the delegate's own token capability AND the delegator's granted scopes** — the grant is
+  authoritative for what was actually delegated (the least-privilege ceiling), not just the
+  delegate's asserted token scopes. The PDP `DelegationGrant` carries the delegated `Scopes`; the
+  action's required scope must be present in BOTH `Actor.Scopes` AND the grant's `Scopes`
+  (fail-closed on either), so a delegate holding broader token scopes can never exceed what the
+  delegator actually delegated (LRN-067, extends LRN-058).
 - **Sanitize CR/LF from EVERY request-/engine-derived string rendered into an `ILogger` message**
   — even via structured `{Placeholder}` args (the default renderer substitutes values into the
   text, so CodeQL `cs/log-forging` / CWE-117 does not treat structured logging as a barrier). Use
