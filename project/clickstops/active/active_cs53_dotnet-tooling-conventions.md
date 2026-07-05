@@ -1,9 +1,9 @@
 # CS53 — Codify .NET / Windows build-tooling conventions
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae
+**Branch:** cs53/content
+**Started:** 2026-07-05
 **Closed:** —
 **Filed by:** yoga-ae-c2 on 2026-07-05 — harvest of open learnings LRN-079/080 (both `source_cs: CS50`, `category: tooling`), whose own dispositions already flagged them as CONVENTIONS.md candidates "at the next harvest". State-of-world probe (2026-07-05): the current on-disk max CS id is 50; `docs/file-planned-cs51-*` (sibling remote branch) and CS54 (the PDP-adapter CS filed in this same harvest, renumbered from CS52) are ahead, so CS53 was chosen with margin above the live filing race.
 **Depends on:** none
@@ -61,7 +61,18 @@ Capture the two recurring **.NET / Windows build-tooling gotchas** surfaced by L
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| (populated at claim time per § Claim) | planned | — | — |
+| Add both conventions to the `CONVENTIONS.md` `conventions.project` local block: (a) after `dotnet sln add` / `dotnet sln remove` on Windows, re-normalize the `.sln` to LF / no-BOM before committing and verify the diff is only registration lines (LRN-079); (b) every xUnit test `.cs` needs an explicit `using Xunit;` despite `ImplicitUsings` (LRN-080). Edit only between the `harness:local-start id=conventions.project` / `harness:local-end` markers. | pending | yoga-ae | Documentation-only; no code / `.csproj` / `.sln` change (Decision #4). |
+| Close-out: docs + restart state | pending | yoga-ae | Update `WORKBOARD.md` + `CONTEXT.md` so a fresh agent can restart from the actual state (both conventions codified; solution unchanged). |
+| Close-out: learnings + follow-ups | pending | yoga-ae | Flip LRN-079/080 to `status: applied` in `LEARNINGS.md`, each `**Disposition:**` citing this CS + the merge commit. |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae |
+| Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
 
