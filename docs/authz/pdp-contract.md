@@ -472,6 +472,101 @@ it natively honours** on-behalf-of, delegation, and break-glass — i.e. it cons
 the human/actor intersection, honours grant expiry, and never elevates an integrity invariant. Until
 then, leave it unmarked and the factory fails it closed on those requests automatically.
 
+## Out-of-process engine adapter safety
+
+An engine that runs **out-of-process** (SpiceDB, Cerbos, and future Keto/Topaz) — and especially a
+**full-decision** engine that owns the whole fintech decision — inherits four safety invariants that
+are load-bearing and easy to get silently wrong. Each was surfaced by a shipped adapter and is
+captured here so the next adapter author inherits it from one document instead of re-deriving it from
+prior adapters and PR review logs. The worked examples below are cited by **file + concept** (not line
+number, which drifts across edits) — the SpiceDB and `Adapters/Cerbos` adapters already implement
+every pattern.
+
+### Cleartext HTTP/2 (h2c) gRPC
+
+A local dev container is typically reached over cleartext HTTP/2 (h2c) gRPC, but .NET's
+`SocketsHttpHandler` refuses HTTP/2-over-cleartext by default. Enable it by setting the
+`System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport` `AppContext` switch — and set it in a
+**static constructor that runs before any `SocketsHttpHandler` / `GrpcChannel` is constructed**. This
+placement is load-bearing: the runtime caches the flag on first handler construction, so setting it
+late is silently inert and the live adapter cannot connect even when the container is running. The
+offline suite still passes, so the failure is invisible until a real container is exercised.
+
+Pair the switch with **fail-closed rejection of `https://` endpoints** — the h2c path is
+cleartext-only, so a `https://` endpoint is a misconfiguration, not a fallback. Validate the endpoint
+with `Uri.TryCreate` (absolute URI) plus an explicit scheme check so a bad endpoint fails closed with
+a clear message rather than a confusing transport error.
+
+Worked examples (by concept):
+[`SpiceDbCheckService`](../../src/AuthzEntitlements.Authz.Pdp/Providers/SpiceDb/SpiceDbCheckService.cs)
+sets the switch in its static constructor and its `BuildClients` rejects `https://` via `Uri.TryCreate`
++ scheme checks;
+[`CerbosCheckService`](../../src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/Cerbos/CerbosCheckService.cs)
+mirrors both — the static-constructor switch and the `BuildClient` `https://` rejection.
+
+### Lowercase gRPC metadata / `CallCredentials` keys
+
+Every gRPC metadata / `CallCredentials` key **must be lowercase** (`authorization`, never
+`Authorization`). A mis-cased key is silently rejected by the gRPC stack, so a correctly-configured
+credential (e.g. a SpiceDB preshared key) silently fails to authenticate — there is no error at
+configuration time. Because the failure only shows up against a live engine, the enforcing pattern is
+an **offline casing regression test** that asserts the header/key casing, so a future edit cannot
+silently re-break live auth without a container.
+
+Worked example (by concept):
+[`SpiceDbCheckService`](../../src/AuthzEntitlements.Authz.Pdp/Providers/SpiceDb/SpiceDbCheckService.cs)
+adds the credential via `CallCredentials.FromInterceptor`, writing the lowercase `authorization`
+metadata key.
+
+### Full-decision fail-closed response-mapping checklist
+
+When the engine owns the whole decision, mapping its response back to `AccessDecision` is a fresh
+fail-open surface: an ambiguity that is resolved leniently can **permit** access the reference engine
+would deny. A full-decision adapter must **fail closed on every response-mapping ambiguity**. Walk the
+checklist for every engine output:
+
+- **Unknown / typo obligation token → deny.** Never drop an unrecognized obligation — dropping a
+  permit-obligation (e.g. the maker-checker requirement) would permit without the constraint. Map an
+  unknown token to a deny.
+- **Known action returning no output row → `ProviderUnavailable`.** Never misclassify a missing output
+  as `UnknownAction` (a business "action not modelled" answer); an action the engine *does* know that
+  yields no row is an engine/policy fault and must surface as the transient/unavailable class.
+- **Multiple / ambiguous output rows → deny.** Never arbitrarily pick one row when the engine returns
+  more than one — an ambiguous activation is a deny, not a coin-flip.
+- **More generally:** enumerate every way the engine output can be unknown, empty, or ambiguous, and
+  fail each closed, with an explicit test per branch.
+
+Worked examples (by concept):
+[`CerbosDecisionProvider`](../../src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/Cerbos/CerbosDecisionProvider.cs)
+— `TryMapObligations` returns `false` on an unknown obligation token (fail closed), and the
+no-output branch maps a known action with no result to the unavailable class rather than
+`UnknownAction`;
+[`CerbosCheckService`](../../src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/Cerbos/CerbosCheckService.cs)
+— `ExtractOutputToken` returns `null` when `outputs.Count != 1`, so a multi-rule activation fails
+closed.
+
+### Env-gated integration-test convention
+
+A green offline suite is **necessary but not sufficient** for an out-of-process engine: it proves the
+mapping code, not the live wire/policy surface (the engine's policy/schema, its reason codes, and the
+ordered checks are never exercised by an offline build or by CI, which runs no engine container).
+Every out-of-process adapter therefore carries an **env-gated integration test** keyed on
+`<ENGINE>_TEST_ENDPOINT` (e.g. `CERBOS_TEST_ENDPOINT`, `SPICEDB_TEST_ENDPOINT`) that **soft-skips when
+the variable is unset** — so the offline suite and CI stay Docker-free and green, while a documented
+local run validates the CI-invisible surface against a **pinned** container image. What the live test
+must prove depends on the engine class:
+
+- **Full-decision adapter:** `Decision` + primary reason-code parity with the reference provider
+  across the scenario catalog.
+- **ReBAC adapter:** live schema / seed / relationship-check semantics (the PDP reason mapping stays
+  covered by the offline suite).
+
+Worked examples (by concept):
+[`CerbosIntegrationTests`](../../tests/AuthzEntitlements.Authz.Pdp.Tests/CerbosIntegrationTests.cs)
+soft-skips unless `CERBOS_TEST_ENDPOINT` is set, and
+[`SpiceDbIntegrationTests`](../../tests/AuthzEntitlements.Authz.Pdp.Tests/SpiceDbIntegrationTests.cs)
+soft-skips unless `SPICEDB_TEST_ENDPOINT` is set.
+
 ## Scenario catalog
 
 [`FintechScenarioCatalog.Scenarios`](../../src/AuthzEntitlements.Authz.Pdp/Catalog/FintechScenarioCatalog.cs)
