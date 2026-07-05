@@ -7,6 +7,18 @@
 **Closed:** —
 **Filed by:** yoga-ae-c3 on 2026-07-05 — user request: "run through each area of the product, evaluate the implementation and suggest refactorings, create a CS with the suggestions ... include evaluation on how to get to 95% test coverage." Evaluation performed by four parallel read-only sub-agents (Claude Sonnet 4.6, high reasoning), one per area-cluster, over `main` @ 2fe2bb8.
 **Depends on:** none (evaluation/plan only; implementation waves sequence at claim time)
+**Hold:** ⛔ HELD — do NOT continue CS52's remaining work (Waves 0b/A/B/C) or file/claim any CS52 wave sub-CS without explicit maintainer confirmation. Wave 0 (coverage measurement infrastructure) is done + merged (PRs #177/#179); everything after it is paused pending an explicit "go". See the **Hold / claim gate** section below.
+
+## Hold / claim gate
+
+⛔ **This CS is HELD. Wave 0 (coverage measurement infrastructure) is complete and merged (PRs #177 + #179), but all remaining work is paused: do NOT continue Wave 0b / A / B / C, and do NOT file or claim a CS52 wave sub-CS, until a maintainer explicitly lifts this hold with a "go".** (A default dry-run `harness claim` preflight/harvest scan is harmless.)
+
+**Preconditions — all must be true before continuing:**
+
+1. **Explicit maintainer go.** A maintainer has explicitly confirmed the next CS52 wave is in scope and lifted this hold (record who + when here when lifting).
+2. **Not time-reclaimable.** This hold overrides the default 7-day WORKBOARD reclaimable threshold — CS52 must NOT be picked up by another orchestrator on staleness alone; only an explicit maintainer "go" lifts it.
+
+**Guard / enforcement (layered):** (1) this `## Hold / claim gate` is the always-on contract — continuing or claiming CS52 requires reading this file, so the hold is unavoidable; (2) the `WORKBOARD.md` Active Work row is set to `⏸ Paused` with a HELD reason; (3) `LEARNINGS.md` **LRN-085** (`status: open`, `claim_area: cs52`) is a before-claim/harvest backstop. **To lift:** record the maintainer confirmation above, flip LRN-085 (`status` + a `**Disposition:**`), restore the WORKBOARD row to `🟢 Active`, and remove this ⛔ block.
 
 ## Goal
 

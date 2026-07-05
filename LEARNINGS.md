@@ -24,6 +24,26 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-085
+
+```yaml
+id: LRN-085
+date: 2026-07-05
+category: operational
+source_cs: CS52
+status: open
+tags: [hold, claim-gate, coverage, refactor-waves, validation-gate]
+claim_area: cs52
+```
+
+**Problem:** CS52's remaining work — Wave 0b (the report-only→blocking CI coverage gate) and Waves A/B/C (the ~80-item refactoring catalog + per-area gap-closure tests toward 95% line / 90% branch) — must NOT be continued or claimed until a maintainer explicitly says "go". Wave 0 (coverage measurement infrastructure) is done + merged (PRs #177/#179); everything after it is held at the maintainer's request.
+
+**Finding:** Deliberate forward **claim-gate** backstop (a maintainer hold), not a retrospective finding. `harness harvest` surfaces this `open` / `claim_area: cs52` entry at the weekly scan immediately and at the before-claim gate for any CS52-area claim once ≥14 days stale. Per the bounded-before-claim invariant, a CS52 wave/sub-CS claim PR must not open while this entry is undispositioned. The always-on immediate guards are the active CS file's `## Hold / claim gate` section + the `⏸ Paused` WORKBOARD row (whose not-time-reclaimable note overrides the default 7-day reclaim).
+
+**Evidence:** `project/clickstops/active/active_cs52_product-eval-refactor-and-coverage.md` (`## Hold / claim gate`); `WORKBOARD.md` (CS52 Active Work row = `⏸ Paused`); user directive 2026-07-05 ("mark cs52 as HELD, before any agent picks this up I need to say go").
+
+**Disposition:** **open** — intentional maintainer hold. Lift only when a maintainer explicitly confirms the next CS52 wave is in scope ("go"). On lift, flip `status` + add a `**Disposition:**` recording the confirming maintainer + date, restore the WORKBOARD row to `🟢 Active`, and remove the CS file's ⛔ hold block.
+
 ### LRN-078
 
 ```yaml
