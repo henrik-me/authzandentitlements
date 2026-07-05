@@ -512,8 +512,9 @@ mirrors both — the static-constructor switch and the `BuildClient` `https://` 
 ### Lowercase gRPC metadata / `CallCredentials` keys
 
 Every gRPC metadata / `CallCredentials` key **must be lowercase** (`authorization`, never
-`Authorization`). A mis-cased key is silently rejected by the gRPC stack, so a correctly-configured
-credential (e.g. a SpiceDB preshared key) silently fails to authenticate — there is no error at
+`Authorization`) — the gRPC/HTTP2 wire format requires lowercase header keys. A mis-cased key can be
+dropped or rejected by the gRPC stack (the exact behavior varies by client), so a correctly-configured
+credential (e.g. a SpiceDB preshared key) can fail to authenticate with no error at
 configuration time. Because the failure only shows up against a live engine, the recommended enforcement is
 an **offline casing regression test** that asserts the header/key casing, so a future edit cannot
 silently re-break live auth without a container.
@@ -566,11 +567,15 @@ must prove depends on the engine class:
 - **ReBAC adapter:** live schema / seed / relationship-check semantics (the PDP reason mapping stays
   covered by the offline suite).
 
-Worked examples (by concept):
+Worked examples (by concept): each soft-skips unless its endpoint variable is set —
 [`CerbosIntegrationTests`](../../tests/AuthzEntitlements.Authz.Pdp.Tests/CerbosIntegrationTests.cs)
-soft-skips unless `CERBOS_TEST_ENDPOINT` is set, and
+(`CERBOS_TEST_ENDPOINT`),
 [`SpiceDbIntegrationTests`](../../tests/AuthzEntitlements.Authz.Pdp.Tests/SpiceDbIntegrationTests.cs)
-soft-skips unless `SPICEDB_TEST_ENDPOINT` is set.
+(`SPICEDB_TEST_ENDPOINT`),
+[`KetoIntegrationTests`](../../tests/AuthzEntitlements.Authz.Pdp.Tests/KetoIntegrationTests.cs)
+(`KETO_TEST_ENDPOINT`, plus `KETO_WRITE_TEST_ENDPOINT` for the write port), and
+[`TopazIntegrationTests`](../../tests/AuthzEntitlements.Authz.Pdp.Tests/TopazIntegrationTests.cs)
+(`TOPAZ_TEST_ENDPOINT`).
 
 ## Scenario catalog
 
