@@ -98,7 +98,7 @@ region availability, and how it maps to the lab's engines.
 ### AuthZed Cloud (managed SpiceDB)
 
 - **What it is:** AuthZed's managed **SpiceDB**, the other major Zanzibar-style ReBAC engine. Maps to
-  the lab's **planned** SpiceDB expansion engine (CS26) — a head-to-head with `openfga`. .NET talks to
+  the lab's **shipped** SpiceDB expansion engine (CS26) — a head-to-head with `openfga`. .NET talks to
   it over gRPC (`Authzed.Net`).
 - **Pricing model:** two shapes. **AuthZed Cloud** is **serverless, usage / resource-based**
   pay-as-you-go (you pay for what you consume, no cluster to size). **AuthZed Dedicated** is

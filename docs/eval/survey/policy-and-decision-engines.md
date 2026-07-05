@@ -252,9 +252,9 @@ a mature de-facto standard for embeddable RBAC/ABAC.
 > **Disposition (this lab): de-scoped.** Oso is **evaluated → de-scoped** from the expansion-engine
 > adapter set — there is no in-process .NET/Polar library, and Oso's only self-hostable artifact is a
 > **development-only** dev-server (pinnable to versioned tags, but scoped by the vendor to local
-> dev/testing, not a production server); production runs on the paid, proprietary managed Oso Cloud,
-> which is off the self-host-first posture
-> ([ADR 0007](../../adr/0007-self-host-first-authz-with-managed-optionality.md)). Re-evaluate only if
+> dev/testing, not a production server). Production runs on the paid, proprietary managed Oso Cloud,
+> which is off the self-host-first posture of
+> [ADR 0007](../../adr/0007-self-host-first-authz-with-managed-optionality.md). Re-evaluate only if
 > Oso ships either a maintained in-process .NET/Polar library **or** a self-hostable,
 > production-supported server (not development-only, not paid-cloud-only). See
 > [ADR 0008](../../adr/0008-oso-descoped-from-expansion-engines.md) (verified 2026-07-05).
