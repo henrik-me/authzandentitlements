@@ -116,7 +116,7 @@ tags: [fail-closed, live-probe, evidence, cancellation, review]
 **Implications carried forward:**
 - CS15 (playground/audit explorer), CS32 (observability-audit-enrichment), and any future live-probe/evidence tool: implement the three-way classification up front (transport→self-skip; reached-error/malformed→fail-closed; caller-cancel→propagate).
 
-**Disposition:** Applied to CONVENTIONS.md `conventions.project` fail-closed section by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to CONVENTIONS.md `conventions.project` fail-closed section by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-051
 
@@ -138,7 +138,7 @@ tags: [grafana, prometheus, otlp, metrics, dashboard, observability]
 **Implications carried forward:**
 - CS32 / CS15 / any live-run pass: `aspire run`, exercise governance + entitlements decisions, and confirm the `/metrics` names + label values resolve before relying on the non-SoD compliance panels.
 
-**Disposition:** Applied to CONVENTIONS.md `conventions.project` dev-observability section by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to CONVENTIONS.md `conventions.project` dev-observability section by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-052
 
@@ -160,7 +160,7 @@ tags: [ci, pr-evidence, review-gates, admin-merge, private-free-tier]
 **Implications carried forward:**
 - Future content-PR close-outs on this repo: do not block on the zero-step evidence-gate flake — run local `harness pr-evidence`, confirm `build-test` green, then admin-merge with a documented note.
 
-**Disposition:** Applied to REVIEWS.md `reviews.project-gates` CI billing/public-tier & merge triage by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to REVIEWS.md `reviews.project-gates` CI billing/public-tier & merge triage by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-053
 
@@ -182,7 +182,7 @@ tags: [ci, github-actions, billing, copilot-review, repo-visibility, branch-prot
 **Implications carried forward:**
 - Supersedes LRN-052's "flake" attribution when the symptom is 0-step failures on a private free-tier repo: check `started_at`/the Copilot billing message first; if it is the billing block, going public (or fixing Actions billing) is the only real unblock.
 
-**Disposition:** Applied to REVIEWS.md `reviews.project-gates` CI billing/public-tier & merge triage by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to REVIEWS.md `reviews.project-gates` CI billing/public-tier & merge triage by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-054
 
@@ -204,7 +204,7 @@ tags: [blazor, razor, dependency-injection, cs0542]
 **Implications carried forward:**
 - Any new Razor page: don't name an `@inject`/field the same as the component; a domain-suffixed name (`XApi`, `XClient`) avoids the collision.
 
-**Disposition:** Applied to CONVENTIONS.md `conventions.project` Blazor CS0542 bullet (refined, co-cited with LRN-048) by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to CONVENTIONS.md `conventions.project` Blazor CS0542 bullet (refined, co-cited with LRN-048) by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-055
 
@@ -226,7 +226,7 @@ tags: [harness-review, copilot-engage, pr-body, model-audit, review-log]
 **Implications carried forward:**
 - Every content-PR close-out that engages Copilot via `harness review`: treat the body as needing a manual re-fix afterward; don't re-run `harness review` after the final body fix (it re-munges).
 
-**Disposition:** Applied to REVIEWS.md `reviews.project-gates` CI review-evidence gates by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to REVIEWS.md `reviews.project-gates` CI review-evidence gates by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-056
 
@@ -248,7 +248,7 @@ tags: [merge, rebase, review-evidence, semantic-conflict, trial-merge]
 **Implications carried forward:**
 - Any content PR whose base moved with overlapping-file CSs: run the local trial-merge build+test before `--admin` merge instead of blind-merging or a head-changing rebase.
 
-**Disposition:** Applied to REVIEWS.md `reviews.project-gates` Multi-agent merge hygiene by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to REVIEWS.md `reviews.project-gates` Multi-agent merge hygiene by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-058
 
@@ -271,7 +271,7 @@ tags: [authz, obo, delegation, fail-closed, claims, security]
 **Implications carried forward:**
 - CS21 (break-glass/delegation) reuses these helpers + `Subject.Actor` — keep the ordinal known-delegate-kind allow-list; a break-glass grant is an OBO delegation with an elevated, expiring scope set on the same claim contract.
 
-**Disposition:** Applied to CONVENTIONS.md `conventions.project` fail-closed section by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to CONVENTIONS.md `conventions.project` fail-closed section by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-059
 
@@ -294,7 +294,7 @@ tags: [security, logging, cwe-117, log-forging, audit, codeql]
 **Implications carried forward:**
 - CS32 (observability + audit enrichment) and any service writing request-derived data to `ILogger`: apply the same CR/LF sanitization to untrusted rendered fields; `BankAuthorizationAuditMiddleware` and other sinks logging request fields likely carry the same latent pattern.
 
-**Disposition:** Repo-wide ILogger CR/LF log-forging (CWE-117) sanitization sweep delivered by CS34 (LogSanitizer in ServiceDefaults across OpenFGA/Edge.Gateway/Bank.Api sinks, PR #113); the durable convention captured in CONVENTIONS.md `conventions.project` by CS37 (weekly harvest 2026-07-04).
+**Disposition:** Repo-wide ILogger CR/LF log-forging (CWE-117) sanitization sweep delivered by CS34 (LogSanitizer in ServiceDefaults across OpenFGA/Edge.Gateway/Bank.Api sinks, PR #113); the durable convention captured in CONVENTIONS.md `conventions.project` by CS37 (weekly harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-060
 
@@ -313,7 +313,7 @@ tags: [ci, github, ruleset, codeql, copilot, merge, public-repo]
 
 **Evidence:** PR #85 — billing-stub Copilot review (18:17Z) → post-public real reviews (19:14/19:27/19:49Z); CodeQL alerts 10–12 fixed; `gh pr merge 85 --squash --admin` after a persistent stale `BLOCKED`; ruleset `18513457` (see the "merge policy" repository memory). Repo-made-public is the **tier-change trigger** for the deferred LRN-035 / LRN-040 (the ruleset now enforces `build-test` + `structural-gate` as required-to-merge — their "needs branch protection" residual is satisfied; re-disposition at the next harvest).
 
-**Disposition:** Applied to REVIEWS.md `reviews.project-gates` CI billing/public-tier & merge triage by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to REVIEWS.md `reviews.project-gates` CI billing/public-tier & merge triage by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-061
 
@@ -332,7 +332,7 @@ tags: [sub-agents, parallel, lint, text-encoding, windows]
 
 **Evidence:** cs23-survey-rebac and cs23-survey-policy each reported `harness lint` fail citing sibling files (`docs/eval/survey/entitlements-and-flags.md` CRLF; `docs/adr/*.md` CRLF) they did not own; both were LF by the time those siblings finished; the orchestrator's wave-end `harness lint` was 22/0.
 
-**Disposition:** Applied to REVIEWS.md `reviews.project-gates` Multi-agent merge hygiene by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to REVIEWS.md `reviews.project-gates` Multi-agent merge hygiene by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-062
 
@@ -351,7 +351,7 @@ tags: [adr, conventions, docs]
 
 **Evidence:** CONVENTIONS.md project-local block "Architecture Decision Records (ADRs)"; `docs/adr/README.md` "Authoring a new ADR"; the cs23-adr escalation. The convention edit shipped in PR #111.
 
-**Disposition:** The ADR-format extension (## Alternatives considered + ## When to use / when not) shipped in CONVENTIONS.md `conventions.project` ADR block (PR #111); confirmed present by the CS37 harvest (2026-07-04).
+**Disposition:** The ADR-format extension (## Alternatives considered + ## When to use / when not) shipped in CONVENTIONS.md `conventions.project` ADR block (PR #111); confirmed present by the CS37 harvest (2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-063
 
@@ -370,7 +370,7 @@ tags: [copilot, review, docs, merge]
 
 **Evidence:** PR #117 HEADs 78676d6 → 826dd67 → d998d01, each with a new Copilot COMMENTED review adding one nit; the final non-blocking OPA-phrasing suggestion was resolved-with-rationale (both phrasings accurate) to terminate the loop at a HEAD already carrying a GPT-5.5 Go + Copilot review.
 
-**Disposition:** Applied to REVIEWS.md `reviews.project-gates` Review-of-record & automated reviewers by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to REVIEWS.md `reviews.project-gates` Review-of-record & automated reviewers by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-064
 
@@ -389,7 +389,7 @@ tags: [docs, eval, tco, pricing, vendor, honesty-caveat]
 
 **Evidence:** `docs/eval/managed-vs-selfhost-tco.md` (CS25, PR #114) — caveat + Sources (accessed 2026-07-04); AVP ~$5/million cited from the AWS what's-new (2025-06), all other vendor prices caveated/aggregator-sourced. Independent GPT-5.5 rubber-duck R1–R4 verified every repo-backed fact-claim (engine/CS maps, image pins, six Postgres DBs, AVP-AWS-only, azd target).
 
-**Disposition:** Applied to CONVENTIONS.md `conventions.project` Eval-lab economics docs by CS37 (weekly LRN harvest 2026-07-04).
+**Disposition:** Applied to CONVENTIONS.md `conventions.project` Eval-lab economics docs by CS37 (weekly LRN harvest 2026-07-04). Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-013
 
@@ -1407,7 +1407,7 @@ tags: [ci, testing, posture, process]
 - **Residual (needs branch protection → public repo or GitHub Pro):** the check cannot be required-to-merge, and the merge-order class (CS13↔CS16-style stale-green logical conflicts) is only fully *prevented* by require-up-to-date / a merge queue. CS28's `push`→`main` run detects it reactively; full prevention is a CS28 follow-up.
 - Future eval/testing CSs (CS23/CS24) that mention "CI" can now rely on the CS28 `dotnet-ci` check.
 
-**Disposition:** Harvest 2026-07-04 (CS28h): deferred. CS28 added an **advisory** `.github/workflows/dotnet-ci.yml` build+test gate; making it a **required** merge check needs branch-protection required-status-checks, unavailable on this private free-tier repo (discipline-only disposition — see `.harness-known-constraints.md` and INSTRUCTIONS.md § Re-evaluating private-tier disposition). Re-evaluate on tier change (private→public or Free→Pro) or by the deferred_until date. Harvest 2026-07-04 (CS37): still deferred; the required-status-check enforcement residual is being delivered by yoga-ae-c5's branch-protection / CI-merge-gating maintenance (planned CS40 'Review & PR merge-gate hardening'); deferred_until 2026-10-01 not reached — re-evaluate when CS40 lands or by the deferred_until date.
+**Disposition:** Harvest 2026-07-04 (CS28h): deferred. CS28 added an **advisory** `.github/workflows/dotnet-ci.yml` build+test gate; making it a **required** merge check needs branch-protection required-status-checks, unavailable on this private free-tier repo (discipline-only disposition — see `.harness-known-constraints.md` and INSTRUCTIONS.md § Re-evaluating private-tier disposition). Re-evaluate on tier change (private→public or Free→Pro) or by the deferred_until date. Harvest 2026-07-04 (CS37): still deferred; the required-status-check enforcement residual is being delivered by yoga-ae-c5's branch-protection / CI-merge-gating maintenance (planned CS40 'Review & PR merge-gate hardening'); deferred_until 2026-10-01 not reached — re-evaluate when CS40 lands or by the deferred_until date. Landed on main: PR #135 (commit c2bea79).
 
 ### LRN-040
 
@@ -1431,4 +1431,4 @@ tags: [ci, dotnet, merge, multi-agent, main-green]
 - Every orchestrator: run the whole-solution `dotnet build`/`dotnet test` against the latest-`main`-merged HEAD immediately before merging a content PR; do not rely on CI to catch .NET breaks.
 - Consider (as a future CS, mindful of the deliberate process-only-CI posture + `workflow-pins` gate — see the CS17 learning) whether a SHA-pinned .NET build/test CI job is worth adding to catch cross-CS contract breaks automatically.
 
-**Disposition:** Harvest 2026-07-04 (CS28h): deferred. CS28 added an **advisory** `.github/workflows/dotnet-ci.yml` build+test gate; making it a **required** merge check needs branch-protection required-status-checks, unavailable on this private free-tier repo (discipline-only disposition — see `.harness-known-constraints.md` and INSTRUCTIONS.md § Re-evaluating private-tier disposition). Re-evaluate on tier change (private→public or Free→Pro) or by the deferred_until date. Harvest 2026-07-04 (CS37): still deferred; the required-status-check enforcement residual is being delivered by yoga-ae-c5's branch-protection / CI-merge-gating maintenance (planned CS40 'Review & PR merge-gate hardening'); deferred_until 2026-10-01 not reached — re-evaluate when CS40 lands or by the deferred_until date.
+**Disposition:** Harvest 2026-07-04 (CS28h): deferred. CS28 added an **advisory** `.github/workflows/dotnet-ci.yml` build+test gate; making it a **required** merge check needs branch-protection required-status-checks, unavailable on this private free-tier repo (discipline-only disposition — see `.harness-known-constraints.md` and INSTRUCTIONS.md § Re-evaluating private-tier disposition). Re-evaluate on tier change (private→public or Free→Pro) or by the deferred_until date. Harvest 2026-07-04 (CS37): still deferred; the required-status-check enforcement residual is being delivered by yoga-ae-c5's branch-protection / CI-merge-gating maintenance (planned CS40 'Review & PR merge-gate hardening'); deferred_until 2026-10-01 not reached — re-evaluate when CS40 lands or by the deferred_until date. Landed on main: PR #135 (commit c2bea79).
