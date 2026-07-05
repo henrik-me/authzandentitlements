@@ -9,10 +9,24 @@
 **Lane:** Expansion
 **Filed by:** yoga-ae-c2 on 2026-07-04 — third slice of the original CS27 split per user decision (2026-07-04). Deploys the CS43 OpenMeter stack to Azure on top of the CS27 `azd`/ACA deployment foundation.
 **Depends on:** CS25, CS27, CS43
+**Hold:** ⛔ HELD — do NOT apply a claim (`harness claim CS44 --apply`) or open a claim PR without explicit user confirmation. Cloud/Azure deployment is out of scope at this time. See the **Hold / claim gate** section below.
 
 ## Goal
 
 Deploy the OpenMeter metering stack (from CS43) to Azure, provisioning managed equivalents for **all** its required infra (Kafka, ClickHouse, Redis, and a Postgres metadata store) and wiring them into the CS27 `azd`/Azure Container Apps deployment.
+
+## Hold / claim gate
+
+⛔ **This CS is HELD. Do not apply a claim (`harness claim CS44 --apply`) or open a claim PR until every precondition below is satisfied and a maintainer has explicitly lifted the hold.** (A default dry-run `harness claim` preflight/harvest scan is harmless.) Cloud / Azure (or any other cloud) deployment is **out of scope at this time**. This CS also depends on CS27 + CS43 being implemented first.
+
+**Preconditions — all must be true before claiming:**
+
+1. **Local validation first.** The current Aspire stack and the local OpenMeter stack (CS43) have been validated in detail locally and documented. No cloud/deployment work starts before this.
+2. **Explicit user go-ahead.** A maintainer has explicitly confirmed cloud deployment is now in scope and lifted this hold (record who + when here when lifting).
+3. **Observability warranted.** The additional observability/metering detail this work would introduce is confirmed as actually needed for the demo/lab — not speculative.
+4. **Elevated review.** Registered HIGH-RISK in `harness.config.json` (`reviews.high_risk_clickstops`) → GPT-5.5-only reviews, no Sonnet fallback, 5–8 rounds ([REVIEWS.md](../../../REVIEWS.md) § 2.3).
+
+**Guard / enforcement (layered):** (1) this `## Hold / claim gate` is the always-on contract — claiming CS44 requires reading this planned file, so the hold is unavoidable at claim time; (2) CS44 is registered HIGH-RISK in `harness.config.json` (`reviews.high_risk_clickstops`), mechanically raising the review bar; (3) `LEARNINGS.md` **LRN-071** (`status: open`, `claim_area: cs44`) is a before-claim backstop — it shows at the weekly `harness harvest` immediately and at `harness claim CS44` once ≥14 days stale (harvest v0.16.0 staleness-gates `claim_area` matches), and per the bounded-before-claim invariant a claim PR must not open while it is undispositioned. **To lift:** satisfy the preconditions, record the user confirmation above, flip LRN-071 (`status` + a `**Disposition:**`), and remove this ⛔ block.
 
 ## Background
 
