@@ -26,7 +26,7 @@ tick-through summary.
 Implement
 [`IAuthorizationDecisionProvider`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/IAuthorizationDecisionProvider.cs):
 a `Name` and an `Evaluate`. Pick a **unique, stable, lowercase** `Name` (`reference`, `aspnet`,
-`casbin`, `cedar`, `opa`, `openfga`, `spicedb`, `cerbos`, `keto` are taken) — it is the value `Pdp:Provider` selects, matched
+`casbin`, `cedar`, `opa`, `openfga`, `spicedb`, `cerbos`, `keto`, `topaz` are taken) — it is the value `Pdp:Provider` selects, matched
 case-insensitively. Blank or duplicate names are rejected at startup by the factory, so choose once
 and keep it stable.
 

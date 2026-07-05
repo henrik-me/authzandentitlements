@@ -241,6 +241,34 @@ var keto = builder.AddContainer("keto", ketoImage, ketoImageTag)
     .WithHttpEndpoint(targetPort: 4467, name: "write")
     .WithExplicitStart();
 
+// CS46 — Topaz (Aserto) engine backing the config-gated "topaz" PDP provider: the head-to-head "OPA
+// standalone vs OPA-inside-Topaz". Topaz is OPA-based, so — unlike the ReBAC engines — it answers the
+// WHOLE fintech decision by evaluating the SAME Rego the OPA adapter uses (infra/opa/policy), reached
+// over the Aserto authorizer gRPC API. Topaz's Zanzibar directory is deliberately NOT used for the
+// decision (documented parity boundary; see docs/authz/topaz-adapter.md). Kept OFF the default critical
+// path exactly like OPA/SpiceDB/Cerbos/Keto: .WithExplicitStart() so `aspire run` and the deterministic
+// reference PDP never start or block on Topaz, and authz-pdp is given the endpoint coordinates WITHOUT a
+// hard WaitFor. Bundle delivery is entirely LOCAL (no OCI registry push/pull): the authorizer config
+// (infra/topaz/config.yaml) loads the Rego as a local OPA bundle from the bind-mounted /policy. The
+// image tag is pinned for determinism; the Aspire resource name `topaz` is unique across all resources.
+const string topazImage = "ghcr.io/aserto-dev/topaz";
+const string topazImageTag = "0.33.14";
+
+var topaz = builder.AddContainer("topaz", topazImage, topazImageTag)
+    .WithArgs("run", "-c", "/config/config.yaml")
+    .WithBindMount("../../infra/topaz", "/config", isReadOnly: true)
+    // Reuse the SAME Rego the OPA adapter uses — Topaz loads it as a local OPA bundle from /policy.
+    .WithBindMount("../../infra/opa/policy", "/policy", isReadOnly: true)
+    // The empty edge-directory BoltDB and the auto-generated self-signed dev certs live at writable
+    // container paths (the directory is never populated; the certs are never trusted beyond the lab).
+    .WithEnvironment("TOPAZ_DB_DIR", "/db")
+    .WithEnvironment("TOPAZ_CERTS_DIR", "/certs")
+    // Authorizer gRPC on 8282, served over TLS with a self-signed dev cert Topaz auto-generates → modeled
+    // as an https endpoint so the injected Pdp__Topaz__Endpoint is an https:// address; the .NET adapter
+    // connects in insecure mode (accepts the self-signed cert — a lab posture, never a deployment).
+    .WithHttpsEndpoint(targetPort: 8282, name: "grpc")
+    .WithExplicitStart();
+
 // CS13 — Tamper-evident audit log pipeline. The Audit.Service owns the `audit` database and
 // appends every authz/entitlement decision as a hash-chained, append-only row (prev-hash +
 // payload -> row-hash), exposing a chain-verification endpoint + a query API. Postgres already
@@ -277,6 +305,11 @@ var authzPdp = builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-p
     // are injected as two separate endpoints (it splits checks and mutations across ports).
     .WithEnvironment("Pdp__Keto__ReadEndpoint", keto.GetEndpoint("read"))
     .WithEnvironment("Pdp__Keto__WriteEndpoint", keto.GetEndpoint("write"))
+    // CS46 — Topaz coordinates for the config-gated `topaz` provider. Injected unconditionally (like the
+    // OPA/Cerbos coordinates) so Pdp__Provider=topaz works without further wiring; no WaitFor(topaz)
+    // keeps the deterministic reference provider off Topaz's critical path. Topaz serves the authorizer
+    // over TLS, so this is an https:// endpoint (the adapter connects in insecure mode).
+    .WithEnvironment("Pdp__Topaz__Endpoint", topaz.GetEndpoint("grpc"))
     .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
     // CS08 — OPA coordinates for the config-gated `opa` provider. Injected unconditionally (like the
     // Unleash coordinates) so Pdp__Provider=opa works without further wiring; no WaitFor(opa) keeps

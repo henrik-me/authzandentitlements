@@ -1,0 +1,181 @@
+# yaml-language-server: $schema=https://topaz.sh/schema/config.json
+---
+# CS46 — Topaz authorizer config for the "topaz" PDP adapter (dev / lab only, never a deployment).
+#
+# Topaz is OPA-based. This config drives Topaz as a FULL-DECISION engine over the SAME Rego bundle the
+# OPA adapter uses: the authorizer loads infra/opa/policy as a LOCAL bundle (opa.local_bundles.paths),
+# bind-mounted read-only at /policy, and answers a Query against data.authz.bank.decision. This is the
+# head-to-head "OPA standalone vs OPA-inside-Topaz" — Topaz's Zanzibar directory/ReBAC path is NOT used
+# for the decision (documented parity boundary; see docs/authz/topaz-adapter.md).
+#
+# Bundle delivery is entirely LOCAL: no OCI registry pull, no registry push. The default OCI
+# `opa.config.services`/`bundles` blocks from the stock Topaz template are deliberately removed so the
+# authorizer never reaches out to ghcr.io — the whole thing boots and answers offline.
+#
+# Ports: the authorizer serves gRPC on 8282 (what the .NET Aserto client talks to) and a REST gateway
+# on 8383. The edge-directory services (model/reader) share 9292/9393; they exist only because the
+# authorizer service declares `needs: [reader]` in Topaz's service model — the directory is left EMPTY
+# (no manifest, no relationships) because the decision never consults it.
+
+# config schema version
+version: 2
+
+# logger settings.
+logging:
+  prod: true
+  log_level: info
+  grpc_log_level: info
+
+# edge directory configuration. An EMPTY BoltDB is created on first boot; it is never populated because
+# the fintech decision is answered entirely from the OPA bundle + request input, not the directory.
+directory:
+  db_path: '${TOPAZ_DB_DIR}/test.db'
+  request_timeout: 5s
+
+# remote directory resolves identity for the authorizer; points at the local reader. Unused on the
+# decision path (requests carry an anonymous identity context and the policy input directly).
+remote_directory:
+  address: "0.0.0.0:9292"
+  insecure: true
+  no_tls: false
+  api_key: ""
+  token: ""
+  client_cert_path: ""
+  client_key_path: ""
+  ca_cert_path: ""
+  headers:
+
+# default jwt validation configuration
+jwt:
+  acceptable_time_skew_seconds: 5
+
+# authentication: anonymous is enabled and the API key requirement is OFF, so the .NET adapter can
+# call the authorizer over gRPC without provisioning a key (dev/lab only).
+auth:
+  keys:
+  options:
+    default:
+      enable_api_key: false
+      enable_anonymous: true
+    overrides:
+      paths:
+        - /aserto.authorizer.v2.Authorizer/Info
+        - /grpc.reflection.v1.ServerReflection/ServerReflectionInfo
+        - /grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo
+      override:
+        enable_api_key: false
+        enable_anonymous: true
+
+api:
+  health:
+    listen_address: "0.0.0.0:9494"
+    certs:
+      tls_key_path: '${TOPAZ_CERTS_DIR}/gateway.key'
+      tls_cert_path: '${TOPAZ_CERTS_DIR}/gateway.crt'
+      tls_ca_cert_path: '${TOPAZ_CERTS_DIR}/gateway-ca.crt'
+
+  metrics:
+    listen_address: "0.0.0.0:9696"
+    certs:
+      tls_key_path: '${TOPAZ_CERTS_DIR}/gateway.key'
+      tls_cert_path: '${TOPAZ_CERTS_DIR}/gateway.crt'
+      tls_ca_cert_path: '${TOPAZ_CERTS_DIR}/gateway-ca.crt'
+
+  services:
+    model:
+      grpc:
+        listen_address: "0.0.0.0:9292"
+        fqdn: ""
+        certs:
+          tls_key_path: '${TOPAZ_CERTS_DIR}/grpc.key'
+          tls_cert_path: '${TOPAZ_CERTS_DIR}/grpc.crt'
+          tls_ca_cert_path: '${TOPAZ_CERTS_DIR}/grpc-ca.crt'
+      gateway:
+        listen_address: "0.0.0.0:9393"
+        fqdn: ""
+        certs:
+          tls_key_path: '${TOPAZ_CERTS_DIR}/gateway.key'
+          tls_cert_path: '${TOPAZ_CERTS_DIR}/gateway.crt'
+          tls_ca_cert_path: '${TOPAZ_CERTS_DIR}/gateway-ca.crt'
+        http: false
+        read_timeout: 2s
+        read_header_timeout: 2s
+        write_timeout: 2s
+        idle_timeout: 30s
+
+    reader:
+      needs:
+        - model
+      grpc:
+        listen_address: "0.0.0.0:9292"
+        fqdn: ""
+        certs:
+          tls_key_path: '${TOPAZ_CERTS_DIR}/grpc.key'
+          tls_cert_path: '${TOPAZ_CERTS_DIR}/grpc.crt'
+          tls_ca_cert_path: '${TOPAZ_CERTS_DIR}/grpc-ca.crt'
+      gateway:
+        listen_address: "0.0.0.0:9393"
+        fqdn: ""
+        certs:
+          tls_key_path: '${TOPAZ_CERTS_DIR}/gateway.key'
+          tls_cert_path: '${TOPAZ_CERTS_DIR}/gateway.crt'
+          tls_ca_cert_path: '${TOPAZ_CERTS_DIR}/gateway-ca.crt'
+        http: false
+        read_timeout: 2s
+        read_header_timeout: 2s
+        write_timeout: 2s
+        idle_timeout: 30s
+
+    authorizer:
+      needs:
+        - reader
+      grpc:
+        connection_timeout_seconds: 2
+        listen_address: "0.0.0.0:8282"
+        fqdn: ""
+        certs:
+          tls_key_path: '${TOPAZ_CERTS_DIR}/grpc.key'
+          tls_cert_path: '${TOPAZ_CERTS_DIR}/grpc.crt'
+          tls_ca_cert_path: '${TOPAZ_CERTS_DIR}/grpc-ca.crt'
+      gateway:
+        listen_address: "0.0.0.0:8383"
+        fqdn: ""
+        allowed_headers:
+        - "Authorization"
+        - "Content-Type"
+        - "If-Match"
+        - "If-None-Match"
+        - "Depth"
+        allowed_methods:
+        - "GET"
+        - "POST"
+        - "HEAD"
+        - "DELETE"
+        - "PUT"
+        - "PATCH"
+        allowed_origins:
+        - http://localhost
+        - http://localhost:*
+        - https://localhost
+        - https://localhost:*
+        - https://0.0.0.0:*
+        certs:
+          tls_key_path: '${TOPAZ_CERTS_DIR}/gateway.key'
+          tls_cert_path: '${TOPAZ_CERTS_DIR}/gateway.crt'
+          tls_ca_cert_path: '${TOPAZ_CERTS_DIR}/gateway-ca.crt'
+        http: false
+        read_timeout: 2s
+        read_header_timeout: 2s
+        write_timeout: 2s
+        idle_timeout: 30s
+
+# OPA runtime: load the shared fintech Rego as a LOCAL bundle from the bind-mounted /policy directory
+# (reusing infra/opa/policy — the exact same policy the OPA adapter evaluates). No OCI services/bundles
+# are configured, so the authorizer never contacts a registry; it boots and decides fully offline.
+opa:
+  instance_id: "authz-bank"
+  graceful_shutdown_period_seconds: 2
+  local_bundles:
+    paths:
+      - /policy
+    skip_verification: true

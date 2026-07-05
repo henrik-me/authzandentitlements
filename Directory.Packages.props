@@ -134,6 +134,20 @@
   </ItemGroup>
 
   <!--
+    CS46 (Adapter: Topaz / Aserto — full-decision PDP over an OPA bundle). Aserto.Clients is the
+    official .NET client for the Aserto/Topaz Authorizer + Directory APIs. It backs the config-gated
+    "topaz" PDP provider (Pdp:Provider=topaz) and is never on the default tested path: the reference
+    engine stays the default, and the gRPC authorizer client is built lazily only when the topaz
+    provider is actually exercised against a running server. Topaz is OPA-based, so the adapter drives
+    it as a full-decision engine over the SAME Rego bundle the OPA adapter uses (infra/opa/policy) via
+    the authorizer Query API — the head-to-head "OPA standalone vs OPA-inside-Topaz". Pinned to 1.1.2
+    for reproducible restores, exercised against the ghcr.io/aserto-dev/topaz:0.33.14 server.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Aserto.Clients" Version="1.1.2" />
+  </ItemGroup>
+
+  <!--
     CS26 (Adapter: Cerbos — full-decision PDP). Cerbos.Sdk is the official .NET gRPC client for the
     Cerbos policy decision point. It backs the config-gated "cerbos" PDP provider (Pdp:Provider=cerbos)
     and is never on the default tested path: the reference engine stays the default, and the gRPC

@@ -30,6 +30,11 @@
     <PackageReference Include="Cerbos.Sdk" />
   </ItemGroup>
 
+  <!-- CS46: Aserto.Clients backs the gRPC "topaz" full-decision PDP adapter (OPA bundle). Version is centrally managed (CPM). -->
+  <ItemGroup>
+    <PackageReference Include="Aserto.Clients" />
+  </ItemGroup>
+
   <!-- CS06: Casbin.NET backs the in-process "casbin" RBAC/ABAC PDP adapter. -->
   <ItemGroup>
     <PackageReference Include="Casbin.NET" />

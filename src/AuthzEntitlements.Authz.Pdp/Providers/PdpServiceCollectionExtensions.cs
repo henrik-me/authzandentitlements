@@ -2,6 +2,7 @@ using AuthzEntitlements.Authz.Pdp.Audit;
 using AuthzEntitlements.Authz.Pdp.Contracts;
 using AuthzEntitlements.Authz.Pdp.Providers.Adapters.Cerbos;
 using AuthzEntitlements.Authz.Pdp.Providers.Adapters.Opa;
+using AuthzEntitlements.Authz.Pdp.Providers.Adapters.Topaz;
 using AuthzEntitlements.Authz.Pdp.Providers.Keto;
 using AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
 using AuthzEntitlements.Authz.Pdp.Providers.SpiceDb;
@@ -90,6 +91,22 @@ public static class PdpServiceCollectionExtensions
         services.AddSingleton<CerbosCheckService>();
         services.AddSingleton<ICerbosCheckClient>(sp => sp.GetRequiredService<CerbosCheckService>());
         services.AddSingleton<IAuthorizationDecisionProvider, Adapters.Cerbos.CerbosDecisionProvider>();
+
+        // CS46 — Topaz (Aserto) adapter: an out-of-process, full-decision PDP driven over its OPA policy
+        // bundle. Topaz is OPA-based, so — unlike the ReBAC engines — it answers the WHOLE fintech
+        // decision by evaluating the SAME Rego the OPA adapter uses (infra/opa/policy), reached through
+        // the Aserto authorizer gRPC API. It is the head-to-head "OPA standalone vs OPA-inside-Topaz"
+        // (Topaz's Zanzibar directory is deliberately NOT used for the decision — the documented parity
+        // boundary). Bind its options + register the lazy authorizer client and the provider. Selection
+        // stays config-driven — "Pdp:Provider" defaults to "reference", so registering this adapter does
+        // not require a live Topaz for builds/tests/`aspire run`: the client is built lazily only on first
+        // actual check. The service is a singleton so the channel is cached, and it is also exposed as
+        // ITopazCheckClient — the narrow forward-decision seam TopazDecisionProvider depends on (LRN-038)
+        // — resolved from the SAME singleton.
+        services.Configure<TopazOptions>(configuration.GetSection(TopazOptions.SectionName));
+        services.AddSingleton<TopazCheckService>();
+        services.AddSingleton<ITopazCheckClient>(sp => sp.GetRequiredService<TopazCheckService>());
+        services.AddSingleton<IAuthorizationDecisionProvider, Adapters.Topaz.TopazDecisionProvider>();
 
         services.AddSingleton<AuthorizationDecisionProviderFactory>();
         services.AddPdpDecisionAuditSink(configuration);
