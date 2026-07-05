@@ -94,9 +94,9 @@ public static class CerbosRequestMapper
             entry = entry.WithAttribute(TenantAttr, AttributeValue.StringValue(request.Resource.Tenant));
         }
 
-        if (request.Resource.MakerId is { Length: > 0 } makerId)
+        if (!string.IsNullOrWhiteSpace(request.Resource.MakerId))
         {
-            entry = entry.WithAttribute(MakerIdAttr, AttributeValue.StringValue(makerId));
+            entry = entry.WithAttribute(MakerIdAttr, AttributeValue.StringValue(request.Resource.MakerId));
         }
 
         if (!string.IsNullOrWhiteSpace(request.Resource.Status))
