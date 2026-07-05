@@ -27,8 +27,9 @@ SpiceDB, Cerbos) when you want to compare them.
    Eight engines are integrated. Six answer the full fintech decision and its **22-scenario parity
    catalog** — `reference`, `aspnet`, `casbin`, `cedar` (in-process) plus `opa`, `cerbos`
    (container). Two are **ReBAC (Zanzibar)** engines — `openfga` and `spicedb` (container) — that
-   model access as relationship tuples and answer via forward checks + reverse-index (`/api/authz/rebac/*`)
-   against their own ReBAC catalog. All container engines are opt-in.
+   model access as relationship tuples and run as selectable PDP providers; OpenFGA additionally
+   exposes relationship-native reverse-index queries at `/api/authz/rebac/*`. All container engines
+   are opt-in.
 3. **Entitlements** — commercial (plans / modules / seats / features / quotas via OpenFeature,
    optional Unleash, usage metering) and access-governance (access packages, JIT elevation, access
    reviews, break-glass, on-behalf-of delegation).
@@ -134,8 +135,9 @@ curl -X POST http://<authz-pdp>/api/authz/scenarios/verify
 
 The six full-fintech engines must return the same decision + primary reason code across the
 22-scenario `FintechScenarioCatalog`; the ReBAC engines (`openfga`, `spicedb`) model the same
-domain as relationship tuples and are exercised through `/api/authz/rebac/*` (forward check +
-reverse-index) against their own catalog. Related PDP surfaces: `/api/authz/evaluate`, `/api/authz/whatif`,
+domain as relationship tuples and run as selectable PDP providers, with OpenFGA additionally
+exposing reverse-index queries (who-can-access / what-can-user-access) at `/api/authz/rebac/*`.
+Related PDP surfaces: `/api/authz/evaluate`, `/api/authz/whatif`,
 `/api/authz/shadow`, `/api/authz/policy/version`, and `/api/authz/authzen/evaluation`.
 
 ### Inspect the tamper-evident audit log
