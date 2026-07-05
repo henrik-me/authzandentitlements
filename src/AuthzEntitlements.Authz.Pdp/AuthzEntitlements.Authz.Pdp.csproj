@@ -20,6 +20,11 @@
     <PackageReference Include="Authzed.Net" />
   </ItemGroup>
 
+  <!-- CS46: Ory.Keto.Client backs the HTTP REST "keto" ReBAC PDP adapter. Version is centrally managed (CPM). -->
+  <ItemGroup>
+    <PackageReference Include="Ory.Keto.Client" />
+  </ItemGroup>
+
   <!-- CS26: Cerbos.Sdk backs the gRPC "cerbos" full-decision PDP adapter. Version is centrally managed (CPM). -->
   <ItemGroup>
     <PackageReference Include="Cerbos.Sdk" />

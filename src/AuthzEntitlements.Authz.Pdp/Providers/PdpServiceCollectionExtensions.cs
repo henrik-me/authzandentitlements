@@ -2,6 +2,7 @@ using AuthzEntitlements.Authz.Pdp.Audit;
 using AuthzEntitlements.Authz.Pdp.Contracts;
 using AuthzEntitlements.Authz.Pdp.Providers.Adapters.Cerbos;
 using AuthzEntitlements.Authz.Pdp.Providers.Adapters.Opa;
+using AuthzEntitlements.Authz.Pdp.Providers.Keto;
 using AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
 using AuthzEntitlements.Authz.Pdp.Providers.SpiceDb;
 using AuthzEntitlements.Authz.Pdp.Services;
@@ -45,6 +46,17 @@ public static class PdpServiceCollectionExtensions
         services.AddSingleton<SpiceDbCheckService>();
         services.AddSingleton<ISpiceDbCheckClient>(sp => sp.GetRequiredService<SpiceDbCheckService>());
         services.AddSingleton<IAuthorizationDecisionProvider, SpiceDbProvider>();
+
+        // CS46 — Ory Keto (ReBAC) adapter, a head-to-head counterpart to SpiceDB and OpenFGA. Bound +
+        // registered unconditionally so the factory can select it by name, but its live REST clients are
+        // built lazily (only on first use) so registration never needs a running server: the default
+        // deterministic run stays engine-free. The service is a singleton so the relationship bootstrap
+        // runs once and the clients are cached. It is also exposed as IKetoCheckClient — the narrow
+        // forward-check seam KetoProvider depends on (LRN-038) — resolved from the SAME singleton.
+        services.Configure<KetoOptions>(configuration.GetSection(KetoOptions.SectionName));
+        services.AddSingleton<KetoCheckService>();
+        services.AddSingleton<IKetoCheckClient>(sp => sp.GetRequiredService<KetoCheckService>());
+        services.AddSingleton<IAuthorizationDecisionProvider, KetoProvider>();
 
         // Cedar adapter (CS09): a genuine in-process Cedar policy engine (MonoCloud.Cedar native
         // bindings) that owns the FULL fintech decision natively — the head-to-head with OPA. No
