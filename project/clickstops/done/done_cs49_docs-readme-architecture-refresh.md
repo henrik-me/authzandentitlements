@@ -1,10 +1,10 @@
 # CS49 — Refresh README + ARCHITECTURE to shipped reality (usage, architecture, data flows)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs49/docs-readme-architecture-refresh
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-05
 **Filed by:** yoga-ae-c3, 2026-07-04 — user request: "update readme and architecture .md files to reflect how to use the product/lab, as well as document the system architecture, and key data flows".
 **Phase:** Maintenance (docs)
 **Lane:** Docs
