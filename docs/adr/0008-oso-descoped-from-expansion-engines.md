@@ -101,5 +101,5 @@ change — see the re-evaluation trigger.
 - <https://www.osohq.com/docs/develop/local-dev/oso-dev-server> — the dev-server (development /
   testing scope; pinnable versioned tags via "Pin Dev Server versions in CI"; native binary)
 - <https://github.com/osohq/oso> — the embedded-library language-SDK list (no C#/.NET)
-- `nuget.org/packages/Oso` returns 404 (no in-process .NET package); `OsoCloud` NuGet — the
-  managed-cloud .NET HTTP SDK
+- <https://www.nuget.org/packages/Oso> — returns 404 (no in-process .NET package)
+- <https://www.nuget.org/packages/OsoCloud> — the managed-cloud .NET HTTP SDK (the only .NET path)

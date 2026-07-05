@@ -32,7 +32,7 @@ AuthZEN-aligned PDP (`AuthzEntitlements.Authz.Pdp`, CS05) runs pluggable engines
 | `cedar` | Cedar (`MonoCloud.Cedar`) | In-process (no container) | none | Shipped (CS09) |
 | `opa` | OPA / Rego | Out-of-process container | none (policy bundle) | Shipped (CS08) |
 | `openfga` | OpenFGA (ReBAC / Zanzibar) | Out-of-process container | Postgres (`openfga` DB) | Shipped (CS07) |
-| SpiceDB, Cerbos, Keto, Topaz | expansion | Out-of-process | varies | Planned (CS26) |
+| SpiceDB, Cerbos, Keto, Topaz | expansion | Out-of-process | varies | SpiceDB + Cerbos shipped (CS26); Keto + Topaz planned (CS46) |
 
 Oso was evaluated as a sixth expansion engine but **de-scoped** — see
 [ADR 0008](../adr/0008-oso-descoped-from-expansion-engines.md).
@@ -208,7 +208,7 @@ the burden stays with the lab; "Vendor" = the offering removes it.
 | Self-hosted OSS, in-process | none (your compute) | **Low** — no extra container / store | **Med** — you own adapter + patches | **Low** | `reference` / `aspnet` / `casbin` / `cedar` (shipped) |
 | Self-hosted OSS, out-of-process | none (your compute) | **Med** — container(s) + Postgres | **High** — upgrades / HA / backups / on-call | **Low** | `opa`, `openfga` (shipped) |
 | Auth0 / Okta FGA | per-MAU + tuple / check caps | **Low** | **Low** — vendor runs OpenFGA | **Low–Med** (OSS engine) | `openfga` |
-| AuthZed Cloud | usage / resource (Cloud) or reserved (Dedicated) | **Low** | **Low** | **Low–Med** (OSS engine) | SpiceDB (planned, CS26) |
+| AuthZed Cloud | usage / resource (Cloud) or reserved (Dedicated) | **Low** | **Low** | **Low–Med** (OSS engine) | SpiceDB (shipped, CS26) |
 | Oso Cloud | per-request + MAU tiers | **Low** | **Low** | **Med–High** (Polar) | Oso (evaluated, de-scoped — ADR 0008) |
 | Permit.io | per-MAU + tenants | **Low–Med** — you host the sidecar | **Low–Med** — shared (sidecar) | **Med** | `opa` + `openfga` + `cedar` |
 | Amazon Verified Permissions | per-request (pay-as-you-go) | **Low** | **Lowest** — no server at all | **Med** (service) / **Low** (Cedar policy) | `cedar` — **AWS-only** |

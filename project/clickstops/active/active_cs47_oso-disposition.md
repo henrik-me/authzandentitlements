@@ -89,10 +89,11 @@ Formally **disposition Oso**: record the decision to **de-scope** it from the ex
   **production** server (the dev-server is vendor-scoped to development/testing; production is the
   paid, proprietary managed Oso Cloud) — but the "unpinnable/`latest`-only" wording was removed from
   ADR 0008 and all three eval docs.
-- **Scope boundary (deliberate).** `managed-vs-selfhost-tco.md` still labels SpiceDB / Cerbos / Keto
-  / Topaz "planned (CS26)" although SpiceDB + Cerbos shipped (PRs #134/#139) and Keto + Topaz moved
-  to CS46. Left untouched — outside CS47's Oso-only scope; filed as a follow-up learning for a
-  doc-freshness pass.
+- **Scope boundary.** `managed-vs-selfhost-tco.md` labelled SpiceDB / Cerbos / Keto / Topaz
+  "planned (CS26)" although SpiceDB + Cerbos shipped (PRs #134/#139) and Keto + Topaz moved to CS46.
+  The two rows **edited in this PR** (the expansion-engine baseline row and the adjacent AuthZed
+  Cloud→SpiceDB mapping row) were corrected to accurate status per Copilot review; any residual
+  non-Oso staleness in docs this CS did not touch remains a follow-up doc-freshness pass.
 
 ## Plan-vs-implementation review
 
