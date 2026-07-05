@@ -1,9 +1,9 @@
 # CS48 — Local stack validation + demo/lab readiness
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c2
+**Branch:** cs48/content
+**Started:** 2026-07-05
 **Closed:** —
 **Phase:** 7 — Expansion + Azure
 **Lane:** Validation
@@ -69,7 +69,23 @@ Validate the current .NET Aspire stack in detail **locally**, exercise the real 
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Build baseline (`dotnet build AuthzEntitlements.sln`) | in-progress | yoga-ae-c2 | 0 warnings / 0 errors expected |
+| Full test suite (`dotnet test`) | pending | yoga-ae-c2 | record per-suite counts across the nine test projects |
+| `aspire run` end-to-end smoke | pending | yoga-ae-c2 | container-backed bring-up; exercise authn / PDP + playground fan-out / entitlements-quota / audit verify / break-glass-delegation |
+| Opt-in engine checks | pending | yoga-ae-c2 | `opa`/`openfga`/`spicedb`/`cerbos`/`unleash` (Docker) or record unavailability |
+| Observability assessment | pending | yoga-ae-c2 | what the demo/lab shows today + warranted/not-warranted recommendation feeding CS43/CS44 |
+| Validation report + demo runbook | pending | yoga-ae-c2 | `docs/validation/` report + demo runbook |
+| Close-out: docs + restart state | pending | yoga-ae-c2 | update WORKBOARD, CONTEXT.md, and cross-reference the validation from the CS27/CS43/CS44 hold gates so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | yoga-ae-c2 | file/disposition learnings in LEARNINGS.md; open follow-up CSs for any validation gaps found |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c2 |
+| Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
 
