@@ -34,6 +34,7 @@ jobs:
           # Fail CLOSED on a gh api error (auth/rate-limit/network): capture the file
           # list first so a failure is not masked by the grep's `|| true` below.
           files=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUM}/files" --jq '.[] | .filename, (.previous_filename // empty)') || { echo "::error ::workboard-only scope check: gh api failed; refusing to confirm bypass."; exit 1; }
+          # harness:workboard-allowlist
           outside=$(printf '%s\n' "$files" | grep -Ev '^(WORKBOARD\.md|CONTEXT\.md|LEARNINGS\.md)$|^project/clickstops/(planned|active|done)/' || true)
           if [ -n "$outside" ]; then
             echo "::error ::workboard-only label present but the PR changes files OUTSIDE the workboard allowlist (WORKBOARD.md / CONTEXT.md / LEARNINGS.md / project/clickstops/). Remove the label or split the PR."
@@ -44,17 +45,49 @@ jobs:
 
   review-log-evidence:
     name: review-log-evidence
-    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'workboard-only')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
     steps:
+      - id: wb
+        name: Determine workboard-only skip (path-derived)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          skip=false
+          has_label=false
+          if printf '%s' "$PR_LABELS" | grep -Fq '"workboard-only"'; then has_label=true; fi
+          # Fail CLOSED: if the changed-file list cannot be fetched, run the REAL
+          # gate (skip stays false). Rename/copy-source aware (previous_filename)
+          # so a rename INTO an allowlisted path cannot dodge the real gate.
+          if files=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUM}/files" --jq '.[] | .filename, (.previous_filename // empty)'); then
+            # harness:workboard-allowlist
+            outside=$(printf '%s\n' "$files" | grep -Ev '^(WORKBOARD\.md|CONTEXT\.md|LEARNINGS\.md)$|^project/clickstops/(planned|active|done)/' || true)
+            if [ -z "$outside" ]; then skip=true; fi
+          else
+            echo "::notice ::workboard-only detection: gh api files failed; running the real gate (fail-closed)."
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = true ]; then
+            if [ "$has_label" = true ]; then
+              echo "::notice title=review-gate skipped::review-log-evidence skipped — workboard-only (label + allowlist-confined diff)."
+            else
+              echo "::notice title=review-gate skipped::review-log-evidence skipped — workboard-only (path-derived: allowlist-confined diff, label absent). Label still required for auto-merge."
+            fi
+          fi
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: steps.wb.outputs.skip != 'true'
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        if: steps.wb.outputs.skip != 'true'
         with:
           node-version: '20'
       - name: Prepare harness CLI and PR body
+        if: steps.wb.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -70,21 +103,54 @@ jobs:
           git -C .harness-ci/agent-harness checkout --quiet "$ref"
           gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.body // ""' > .harness-ci/pr-body.md
       - name: Run review-log-evidence
+        if: steps.wb.outputs.skip != 'true'
         run: node .harness-ci/agent-harness/scripts/checks/check-review-log-evidence.mjs --pr-body .harness-ci/pr-body.md
 
   copilot-review-attached:
     name: copilot-review-attached
-    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'workboard-only')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
     steps:
+      - id: wb
+        name: Determine workboard-only skip (path-derived)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          skip=false
+          has_label=false
+          if printf '%s' "$PR_LABELS" | grep -Fq '"workboard-only"'; then has_label=true; fi
+          # Fail CLOSED: if the changed-file list cannot be fetched, run the REAL
+          # gate (skip stays false). Rename/copy-source aware (previous_filename)
+          # so a rename INTO an allowlisted path cannot dodge the real gate.
+          if files=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUM}/files" --jq '.[] | .filename, (.previous_filename // empty)'); then
+            # harness:workboard-allowlist
+            outside=$(printf '%s\n' "$files" | grep -Ev '^(WORKBOARD\.md|CONTEXT\.md|LEARNINGS\.md)$|^project/clickstops/(planned|active|done)/' || true)
+            if [ -z "$outside" ]; then skip=true; fi
+          else
+            echo "::notice ::workboard-only detection: gh api files failed; running the real gate (fail-closed)."
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = true ]; then
+            if [ "$has_label" = true ]; then
+              echo "::notice title=review-gate skipped::copilot-review-attached skipped — workboard-only (label + allowlist-confined diff)."
+            else
+              echo "::notice title=review-gate skipped::copilot-review-attached skipped — workboard-only (path-derived: allowlist-confined diff, label absent). Label still required for auto-merge."
+            fi
+          fi
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: steps.wb.outputs.skip != 'true'
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        if: steps.wb.outputs.skip != 'true'
         with:
           node-version: '20'
       - name: Prepare harness CLI
+        if: steps.wb.outputs.skip != 'true'
         env:
           GH_REPO: ${{ github.repository }}
           GH_SHA: ${{ github.event.pull_request.head.sha }}
@@ -97,6 +163,7 @@ jobs:
           git clone --quiet --no-checkout https://github.com/henrik-me/agent-harness.git .harness-ci/agent-harness
           git -C .harness-ci/agent-harness checkout --quiet "$ref"
       - name: Run copilot-review-attached
+        if: steps.wb.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -106,17 +173,49 @@ jobs:
 
   independence-invariant:
     name: independence-invariant
-    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'workboard-only')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
     steps:
+      - id: wb
+        name: Determine workboard-only skip (path-derived)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          skip=false
+          has_label=false
+          if printf '%s' "$PR_LABELS" | grep -Fq '"workboard-only"'; then has_label=true; fi
+          # Fail CLOSED: if the changed-file list cannot be fetched, run the REAL
+          # gate (skip stays false). Rename/copy-source aware (previous_filename)
+          # so a rename INTO an allowlisted path cannot dodge the real gate.
+          if files=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUM}/files" --jq '.[] | .filename, (.previous_filename // empty)'); then
+            # harness:workboard-allowlist
+            outside=$(printf '%s\n' "$files" | grep -Ev '^(WORKBOARD\.md|CONTEXT\.md|LEARNINGS\.md)$|^project/clickstops/(planned|active|done)/' || true)
+            if [ -z "$outside" ]; then skip=true; fi
+          else
+            echo "::notice ::workboard-only detection: gh api files failed; running the real gate (fail-closed)."
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = true ]; then
+            if [ "$has_label" = true ]; then
+              echo "::notice title=review-gate skipped::independence-invariant skipped — workboard-only (label + allowlist-confined diff)."
+            else
+              echo "::notice title=review-gate skipped::independence-invariant skipped — workboard-only (path-derived: allowlist-confined diff, label absent). Label still required for auto-merge."
+            fi
+          fi
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: steps.wb.outputs.skip != 'true'
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        if: steps.wb.outputs.skip != 'true'
         with:
           node-version: '20'
       - name: Prepare harness CLI and PR body
+        if: steps.wb.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -132,21 +231,54 @@ jobs:
           git -C .harness-ci/agent-harness checkout --quiet "$ref"
           gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.body // ""' > .harness-ci/pr-body.md
       - name: Run independence-invariant
+        if: steps.wb.outputs.skip != 'true'
         run: node .harness-ci/agent-harness/scripts/checks/check-independence-invariant.mjs --pr-body .harness-ci/pr-body.md --config harness.config.json
 
   review-threads-resolved:
     name: review-threads-resolved
-    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'workboard-only')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
     steps:
+      - id: wb
+        name: Determine workboard-only skip (path-derived)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          skip=false
+          has_label=false
+          if printf '%s' "$PR_LABELS" | grep -Fq '"workboard-only"'; then has_label=true; fi
+          # Fail CLOSED: if the changed-file list cannot be fetched, run the REAL
+          # gate (skip stays false). Rename/copy-source aware (previous_filename)
+          # so a rename INTO an allowlisted path cannot dodge the real gate.
+          if files=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUM}/files" --jq '.[] | .filename, (.previous_filename // empty)'); then
+            # harness:workboard-allowlist
+            outside=$(printf '%s\n' "$files" | grep -Ev '^(WORKBOARD\.md|CONTEXT\.md|LEARNINGS\.md)$|^project/clickstops/(planned|active|done)/' || true)
+            if [ -z "$outside" ]; then skip=true; fi
+          else
+            echo "::notice ::workboard-only detection: gh api files failed; running the real gate (fail-closed)."
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = true ]; then
+            if [ "$has_label" = true ]; then
+              echo "::notice title=review-gate skipped::review-threads-resolved skipped — workboard-only (label + allowlist-confined diff)."
+            else
+              echo "::notice title=review-gate skipped::review-threads-resolved skipped — workboard-only (path-derived: allowlist-confined diff, label absent). Label still required for auto-merge."
+            fi
+          fi
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: steps.wb.outputs.skip != 'true'
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        if: steps.wb.outputs.skip != 'true'
         with:
           node-version: '20'
       - name: Prepare harness CLI
+        if: steps.wb.outputs.skip != 'true'
         env:
           GH_REPO: ${{ github.repository }}
           GH_SHA: ${{ github.event.pull_request.head.sha }}
@@ -159,6 +291,7 @@ jobs:
           git clone --quiet --no-checkout https://github.com/henrik-me/agent-harness.git .harness-ci/agent-harness
           git -C .harness-ci/agent-harness checkout --quiet "$ref"
       - name: Run review-threads-resolved
+        if: steps.wb.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}

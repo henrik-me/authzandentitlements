@@ -1,7 +1,7 @@
 {
   "$schema": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
   "_comment": "Replace REPLACE_ME placeholders with your project's values before running harness sync",
-  "version": "v0.16.0",
+  "version": "v0.17.0",
   "project": {
     "name": "authzandentitlements",
     "agent_suffix": "ae",
@@ -17,7 +17,8 @@
       ".github/workflows/workboard-auto-approve.yml",
       ".github/workflows/harness-pr-check.yml",
       ".github/CODEOWNERS",
-      ".github/workflows/harness-drift.yml"
+      ".github/workflows/harness-drift.yml",
+      "DISPATCH-PREAMBLE.md"
     ]
   },
   "composed": {
