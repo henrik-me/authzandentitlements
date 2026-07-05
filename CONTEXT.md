@@ -353,6 +353,7 @@ carries **Phase**, **Lane**, and **Depends on** fields. A claim-time `## Plan re
 | CS43 | Full OpenMeter metering (local) ⛔ HELD | Expansion | CS10, CS12 |
 | CS44 | Azure deployment of OpenMeter ⛔ HELD | Expansion | CS25, CS27, CS43 |
 | CS48 | Local stack validation + demo/lab readiness (gates CS27/CS43/CS44) | Validation | CS12, CS14, CS15, CS21, CS26 |
+| CS50 | AppHost application-model CI smoke test (follow-up: LRN-078) | DevEx | CS01 |
 
 ### Parallelization (waves)
 
