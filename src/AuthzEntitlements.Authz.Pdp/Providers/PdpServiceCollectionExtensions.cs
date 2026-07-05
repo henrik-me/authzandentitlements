@@ -2,6 +2,7 @@ using AuthzEntitlements.Authz.Pdp.Audit;
 using AuthzEntitlements.Authz.Pdp.Contracts;
 using AuthzEntitlements.Authz.Pdp.Providers.Adapters.Opa;
 using AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
+using AuthzEntitlements.Authz.Pdp.Providers.SpiceDb;
 using AuthzEntitlements.Authz.Pdp.Services;
 using Microsoft.Extensions.Options;
 
@@ -32,6 +33,17 @@ public static class PdpServiceCollectionExtensions
         services.AddSingleton<OpenFgaRebacService>();
         services.AddSingleton<IOpenFgaCheckClient>(sp => sp.GetRequiredService<OpenFgaRebacService>());
         services.AddSingleton<IAuthorizationDecisionProvider, OpenFgaProvider>();
+
+        // CS26 — SpiceDB (ReBAC) adapter, the head-to-head counterpart to OpenFGA. Bound + registered
+        // unconditionally so the factory can select it by name, but its live gRPC client is built lazily
+        // (only on first use) so registration never needs a running server: the default deterministic
+        // run stays engine-free. The service is a singleton so the schema/relationship bootstrap runs
+        // once and the channel is cached. It is also exposed as ISpiceDbCheckClient — the narrow
+        // forward-check seam SpiceDbProvider depends on (LRN-038) — resolved from the SAME singleton.
+        services.Configure<SpiceDbOptions>(configuration.GetSection(SpiceDbOptions.SectionName));
+        services.AddSingleton<SpiceDbCheckService>();
+        services.AddSingleton<ISpiceDbCheckClient>(sp => sp.GetRequiredService<SpiceDbCheckService>());
+        services.AddSingleton<IAuthorizationDecisionProvider, SpiceDbProvider>();
 
         // Cedar adapter (CS09): a genuine in-process Cedar policy engine (MonoCloud.Cedar native
         // bindings) that owns the FULL fintech decision natively — the head-to-head with OPA. No

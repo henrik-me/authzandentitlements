@@ -15,6 +15,11 @@
     <PackageReference Include="OpenFga.Sdk" />
   </ItemGroup>
 
+  <!-- CS26: Authzed.Net backs the gRPC "spicedb" ReBAC PDP adapter. Version is centrally managed (CPM). -->
+  <ItemGroup>
+    <PackageReference Include="Authzed.Net" />
+  </ItemGroup>
+
   <!-- CS06: Casbin.NET backs the in-process "casbin" RBAC/ABAC PDP adapter. -->
   <ItemGroup>
     <PackageReference Include="Casbin.NET" />

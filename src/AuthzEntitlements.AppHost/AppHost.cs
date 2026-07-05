@@ -176,6 +176,24 @@ var openfga = builder.AddContainer("openfga", openfgaImage, openfgaImageTag)
     .WaitForCompletion(openfgaMigrate)
     .WithExplicitStart();
 
+// CS26 — SpiceDB (ReBAC / Zanzibar) engine backing the config-gated "spicedb" PDP provider, the
+// head-to-head counterpart to OpenFGA. Kept OFF the default critical path exactly like OpenFGA and
+// OPA: .WithExplicitStart() so `aspire run` and the deterministic reference PDP never start or block
+// on SpiceDB, and authz-pdp is given the endpoint coordinates WITHOUT a hard WaitFor. The dev
+// container runs the in-memory datastore and a fixed dev preshared key (a lab secret, never a
+// deployment) — the adapter authenticates with the same key. SpiceDB serves gRPC over h2c on 50051;
+// the image tag is pinned for determinism.
+const string spicedbImage = "authzed/spicedb";
+const string spicedbImageTag = "v1.54.0";
+const string spicedbPresharedKey = "spicedb-dev-key";
+
+var spicedb = builder.AddContainer("spicedb", spicedbImage, spicedbImageTag)
+    .WithArgs("serve", "--grpc-preshared-key", spicedbPresharedKey, "--datastore-engine", "memory")
+    // gRPC on 50051, modeled as an http endpoint so the injected Pdp__SpiceDb__Endpoint is a plain
+    // http:// (h2c) address the .NET gRPC client can use without TLS.
+    .WithHttpEndpoint(targetPort: 50051, name: "grpc")
+    .WithExplicitStart();
+
 // CS13 — Tamper-evident audit log pipeline. The Audit.Service owns the `audit` database and
 // appends every authz/entitlement decision as a hash-chained, append-only row (prev-hash +
 // payload -> row-hash), exposing a chain-verification endpoint + a query API. Postgres already
@@ -197,6 +215,11 @@ var auditService = builder.AddProject<Projects.AuthzEntitlements_Audit_Service>(
 // own PDP-decision OTLP telemetry out to the persistent observability collector like the other services.
 var authzPdp = builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-pdp")
     .WithEnvironment("Pdp__OpenFga__ApiUrl", openfga.GetEndpoint("http"))
+    // CS26 — SpiceDB coordinates for the config-gated `spicedb` provider. Injected unconditionally
+    // (like the OpenFGA/OPA coordinates) so Pdp__Provider=spicedb works without further wiring; no
+    // WaitFor(spicedb) keeps the deterministic reference provider off SpiceDB's critical path.
+    .WithEnvironment("Pdp__SpiceDb__Endpoint", spicedb.GetEndpoint("grpc"))
+    .WithEnvironment("Pdp__SpiceDb__PresharedKey", spicedbPresharedKey)
     .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
     // CS08 — OPA coordinates for the config-gated `opa` provider. Injected unconditionally (like the
     // Unleash coordinates) so Pdp__Provider=opa works without further wiring; no WaitFor(opa) keeps

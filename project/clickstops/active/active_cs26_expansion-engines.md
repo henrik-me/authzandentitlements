@@ -33,8 +33,12 @@ Broaden engine coverage by adding more adapters behind the same abstraction/play
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Add SpiceDB | pending | — | |
-| Add Cerbos | pending | — | |
+| SpiceDB: Authzed.Net CPM pin + csproj ref | done | sub-agent | agent-id=cs26-spicedb-impl \| role=engine-adapter \| report-status=complete \| learnings=2 — Authzed.Net 1.6.0 (gRPC) CPM pin + versionless csproj ref |
+| SpiceDB: adapter (provider + pure mapper + lazy gRPC client + schema/relationship bootstrap) + DI registration | done | sub-agent | agent-id=cs26-spicedb-impl \| role=engine-adapter \| report-status=complete \| learnings=2 — provider/mapper mirror OpenFGA; lazy single-flight schema push + TOUCH seeding; fail-closed; reuses shared Rebac* graph so head-to-head is fair |
+| SpiceDB: AppHost container (authzed/spicedb:v1.54.0, WithExplicitStart, no hard WaitFor) + endpoint injection | done | sub-agent | agent-id=cs26-spicedb-impl \| role=engine-adapter \| report-status=complete \| learnings=2 — opt-in container (h2c gRPC 50051), Pdp__SpiceDb__Endpoint+PresharedKey injected, no WaitFor |
+| SpiceDB: tests (offline mapper + provider fail-closed; env-gated integration) | done | sub-agent | agent-id=cs26-spicedb-impl \| role=engine-adapter \| report-status=complete \| learnings=2 — PDP suite 759/759 green with NO container; integration soft-skips unless SPICEDB_TEST_ENDPOINT set |
+| SpiceDB: playground entry + adapter doc + SpiceDB-vs-OpenFGA head-to-head | done | sub-agent | agent-id=cs26-spicedb-impl \| role=engine-adapter \| report-status=complete \| learnings=2 — playground opt-in + docs; GPT-5.5 R1 NO-GO (2 doc-fact blockers: schema snippet + consistency claim) → fixed → verified |
+| Add Cerbos (follow-on increment) | pending | — | |
 | Add Keto/Oso/Topaz | pending | — | |
 | Wire into catalog + playground | pending | — | |
 | Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and the engine-adapter/playground docs so a fresh agent can restart from actual state |

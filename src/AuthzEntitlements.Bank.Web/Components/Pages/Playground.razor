@@ -189,8 +189,8 @@
 
 @code {
     // The engines the fan-out can target. Reference + the always-in-process adapters are checked by
-    // default; the container-backed engines (opa, openfga) are unchecked with a hint because they
-    // only answer when their explicit-start container is running (otherwise they fail closed to an
+    // default; the container-backed engines (opa, openfga, spicedb) are unchecked with a hint because
+    // they only answer when their explicit-start container is running (otherwise they fail closed to an
     // Unavailable row).
     private sealed class EngineChoice
     {
@@ -237,6 +237,7 @@
         new() { Name = "cedar", Selected = true },
         new() { Name = "opa", Selected = false, Hint = "needs its container running" },
         new() { Name = "openfga", Selected = false, Hint = "needs its container running" },
+        new() { Name = "spicedb", Selected = false, Hint = "needs its container running" },
     ];
 
     private bool _running;
