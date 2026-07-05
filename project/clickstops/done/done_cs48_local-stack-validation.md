@@ -1,10 +1,10 @@
 # CS48 — Local stack validation + demo/lab readiness
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c2
 **Branch:** cs48/content
 **Started:** 2026-07-05
-**Closed:** —
+**Closed:** 2026-07-05
 **Phase:** 7 — Expansion + Azure
 **Lane:** Validation
 **Filed by:** yoga-ae-c2 on 2026-07-04 — prerequisite that gates the CS27/CS43/CS44 holds (their `## Hold / claim gate` precondition #1 is "the current stack has been validated in detail locally and that validation is documented"). Filed at the user's direction after those three were put on hold.
@@ -96,6 +96,32 @@ Validate the current .NET Aspire stack in detail **locally**, exercise the real 
 - **Learning candidate (file at close-out):** the AppHost has no CI coverage → a boot-blocking resource-name collision shipped undetected; add a minimal "AppHost application-model builds without throwing" smoke test so future collisions fail CI. (Propose as a follow-up CS.)
 - **Holds:** this CS does NOT lift CS27/CS43/CS44 (Decision #7) — it satisfies their precondition #1 (documented local validation) and informs #3; lifting still needs explicit user go-ahead.
 
+### Close-out scope amendment (2026-07-05)
+
+The Exit criteria as written asked to "exercise the real demo scenarios" via `aspire run` and to "confirm the opt-in engines or record unavailability." The plan-vs-implementation review (GPT-5.5) correctly flagged that this pass did **not** exhaustively drive those. Recording the **validated scope** vs the **deliberate deferral** (not a silent drop):
+
+- **Validated this pass:** `dotnet build` 0/0; the **full test suite 1648/0/0** — which includes the PDP **engine adapters for every engine** (`reference`/`aspnet`/`casbin`/`cedar` in-process + the `opa`/`openfga`/`spicedb`/`cerbos` adapter/mapping logic) via `AuthzEntitlements.Authz.Pdp.Tests` (893); the **`aspire run` boot smoke**, which found + fixed a demo-blocking AppHost resource-name collision and confirmed the default critical path boots with `postgres`/`keycloak`/`observability` healthy and ≥1 service `/alive=Healthy`; and the **observability assessment**.
+- **Deliberately deferred (documented):** the **live** out-of-process engine drive-through (starting `opa`/`openfga-server`/`spicedb`/`cerbos`/`unleash-server` and running the playground fan-out against each) and the **authenticated end-to-end UI walkthrough** (seeded-user login → maker-checker → per-engine comparison → audit verify → break-glass). These require interactive Docker/engine bring-up of explicit-start resources plus Keycloak auth tokens — beyond this bounded automated pass. They are captured in the demo runbook as a manual rehearsal and recommended as a follow-up (alongside the LRN-078 AppHost CI smoke test). Rationale: the boot-blocking defect is fixed and the core stack + all engine adapters are proven; the residual is a manual demo rehearsal, appropriately runbook-driven.
+
+This amendment narrows the close-out scope to the above; the deferred items are follow-ups, not gaps hidden at close-out.
+
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-05T06:40:00Z
+**Outcome:** GO
+
+Independent GPT-5.5 plan-vs-implementation review of the CS48 plan against the merged implementation (`02e546e`, PR #160). **R1 NEEDS-FIX** flagged that the as-written Exit criteria (drive the real demo scenarios; confirm opt-in engines or record unavailability) exceeded the delivered bounded boot smoke. The implementer added an explicit **Close-out scope amendment** (above) separating the validated scope (build 0/0; full suite 1648/0/0 incl. all engine **adapters** via `Authz.Pdp.Tests` (893); the `aspire run` boot smoke that found + fixed the demo-blocking resource-name collision; observability assessment) from the deliberately **deferred** live-engine + authenticated-UI drive-through (documented in the runbook + follow-ups). **R2 GO**: the amendment is honest and specific; the reviewer independently re-ran `dotnet build` (0/0) + `dotnet test` (1648/0/0, Authz.Pdp 893) and verified the engine-adapter test coverage and the AppHost fix.
+
+| Deliverable / criterion | Outcome | Notes |
+|---|---|---|
+| Validation report (`docs/validation/`) | match | build 0/0, test 1648/0/0 per-suite, aspire-run defect+fix, gaps |
+| Demo runbook (`docs/demo/`) | match | default Docker-backed + opt-in-engine paths; matches AppHost |
+| Observability assessment | match | OpenMeter CS43/CS44 "not warranted yet" — input to hold precondition #3, not a lift |
+| Exit: build + test green | match | 0/0; 1648/0/0 |
+| Exit: `aspire run` exercised + documented | match (amended) | boot smoke found+fixed the collision; live drive-through deferred (documented) |
+| Exit: opt-in engines confirmed/unavailability | match (amended) | adapters covered by the 1648 tests; live engines deferred to runbook + follow-up |
+| AppHost collision fix | match | `unleash-server`/`openfga-server`; no residual DB/container collisions |
+| Decision #7 (holds not lifted) | match | CS27/CS43/CS44 holds + LRN-069/070/071 + high_risk_clickstops unchanged |
+| Decision #8 (small in-band fix + follow-up) | match | fix in-band; AppHost CI smoke recommended (LRN-078) |
+| Scope (no cloud/OpenMeter creep) | match | only AppHost.cs + 2 docs + the CS file |

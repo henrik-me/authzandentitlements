@@ -24,6 +24,25 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-078
+
+```yaml
+id: LRN-078
+date: 2026-07-05
+category: tooling
+source_cs: CS48
+status: open
+tags: [aspire, apphost, ci, test-coverage, resource-naming]
+```
+
+**Problem:** The Aspire **AppHost** (`Program.Main` / application-model construction) has **no CI coverage** — `dotnet-ci.yml` only builds + runs unit tests, and no test exercises `Program.Main`. A boot-blocking resource-name collision (the `unleash` and `openfga` **containers** shared a name with the same-named shared-Postgres **databases**; Aspire names are case-insensitive + must be unique) shipped undetected, so `aspire run` crashed on startup.
+
+**Finding:** `dotnet build` + unit tests are insufficient to catch AppHost wiring defects (duplicate resource names, bad `WaitFor` graphs) because the `DistributedApplicationBuilder` is only evaluated when the AppHost actually runs. A minimal test that constructs the AppHost application model and asserts it does not throw would fail CI on such collisions.
+
+**Evidence:** CS48 validation (PR #160); the fix in `src/AuthzEntitlements.AppHost/AppHost.cs` (containers renamed `unleash-server`/`openfga-server`); `docs/validation/local-stack-validation.md` §3 + §6.
+
+**Disposition:** **open** — the immediate collision is already **fixed** (CS48). Recommend a follow-up planned CS to add an "AppHost application-model builds without throwing" smoke test (constructing the builder) wired into CI, so future Aspire resource-name / graph defects fail fast. Leave `open` until that follow-up CS is filed + closed.
+
 ### LRN-069
 
 ```yaml
