@@ -48,8 +48,13 @@ public sealed class OpenFgaRegistrationTests
 
         var factory = provider.GetRequiredService<AuthorizationDecisionProviderFactory>();
 
-        Assert.Equal("openfga", factory.GetActiveProvider().Name);
-        Assert.IsType<OpenFgaProvider>(factory.GetActiveProvider());
+        // CS45: openfga does not declare ISupportsExtendedAuthorizationContext, so the factory wraps it
+        // in the fail-closed ExtendedContextGuardProvider. Selection is unchanged (Name still "openfga");
+        // the resolved instance is the guard whose Inner is the concrete OpenFGA adapter.
+        var active = factory.GetActiveProvider();
+        Assert.Equal("openfga", active.Name);
+        var guard = Assert.IsType<ExtendedContextGuardProvider>(active);
+        Assert.IsType<OpenFgaProvider>(guard.Inner);
     }
 
     [Fact]

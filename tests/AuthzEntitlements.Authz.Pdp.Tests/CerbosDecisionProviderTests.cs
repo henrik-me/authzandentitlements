@@ -105,65 +105,16 @@ public sealed class CerbosDecisionProviderTests
         Assert.Empty(decision.Obligations);
     }
 
-    // --- Delegation / OBO / break-glass boundary (fail closed, never forwarded) ---
-
-    [Fact]
-    public void Evaluate_WithActor_FailsClosed_WithoutForwarding()
-    {
-        // On-behalf-of (Subject.Actor) is a CS19/CS21 constraint the Cerbos policy does not encode.
-        // Forwarding could let Cerbos permit where the reference denies a missing delegated scope, so
-        // the adapter fails closed BEFORE forwarding — the seam is never called.
-        var fake = FakeCerbosCheckClient.Returning(true, "Permit");
-        var request = new AccessRequest(
-            new Subject("user", "manager1", ["Manager"], Contoso, Actor: new Actor("agent", "bot-1", ["bank.read"])),
-            new ActionRequest(ActionNames.AccountRead),
-            new Resource("account", Tenant: Contoso),
-            new EvaluationContext([ScopeNames.Read]));
-
-        var decision = Provider(fake).Evaluate(request);
-
-        Assert.Equal(Decision.Deny, decision.Decision);
-        Assert.Equal("ProviderUnavailable", decision.Reasons[0].Code);
-        Assert.Equal(0, fake.Calls);
-    }
-
-    [Fact]
-    public void Evaluate_WithDelegationContext_FailsClosed_WithoutForwarding()
-    {
-        var fake = FakeCerbosCheckClient.Returning(true, "Permit");
-        var request = new AccessRequest(
-            new Subject("user", "delegate1", ["Teller"], Contoso),
-            new ActionRequest(ActionNames.AccountRead),
-            new Resource("account", Tenant: Contoso),
-            new EvaluationContext(
-                [ScopeNames.Read],
-                Delegation: new DelegationGrant("g1", "mgr1", "delegate1", DateTimeOffset.MaxValue, ["bank.read"])));
-
-        var decision = Provider(fake).Evaluate(request);
-
-        Assert.Equal(Decision.Deny, decision.Decision);
-        Assert.Equal("ProviderUnavailable", decision.Reasons[0].Code);
-        Assert.Equal(0, fake.Calls);
-    }
-
-    [Fact]
-    public void Evaluate_WithBreakGlassContext_FailsClosed_WithoutForwarding()
-    {
-        var fake = FakeCerbosCheckClient.Returning(true, "Permit");
-        var request = new AccessRequest(
-            new Subject("user", "teller1", ["Teller"], Contoso),
-            new ActionRequest(ActionNames.AccountRead),
-            new Resource("account", Tenant: Contoso),
-            new EvaluationContext(
-                [ScopeNames.Read],
-                BreakGlass: new BreakGlassGrant("bg1", "teller1", "bank.account.read", DateTimeOffset.MaxValue, "audit")));
-
-        var decision = Provider(fake).Evaluate(request);
-
-        Assert.Equal(Decision.Deny, decision.Decision);
-        Assert.Equal("ProviderUnavailable", decision.Reasons[0].Code);
-        Assert.Equal(0, fake.Calls);
-    }
+    // --- Delegation / OBO / break-glass boundary ----------------------------
+    //
+    // CS45 moved the OBO / delegation / break-glass fail-closed guard OUT of this adapter and into the
+    // shared AuthorizationDecisionProviderFactory seam (the single authoritative guard). Because the
+    // Cerbos provider no longer declares ISupportsExtendedAuthorizationContext, the factory wraps it in
+    // the fail-closed ExtendedContextGuardProvider, which denies any request carrying Subject.Actor /
+    // Context.Delegation / Context.BreakGlass with ReasonCodes.ExtendedContextUnsupported BEFORE it
+    // reaches this adapter. That behaviour — proven for every non-capable engine (cerbos included) via
+    // both resolution paths — now lives in ExtendedContextGuardTests, so the former in-adapter
+    // fail-closed unit tests were removed here to avoid asserting a guard the adapter no longer owns.
 
     [Fact]
     public void Deny_KnownActionWithNoOutput_FailsClosed_NotUnknownAction()
@@ -374,8 +325,14 @@ public sealed class CerbosDecisionProviderTests
 
         var factory = provider.GetRequiredService<AuthorizationDecisionProviderFactory>();
 
-        Assert.Equal("cerbos", factory.GetActiveProvider().Name);
-        Assert.IsType<CerbosDecisionProvider>(factory.GetActiveProvider());
+        // Selection is unchanged: the active provider's Name is still "cerbos". CS45 wraps the cerbos
+        // engine (which does not declare ISupportsExtendedAuthorizationContext) in the fail-closed
+        // ExtendedContextGuardProvider at the factory seam, so the resolved instance is the guard — its
+        // Inner is the CerbosDecisionProvider.
+        var active = factory.GetActiveProvider();
+        Assert.Equal("cerbos", active.Name);
+        var guard = Assert.IsType<ExtendedContextGuardProvider>(active);
+        Assert.IsType<CerbosDecisionProvider>(guard.Inner);
     }
 
     [Fact]

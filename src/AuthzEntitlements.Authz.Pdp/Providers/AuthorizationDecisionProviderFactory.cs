@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using AuthzEntitlements.Authz.Pdp.Contracts;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace AuthzEntitlements.Authz.Pdp.Providers;
@@ -17,10 +18,21 @@ public sealed class AuthorizationDecisionProviderFactory
 
     public AuthorizationDecisionProviderFactory(
         IEnumerable<IAuthorizationDecisionProvider> providers,
-        IOptions<PdpOptions> options)
+        IOptions<PdpOptions> options,
+        ILoggerFactory? loggerFactory = null)
     {
-        _providers = providers.ToList();
-        ValidateProviderNames(_providers);
+        // Validate the ORIGINAL registered providers (names are unchanged by wrapping), then build the
+        // resolvable set: any provider that does NOT declare ISupportsExtendedAuthorizationContext is
+        // wrapped in the CS45 fail-closed ExtendedContextGuardProvider, so an on-behalf-of /
+        // delegation / break-glass request can never be silently weakened by an engine that ignores it.
+        // Capable providers (the reference, and any future context-aware engine) pass through
+        // unwrapped. Every resolution path (GetActiveProvider / GetProvider / TryGetProvider) and
+        // ProviderNames returns/uses this guarded set, so the enforced PdpDecisionService AND the
+        // factory-resolved shadow / what-if / playground paths are all covered (Decision #2). The
+        // wrapper re-exposes the inner Name, so selection, parity, and telemetry are unchanged.
+        var registered = providers.ToList();
+        ValidateProviderNames(registered);
+        _providers = registered.Select(p => Guard(p, loggerFactory)).ToList();
         // Trim the configured name so accidental whitespace from env/secret sources
         // (e.g. "reference ") still selects the intended provider; a blank value falls back to
         // the default, and a non-blank unknown name still fails closed in GetActiveProvider.
@@ -29,6 +41,18 @@ public sealed class AuthorizationDecisionProviderFactory
             ? PdpOptions.DefaultProvider
             : configured;
     }
+
+    // Wrap a provider in the fail-closed extended-context guard unless it natively supports the
+    // CS19/CS21 extended-authorization context (declares ISupportsExtendedAuthorizationContext), in
+    // which case it is trusted to honour OBO/delegation/break-glass itself and passes through unwrapped.
+    // The per-provider ILogger is created from the injected factory when present (DI supplies it in the
+    // running host); it falls back to no logger for the hand-constructed factories in tests/benchmarks.
+    private static IAuthorizationDecisionProvider Guard(
+        IAuthorizationDecisionProvider provider, ILoggerFactory? loggerFactory) =>
+        provider is ISupportsExtendedAuthorizationContext
+            ? provider
+            : new ExtendedContextGuardProvider(
+                provider, loggerFactory?.CreateLogger<ExtendedContextGuardProvider>());
 
     // Fail fast at construction if any registered provider has a blank name or two share a name
     // (case-insensitively). Selection matches on Name and returns the first match, so a blank or

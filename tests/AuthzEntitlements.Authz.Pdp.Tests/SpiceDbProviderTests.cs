@@ -174,8 +174,13 @@ public sealed class SpiceDbProviderTests
 
         var factory = provider.GetRequiredService<AuthorizationDecisionProviderFactory>();
 
-        Assert.Equal("spicedb", factory.GetActiveProvider().Name);
-        Assert.IsType<SpiceDbProvider>(factory.GetActiveProvider());
+        // CS45: spicedb does not declare ISupportsExtendedAuthorizationContext, so the factory wraps it
+        // in the fail-closed ExtendedContextGuardProvider. Selection is unchanged (Name still "spicedb");
+        // the resolved instance is the guard whose Inner is the concrete SpiceDB adapter.
+        var active = factory.GetActiveProvider();
+        Assert.Equal("spicedb", active.Name);
+        var guard = Assert.IsType<ExtendedContextGuardProvider>(active);
+        Assert.IsType<SpiceDbProvider>(guard.Inner);
     }
 
     [Fact]

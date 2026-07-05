@@ -235,6 +235,7 @@ by the reference provider and every adapter, cross-referenced to the
 | `NotPending` | Approve/reject where `Resource.Status` is not `"Pending"`. |
 | `BranchNotInTenant` | Declared in the vocabulary but **not emitted** by the reference provider; reserved for branch-level ABAC (deferred to a later clickstop). |
 | `UnknownAction` | The action is outside `ActionNames` — the fail-closed deny. |
+| `ExtendedContextUnsupported` | The request carries CS19/CS21 extended-authorization context (`Subject.Actor`, `Context.Delegation`, or `Context.BreakGlass`) and the selected engine does **not** implement `ISupportsExtendedAuthorizationContext`; the shared factory guard denies (fail closed). See [the extended-authorization boundary](#extended-authorization-fail-closed-boundary). |
 
 ### Obligation ids
 
@@ -437,6 +438,39 @@ An adapter **must return the same `Decision` and the same primary reason code
 (`Reasons[0].Code`) as the reference provider for every scenario in the
 [catalog](#scenario-catalog)**. That parity is exactly what `POST /api/authz/scenarios/verify`
 checks — it is the adapter's acceptance test.
+
+### Extended-authorization fail-closed boundary
+
+The CS19/CS21 request fields `Subject.Actor` (on-behalf-of), `Context.Delegation` (manager→delegate
+grant), and `Context.BreakGlass` (emergency elevation) demand *extended-authorization* semantics: the
+decision must be constrained to the human/actor intersection, honour grant expiry, and enforce the
+delegation/break-glass invariants. An engine that maps only the human subject would evaluate an
+on-behalf-of call by the human's rights alone and could **permit** access the reference engine
+**denies** — a silent **fail-open** on an engine swap.
+
+The contract closes this centrally. A provider **declares** that it natively honours the extended
+context by implementing the empty marker
+[`ISupportsExtendedAuthorizationContext`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/ISupportsExtendedAuthorizationContext.cs).
+[`AuthorizationDecisionProviderFactory`](../../src/AuthzEntitlements.Authz.Pdp/Providers/AuthorizationDecisionProviderFactory.cs)
+wraps every provider that does **not** declare it in the fail-closed
+[`ExtendedContextGuardProvider`](../../src/AuthzEntitlements.Authz.Pdp/Providers/ExtendedContextGuardProvider.cs),
+which **denies** any request carrying `Subject.Actor` / `Context.Delegation` / `Context.BreakGlass`
+with the distinct reason `ExtendedContextUnsupported` — never a permit, never a throw — while passing
+every other (non-delegated) request through to the engine unchanged. Capable providers pass through
+unwrapped and apply their own semantics; today only the `reference` engine declares the marker.
+
+Because the guard lives at the **factory seam**, it covers the enforced path
+([`PdpDecisionService`](../../src/AuthzEntitlements.Authz.Pdp/Services/PdpDecisionService.cs)) **and**
+the factory-resolved what-if surfaces (`ShadowRunner`, `WhatIfEvaluator`, `PlaygroundFanoutService`),
+for every current and future non-capable engine — with no per-adapter code. The reason is deliberately
+distinct from the `ProviderUnavailable` / `EngineUnavailable` outage codes (it contains no
+`"unavailable"` substring), so the playground never misclassifies this deliberate semantic boundary as
+an engine outage.
+
+**How a new engine opts in:** implement `ISupportsExtendedAuthorizationContext` on the provider **once
+it natively honours** on-behalf-of, delegation, and break-glass — i.e. it constrains the decision to
+the human/actor intersection, honours grant expiry, and never elevates an integrity invariant. Until
+then, leave it unmarked and the factory fails it closed on those requests automatically.
 
 ## Scenario catalog
 

@@ -77,22 +77,13 @@ public sealed class CerbosDecisionProvider : IAuthorizationDecisionProvider
 
     public AccessDecision Evaluate(AccessRequest request)
     {
-        // The Cerbos "bank" policy models the BASE fintech decision only. On-behalf-of (Subject.Actor),
-        // manager->delegate delegation (Context.Delegation), and break-glass elevation (Context.BreakGlass)
-        // are CS19/CS21 constraints the policy does NOT encode. Forwarding such a request would let Cerbos
-        // permit an OBO call the reference engine DENIES (e.g. an actor missing the delegated scope) — a
-        // fail-OPEN. Until the policy supports them, any request carrying delegation/OBO/break-glass
-        // context fails closed (documented boundary in docs/authz/cerbos-adapter.md), never a permit.
-        if (request.Subject.Actor is not null
-            || request.Context.Delegation is not null
-            || request.Context.BreakGlass is not null)
-        {
-            return FailClosed(
-                "Cerbos adapter does not evaluate on-behalf-of / delegation / break-glass requests; " +
-                "failing closed.",
-                request);
-        }
-
+        // On-behalf-of (Subject.Actor), manager->delegate delegation (Context.Delegation), and
+        // break-glass elevation (Context.BreakGlass) are CS19/CS21 constraints the Cerbos "bank" policy
+        // does not encode. The shared, authoritative fail-closed guard now lives at the factory seam
+        // (CS45 ExtendedContextGuardProvider, wrapped around every provider that does not declare
+        // ISupportsExtendedAuthorizationContext), so a request carrying any of those fields is denied
+        // BEFORE it reaches this adapter — the adapter no longer needs (and must not keep) its own
+        // divergent guard. See docs/authz/cerbos-adapter.md.
         try
         {
             return MapOutcome(_client.Check(request), request);

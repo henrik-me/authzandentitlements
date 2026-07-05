@@ -146,8 +146,7 @@ This happens on:
   `Permit`),
 - a permit with no policy output token, a permit with an **unknown obligation token** (so a malformed
   obligation can never permit while silently dropping the maker-checker approval requirement), a
-  **known** action denied with no output token, or an ambiguous **multi-rule** output, and
-- an **on-behalf-of / delegation / break-glass** request (see the boundary below).
+  **known** action denied with no output token, or an ambiguous **multi-rule** output.
 
 The client is built **lazily** on first use and the endpoint is validated (well-formed absolute
 `http://` URI) before any network call, so a misconfiguration fails closed with an actionable message
@@ -156,18 +155,33 @@ not part of the shared `ReasonCodes` and never appears in the parity catalog (Ce
 there and its policy is total), so it maps to no Bank.Api rule. It exists only so a real outage is a
 legible, machine-stable `Deny`.
 
-### Boundary — delegation / on-behalf-of / break-glass
+### Boundary — delegation / on-behalf-of / break-glass (enforced at the factory seam)
 
 The Cerbos `bank` policy models the **base** fintech decision (coarse scopes, role eligibility, tenant
 isolation, maker-checker, SoD, and the threshold obligation). The CS19/CS21 **on-behalf-of**
 (`Subject.Actor`), **manager→delegate delegation** (`Context.Delegation`), and **break-glass**
-(`Context.BreakGlass`) constraints are **not** yet encoded in the policy. Because a delegation-aware
-request evaluated against a delegation-*unaware* policy could **fail open** — Cerbos permitting an OBO
-call the reference engine denies for a missing delegated scope — the adapter **fails closed** (denies,
-without forwarding) on any request carrying `Subject.Actor`, `Context.Delegation`, or
-`Context.BreakGlass`. Encoding these into the Cerbos policy is a documented follow-on; until then the
-`cerbos` engine is a faithful choice for the base (non-delegated) fintech decision — exactly the
-22-scenario parity bar it satisfies.
+(`Context.BreakGlass`) constraints are **not** encoded in the policy, so a delegation-aware request
+evaluated against this delegation-*unaware* engine could **fail open** — Cerbos permitting an OBO call
+the reference engine denies for a missing delegated scope.
+
+That guard is **not** in this adapter. As of CS45 it lives once, authoritatively, at the
+[`AuthorizationDecisionProviderFactory`](../../src/AuthzEntitlements.Authz.Pdp/Providers/AuthorizationDecisionProviderFactory.cs)
+seam: the factory wraps every engine that does not declare
+[`ISupportsExtendedAuthorizationContext`](../../src/AuthzEntitlements.Authz.Pdp/Contracts/ISupportsExtendedAuthorizationContext.cs)
+— `cerbos` included — in the fail-closed
+[`ExtendedContextGuardProvider`](../../src/AuthzEntitlements.Authz.Pdp/Providers/ExtendedContextGuardProvider.cs),
+which **denies** any request carrying `Subject.Actor` / `Context.Delegation` / `Context.BreakGlass`
+with the distinct reason `ExtendedContextUnsupported` **before** it reaches this adapter. Because the
+guard sits at the factory, it covers the enforced path **and** the shadow / what-if / playground
+surfaces, and it protects every current and future non-capable engine with no per-adapter code — so
+this adapter deliberately **no longer carries its own** (previously CS26) short-circuit, avoiding two
+divergent guards. See
+[the PDP contract's extended-authorization boundary](pdp-contract.md#extended-authorization-fail-closed-boundary).
+
+Encoding these constraints into the Cerbos policy is a documented follow-on; until then the `cerbos`
+engine is a faithful choice for the base (non-delegated) fintech decision — exactly the 22-scenario
+parity bar it satisfies — and it would opt into native support by implementing the capability marker
+once the policy honours the extended context.
 
 ## Parity and testing
 

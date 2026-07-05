@@ -8,7 +8,8 @@ namespace AuthzEntitlements.Authz.Pdp.Providers;
 // the 10,000 maker-checker threshold, tenant isolation, and segregation of duties. It is
 // the reference the CS06-CS09 adapters are compared against, so it encodes the rules
 // locally (constants below) rather than depending on Bank.Api.
-public sealed class ReferenceDecisionProvider : IAuthorizationDecisionProvider
+public sealed class ReferenceDecisionProvider
+    : IAuthorizationDecisionProvider, ISupportsExtendedAuthorizationContext
 {
     // Mirrors BankPolicy.ApprovalThreshold: at/above this, a created transaction obliges a
     // second-person approval; below it, it may post immediately.
