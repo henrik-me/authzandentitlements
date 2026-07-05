@@ -1,9 +1,9 @@
 # CS36 — Audit request-snapshot for faithful decision replay (LRN-057)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c3
+**Branch:** cs36/content
+**Started:** 2026-07-05
 **Closed:** —
 **Filed by:** yoga-ae-c3 — 2026-07-04, weekly LRN harvest (CS37): the one open learning (LRN-057) that needs a security-reviewed code change rather than a doc consolidation.
 **Depends on:** CS13, CS15
@@ -96,11 +96,27 @@ column + a new migration carries no data-backfill burden.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| PDP: canonical `AccessRequest` serializer + capture in `PdpDecisionService`; add nullable `RequestSnapshot` to `PdpDecisionAuditEvent` + `IngestDecisionRequest` | pending | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-feature / report-status=pending / learnings=0 |
+| Audit.Service: `AuditEntry.RequestSnapshot` + additive EF migration; ingest persists it; `ComputeRowHash` UNCHANGED (snapshot excluded); query/response DTOs return it; bounded size guard (~16 KB → null) | pending | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-feature / report-status=pending / learnings=0 |
+| Bank.Web Audit Explorer: faithful replay pre-fill from snapshot when present; CS15 best-effort fallback when null; client DTOs | pending | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-feature / report-status=pending / learnings=0 |
+| Tests: serializer determinism/round-trip; ingest+persist+query; hash-chain-unchanged regression; fail-open-to-null (serializer + oversize); replay pre-fill | pending | yoga-ae-c3 | agent-id=cs36-impl / role=dotnet-tests / report-status=pending / learnings=0 |
+| Docs: update `docs/product/authz-playground-and-audit-explorer.md` replay section | pending | yoga-ae-c3 | agent-id=cs36-impl / role=docs / report-status=pending / learnings=0 |
+| Independent security review (distinct model) of the tamper-evident-store change | pending | yoga-ae-c3 | security-review sub-agent; non-hashed-column posture + fail-closed + PII |
+| Close-out: docs + restart state | pending | yoga-ae-c3 | update CONTEXT.md; flip LRN-057 applied |
+| Close-out: learnings + follow-ups | pending | yoga-ae-c3 | LRN-057 → applied on CS36 close; new learnings if any |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c3 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
