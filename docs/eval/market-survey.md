@@ -60,7 +60,7 @@ Every surveyed engine / product, its family, and a direct link to its section.
 | OPA / Rego `†` | Policy-as-code / decision engines | [policy-and-decision-engines.md#open-policy-agent-opa--rego](survey/policy-and-decision-engines.md#open-policy-agent-opa--rego) |
 | Cedar (+ AVP) `†` | Policy-as-code / decision engines | [policy-and-decision-engines.md#cedar--amazon-verified-permissions](survey/policy-and-decision-engines.md#cedar--amazon-verified-permissions) |
 | Casbin `†` | Policy-as-code / decision engines | [policy-and-decision-engines.md#casbin](survey/policy-and-decision-engines.md#casbin) |
-| Oso (+ Oso Cloud) | Policy-as-code / decision engines | [policy-and-decision-engines.md#oso-polar-and-oso-cloud](survey/policy-and-decision-engines.md#oso-polar-and-oso-cloud) |
+| Oso (+ Oso Cloud) — de-scoped | Policy-as-code / decision engines | [policy-and-decision-engines.md#oso-polar-and-oso-cloud](survey/policy-and-decision-engines.md#oso-polar-and-oso-cloud) |
 | Cerbos (+ Cerbos Hub) | Policy-as-code / decision engines | [policy-and-decision-engines.md#cerbos--cerbos-hub](survey/policy-and-decision-engines.md#cerbos--cerbos-hub) |
 | Permit.io | Policy-as-code / decision engines | [policy-and-decision-engines.md#permitio](survey/policy-and-decision-engines.md#permitio) |
 | OpenMeter | Entitlements / metering / flags | [entitlements-and-flags.md#openmeter](survey/entitlements-and-flags.md#openmeter) |
@@ -70,6 +70,11 @@ Every surveyed engine / product, its family, and a direct link to its section.
 | Unleash `†` | Entitlements / metering / flags | [entitlements-and-flags.md#unleash](survey/entitlements-and-flags.md#unleash) |
 | Entra ID Entitlement Management | Entitlements / metering / flags | [entitlements-and-flags.md#microsoft-entra-id--entitlement-management](survey/entitlements-and-flags.md#microsoft-entra-id--entitlement-management) |
 | OpenID AuthZEN | Standards | [authzen.md](survey/authzen.md) |
+
+**Oso is evaluated → de-scoped** from the lab's expansion engines (it remains surveyed above): no
+maintained in-process .NET/Polar library, and only an unpinnable (`latest`-only), development-only
+dev-server or paid Oso Cloud for hosting. See
+[ADR 0008](../adr/0008-oso-descoped-from-expansion-engines.md) (verified 2026-07-04).
 
 ## See also
 

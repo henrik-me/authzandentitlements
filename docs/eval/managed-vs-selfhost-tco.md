@@ -32,7 +32,10 @@ AuthZEN-aligned PDP (`AuthzEntitlements.Authz.Pdp`, CS05) runs pluggable engines
 | `cedar` | Cedar (`MonoCloud.Cedar`) | In-process (no container) | none | Shipped (CS09) |
 | `opa` | OPA / Rego | Out-of-process container | none (policy bundle) | Shipped (CS08) |
 | `openfga` | OpenFGA (ReBAC / Zanzibar) | Out-of-process container | Postgres (`openfga` DB) | Shipped (CS07) |
-| SpiceDB, Cerbos, Oso, Keto, Topaz | expansion | Out-of-process | varies | Planned (CS26) |
+| SpiceDB, Cerbos, Keto, Topaz | expansion | Out-of-process | varies | Planned (CS26) |
+
+Oso was evaluated as a sixth expansion engine but **de-scoped** — see
+[ADR 0008](../adr/0008-oso-descoped-from-expansion-engines.md).
 
 Two facts drive everything below:
 
@@ -110,9 +113,10 @@ region availability, and how it maps to the lab's engines.
 ### Oso Cloud (managed Oso)
 
 - **What it is:** managed **Oso**, whose policies are written in the **Polar** language (a different
-  model from the RBAC / ReBAC / Cedar engines). Maps to the lab's **planned** Oso expansion engine
-  (CS26); Oso Cloud is an HTTP API, so it is callable from .NET even though Oso's .NET story is
-  thinner than the ReBAC engines'.
+  model from the RBAC / ReBAC / Cedar engines). Oso was **evaluated and de-scoped** from the lab's
+  expansion engines (see [ADR 0008](../adr/0008-oso-descoped-from-expansion-engines.md)); Oso Cloud
+  is an HTTP API, so it is callable from .NET even though Oso's .NET story is thinner than the ReBAC
+  engines'.
 - **Pricing model:** a free **developer** tier for low volume, then **per-authorization-request**
   usage tiers (priced per bundle of requests) layered with MAU thresholds; the top tier is
   contact-sales with a higher SLA, more regions, and longer log retention.
@@ -205,7 +209,7 @@ the burden stays with the lab; "Vendor" = the offering removes it.
 | Self-hosted OSS, out-of-process | none (your compute) | **Med** — container(s) + Postgres | **High** — upgrades / HA / backups / on-call | **Low** | `opa`, `openfga` (shipped) |
 | Auth0 / Okta FGA | per-MAU + tuple / check caps | **Low** | **Low** — vendor runs OpenFGA | **Low–Med** (OSS engine) | `openfga` |
 | AuthZed Cloud | usage / resource (Cloud) or reserved (Dedicated) | **Low** | **Low** | **Low–Med** (OSS engine) | SpiceDB (planned, CS26) |
-| Oso Cloud | per-request + MAU tiers | **Low** | **Low** | **Med–High** (Polar) | Oso (planned, CS26) |
+| Oso Cloud | per-request + MAU tiers | **Low** | **Low** | **Med–High** (Polar) | Oso (evaluated, de-scoped — ADR 0008) |
 | Permit.io | per-MAU + tenants | **Low–Med** — you host the sidecar | **Low–Med** — shared (sidecar) | **Med** | `opa` + `openfga` + `cedar` |
 | Amazon Verified Permissions | per-request (pay-as-you-go) | **Low** | **Lowest** — no server at all | **Med** (service) / **Low** (Cedar policy) | `cedar` — **AWS-only** |
 

@@ -153,10 +153,15 @@ linked survey document. `†` marks an engine also **integrated** in this repo.
 | OPA † | Policy engine | ABAC / policy-as-code | Per-request (stateless) | No | Self-host / sidecar | [Policy & decision engines](survey/policy-and-decision-engines.md) |
 | Cedar / AVP † | Policy engine | RBAC + ABAC | Per-request | No | In-proc / AWS-managed (AVP) | [Policy & decision engines](survey/policy-and-decision-engines.md) |
 | Cerbos | Policy engine | ABAC / RBAC | Per-request (stateless) | No | Self-host / sidecar | [Policy & decision engines](survey/policy-and-decision-engines.md) |
-| Oso | Policy engine / library | ABAC / ReBAC (Polar) | Per-request | Partial (Oso Cloud) | Library / managed | [Policy & decision engines](survey/policy-and-decision-engines.md) |
+| Oso *(de-scoped)* | Policy engine / library | ABAC / ReBAC (Polar) | Per-request | Partial (Oso Cloud) | Library / managed | [Policy & decision engines](survey/policy-and-decision-engines.md) |
 | Topaz | Hybrid (OPA + Zanzibar) | ABAC + ReBAC | Directory-backed | Yes | Self-host (Aserto) | [Policy & decision engines](survey/policy-and-decision-engines.md) |
 | Casbin † | Access-control library | RBAC / ABAC | In-process | No | Library (in-proc) | [Policy & decision engines](survey/policy-and-decision-engines.md) |
 | Permit.io | Managed control plane | RBAC + ABAC + ReBAC (over OPA/OpenFGA) | Managed | Yes (via OpenFGA) | Managed SaaS + sidecar | [Policy & decision engines](survey/policy-and-decision-engines.md) |
+
+**Oso is evaluated → de-scoped** from the integration set — it remains *surveyed* (row above), not
+integrated: there is no maintained in-process .NET/Polar library, and the only local option is an
+unpinnable (`latest`-only), development-only dev-server, with production gated behind paid Oso Cloud.
+See [ADR 0008](../adr/0008-oso-descoped-from-expansion-engines.md) (verified 2026-07-04).
 
 Entitlements / feature-flag vendors — OpenMeter, Stigg, OpenFeature (the spec/SDK), Flagsmith,
 Unleash `†`, and Microsoft Entra ID Governance — are surveyed in
