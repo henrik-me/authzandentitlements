@@ -119,6 +119,19 @@
   </ItemGroup>
 
   <!--
+    CS26 (Adapter: Cerbos — full-decision PDP). Cerbos.Sdk is the official .NET gRPC client for the
+    Cerbos policy decision point. It backs the config-gated "cerbos" PDP provider (Pdp:Provider=cerbos)
+    and is never on the default tested path: the reference engine stays the default, and the gRPC
+    client is built lazily only when the cerbos provider is actually exercised against a running server.
+    Cerbos is the head-to-head, out-of-process full-decision counterpart to OPA (it owns the whole
+    fintech decision natively via YAML policies, over gRPC instead of REST). Targets net8.0;
+    forward-compatible on the net10 runtime. Pinned to 1.10.2 for reproducible restores.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Cerbos.Sdk" Version="1.10.2" />
+  </ItemGroup>
+
+  <!--
     CS06 (Adapters: ASP.NET Core policies + Casbin.NET). Casbin.NET is the in-process
     RBAC/ABAC engine backing the "casbin" PDP adapter, part of the container-free "lite"
     profile. 2.21.2 is the latest stable (targets netstandard2.0/2.1; forward-compatible

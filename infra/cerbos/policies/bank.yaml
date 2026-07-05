@@ -1,0 +1,191 @@
+---
+# CS26 — Cerbos full-decision fintech policy for the "cerbos" PDP adapter.
+#
+# This policy is the Cerbos adapter's engine. It mirrors the in-process ReferenceDecisionProvider
+# (../../../src/AuthzEntitlements.Authz.Pdp/Providers/ReferenceDecisionProvider.cs) and the OPA/Rego
+# policy (../../opa/policy/authz.rego) EXACTLY: the same coarse scopes, role eligibility, the 10,000
+# maker-checker threshold, tenant isolation, segregation of duties, and the fail-closed
+# unknown-action path. The 22 FintechScenarioCatalog scenarios are the parity bar.
+#
+# Shape the C# CerbosDecisionProvider depends on:
+#   * Every request targets resource kind "bank" with the single requested action; the principal
+#     carries id/roles plus tenant + coarse scopes as attributes (P.attr.*), and the resource carries
+#     tenant/amount/makerId/status attributes (R.attr.*).
+#   * Each action computes an ordered "outcome" TOKEN in a CEL variable — the FIRST failing check's
+#     reason code, or "Permit" / "Permit:require_approval" / "Permit:post_immediately" — exactly
+#     mirroring the reference provider's short-circuit ordering.
+#   * Two mutually-exclusive rules per action translate that token into EFFECT_ALLOW (token starts
+#     with "Permit") / EFFECT_DENY (otherwise) and emit the token via `output.when.ruleActivated`.
+#     The adapter maps the effect + token back onto AccessDecision (reason code + obligation).
+#   * An action with NO matching rule falls through to Cerbos' default deny with no output; the
+#     adapter maps that to UnknownAction (fail closed).
+#
+# The outcome variables reference ONLY the principal (P) and resource (R) — never each other — so
+# they are self-contained and robust. Blank/absent attributes are handled via has(...) guards,
+# matching the reference engine's fail-closed tenant/maker rules.
+apiVersion: api.cerbos.dev/v1
+resourcePolicy:
+  version: "default"
+  resource: "bank"
+  variables:
+    local:
+      # bank.account.read: read scope, then same-tenant. No role gate (mirrors EvaluateRead).
+      readOutcome: >-
+        !("bank.read" in P.attr.scopes) ? "MissingScope"
+        : (!(has(P.attr.tenant) && has(R.attr.tenant) && P.attr.tenant == R.attr.tenant)
+          ? "TenantMismatch" : "Permit")
+
+      # bank.account.create: BranchManager role, then same-tenant. NO scope check
+      # (mirrors EvaluateAccountCreate).
+      accountCreateOutcome: >-
+        !("BranchManager" in P.roles) ? "RoleNotAuthorized"
+        : (!(has(P.attr.tenant) && has(R.attr.tenant) && P.attr.tenant == R.attr.tenant)
+          ? "TenantMismatch" : "Permit")
+
+      # bank.transaction.create: write scope, maker-eligible role, subject-is-maker, then same-tenant;
+      # on permit carry the threshold obligation (mirrors EvaluateTransactionCreate). A missing amount
+      # is treated as 0 (mirrors `Amount ?? 0m`); the boundary is inclusive (>= 10000 => approval).
+      transactionCreateOutcome: >-
+        !("bank.transactions.write" in P.attr.scopes) ? "MissingScope"
+        : (!(P.roles.exists(r, r in ["Teller", "BranchManager", "ComplianceOfficer"]))
+          ? "RoleNotAuthorized"
+        : (!(has(R.attr.makerId) && R.attr.makerId == P.id) ? "SubjectNotMaker"
+        : (!(has(P.attr.tenant) && has(R.attr.tenant) && P.attr.tenant == R.attr.tenant)
+          ? "TenantMismatch"
+        : (((has(R.attr.amount) ? R.attr.amount : 0.0) >= 10000.0)
+          ? "Permit:require_approval" : "Permit:post_immediately"))))
+
+      # bank.transaction.approve / reject: approvals scope, checker-eligible role, same-tenant,
+      # pending target, then segregation of duties. NotPending is checked BEFORE the SoD check so a
+      # self-approval of an already-decided transaction denies NotPending, not MakerEqualsChecker
+      # (mirrors EvaluateApprovalDecision).
+      approvalOutcome: >-
+        !("bank.approvals.write" in P.attr.scopes) ? "MissingScope"
+        : (!(P.roles.exists(r, r in ["BranchManager", "ComplianceOfficer"])) ? "RoleNotAuthorized"
+        : (!(has(P.attr.tenant) && has(R.attr.tenant) && P.attr.tenant == R.attr.tenant)
+          ? "TenantMismatch"
+        : (!(has(R.attr.status) && R.attr.status == "Pending") ? "NotPending"
+        : ((has(R.attr.makerId) && R.attr.makerId == P.id) ? "MakerEqualsChecker" : "Permit"))))
+
+      # governance.access.request: a PURE segregation-of-duties check over the PROPOSED role set on
+      # P.roles. No scope / role-eligibility / tenant / maker gate — only whether the role set is
+      # internally incompatible. Mirrors GovernanceSodPolicy.IncompatiblePairs — { BranchManager,
+      # ComplianceOfficer } is deliberately allowed together.
+      governanceOutcome: >-
+        (
+          (("Teller" in P.roles) && ("BranchManager" in P.roles)) ||
+          (("Teller" in P.roles) && ("ComplianceOfficer" in P.roles)) ||
+          (("Auditor" in P.roles) && ("Teller" in P.roles)) ||
+          (("Auditor" in P.roles) && ("BranchManager" in P.roles)) ||
+          (("Auditor" in P.roles) && ("ComplianceOfficer" in P.roles))
+        ) ? "SodConflict" : "Permit"
+  rules:
+    # --- bank.account.read ---
+    - name: read-allow
+      actions: ["bank.account.read"]
+      roles: ["*"]
+      effect: EFFECT_ALLOW
+      condition:
+        match:
+          expr: V.readOutcome.startsWith("Permit")
+      output:
+        when:
+          ruleActivated: V.readOutcome
+    - name: read-deny
+      actions: ["bank.account.read"]
+      roles: ["*"]
+      effect: EFFECT_DENY
+      condition:
+        match:
+          expr: '!(V.readOutcome.startsWith("Permit"))'
+      output:
+        when:
+          ruleActivated: V.readOutcome
+
+    # --- bank.account.create ---
+    - name: account-create-allow
+      actions: ["bank.account.create"]
+      roles: ["*"]
+      effect: EFFECT_ALLOW
+      condition:
+        match:
+          expr: V.accountCreateOutcome.startsWith("Permit")
+      output:
+        when:
+          ruleActivated: V.accountCreateOutcome
+    - name: account-create-deny
+      actions: ["bank.account.create"]
+      roles: ["*"]
+      effect: EFFECT_DENY
+      condition:
+        match:
+          expr: '!(V.accountCreateOutcome.startsWith("Permit"))'
+      output:
+        when:
+          ruleActivated: V.accountCreateOutcome
+
+    # --- bank.transaction.create ---
+    - name: transaction-create-allow
+      actions: ["bank.transaction.create"]
+      roles: ["*"]
+      effect: EFFECT_ALLOW
+      condition:
+        match:
+          expr: V.transactionCreateOutcome.startsWith("Permit")
+      output:
+        when:
+          ruleActivated: V.transactionCreateOutcome
+    - name: transaction-create-deny
+      actions: ["bank.transaction.create"]
+      roles: ["*"]
+      effect: EFFECT_DENY
+      condition:
+        match:
+          expr: '!(V.transactionCreateOutcome.startsWith("Permit"))'
+      output:
+        when:
+          ruleActivated: V.transactionCreateOutcome
+
+    # --- bank.transaction.approve / bank.transaction.reject ---
+    - name: approval-allow
+      actions: ["bank.transaction.approve", "bank.transaction.reject"]
+      roles: ["*"]
+      effect: EFFECT_ALLOW
+      condition:
+        match:
+          expr: V.approvalOutcome.startsWith("Permit")
+      output:
+        when:
+          ruleActivated: V.approvalOutcome
+    - name: approval-deny
+      actions: ["bank.transaction.approve", "bank.transaction.reject"]
+      roles: ["*"]
+      effect: EFFECT_DENY
+      condition:
+        match:
+          expr: '!(V.approvalOutcome.startsWith("Permit"))'
+      output:
+        when:
+          ruleActivated: V.approvalOutcome
+
+    # --- governance.access.request ---
+    - name: governance-allow
+      actions: ["governance.access.request"]
+      roles: ["*"]
+      effect: EFFECT_ALLOW
+      condition:
+        match:
+          expr: V.governanceOutcome.startsWith("Permit")
+      output:
+        when:
+          ruleActivated: V.governanceOutcome
+    - name: governance-deny
+      actions: ["governance.access.request"]
+      roles: ["*"]
+      effect: EFFECT_DENY
+      condition:
+        match:
+          expr: '!(V.governanceOutcome.startsWith("Permit"))'
+      output:
+        when:
+          ruleActivated: V.governanceOutcome
