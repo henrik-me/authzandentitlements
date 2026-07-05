@@ -120,8 +120,9 @@ telemetry.
   The shape is AuthZEN-aligned: subject / action / resource / context -> permit | deny + reasons +
   obligations + a first-class `DecisionExplanation`.
 - **Selection:** `AuthorizationDecisionProviderFactory` picks the active engine by config
-  `Pdp:Provider` (default `reference`); it trims config, rejects blank / duplicate names, and
-  **fails closed** on an unknown provider.
+  `Pdp:Provider` (default `reference`); it trims the value (a blank value falls back to the default),
+  **fails closed** on a non-blank unknown provider, and rejects blank / duplicate provider *names* at
+  startup.
 - **Integrated engines (8):**
 
   | Name | Kind | Model | Notes |

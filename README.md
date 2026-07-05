@@ -127,7 +127,8 @@ The fine-grained PDP (`authz-pdp`) is engine-agnostic. Two ways to compare engin
 - **Switch the active engine:** set `Pdp__Provider=<name>` on `authz-pdp` (default `reference`).
   Names: `reference`, `aspnet`, `casbin`, `cedar` (in-process, always available); `opa`, `openfga`,
   `spicedb`, `cerbos` (start the matching container first — use the **Start** action on the
-  resource in the Aspire dashboard — then set the provider). Unknown or blank names **fail closed**.
+  resource in the Aspire dashboard — then set the provider). An unknown (non-blank) name **fails
+  closed**; a blank value falls back to the default (`reference`).
 
 Verify engine parity against the shared catalog (get the `authz-pdp` base URL from the dashboard):
 

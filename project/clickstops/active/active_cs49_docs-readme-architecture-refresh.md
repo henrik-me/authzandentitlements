@@ -59,7 +59,9 @@ onboarding surface and are materially stale.
   six logical DBs); observability wiring; security posture; an updated decision log
   (harness pin v0.16.0); the eval-lab framing; and a status/roadmap reflecting done vs.
   remaining work.
-- **CS49 clickstop record** (this file) + a `WORKBOARD.md` Active Work row.
+- **CS49 clickstop record** (this file). _(A `WORKBOARD.md` Active Work row was planned but descoped
+  during implementation to keep this docs PR immune to concurrent WORKBOARD churn; the divergence is
+  recorded here and at close-out.)_
 - Gates green: `harness lint` 0 failed; `harness sync --mode=check` no drift; LF / no-BOM.
 - An independent GPT-5.5 (rubber-duck) content review recorded in the PR body.
 
@@ -83,6 +85,7 @@ onboarding surface and are materially stale.
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
 |---|---|---|---|---|---|---|---|
 | R1 | GPT-5.5 | Claude Opus 4.8 | yoga-ae-c3 (rubber-duck) | b2766671cdde | 2026-07-05T03:29:07Z | Go-with-amendments | Sound scope; distinguish integrated/default/opt-in/planned engines, separate default-vs-opt-in runtime (Docker), source-check the 6-DB claim, add opt-in-engine exercise steps. |
+| R2 | GPT-5.5 | Claude Opus 4.8 | yoga-ae-c3 (rubber-duck) | 14f4ef6d5fb0 | 2026-07-05T04:56:27Z | Go | Re-attest after WORKBOARD-row descope (PR kept README/ARCHITECTURE-only, immune to WORKBOARD churn); no other Decisions/Deliverables inaccuracies. |
 
 ## Tasks
 
