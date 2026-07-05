@@ -119,6 +119,20 @@
   </ItemGroup>
 
   <!--
+    CS46 (Adapter: Ory Keto / ReBAC — Zanzibar). Ory.Keto.Client is the official .NET client for the
+    Ory Keto relationship-based authorization engine. It backs the config-gated "keto" PDP provider
+    (Pdp:Provider=keto) and is never on the default tested path: the reference engine stays the
+    default, and the HTTP REST clients are built lazily only when the keto provider is actually
+    exercised against a running server. Keto is a head-to-head ReBAC counterpart to SpiceDB and
+    OpenFGA (same account questions, HTTP REST read/write split across two ports). The client is an
+    auto-generated OpenAPI client and is pre-release (ALL published versions are -alpha); pinned to
+    0.11.0-alpha.0 (client) for reproducible restores, exercised against the oryd/keto:v26.2.0 server.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Ory.Keto.Client" Version="0.11.0-alpha.0" />
+  </ItemGroup>
+
+  <!--
     CS26 (Adapter: Cerbos — full-decision PDP). Cerbos.Sdk is the official .NET gRPC client for the
     Cerbos policy decision point. It backs the config-gated "cerbos" PDP provider (Pdp:Provider=cerbos)
     and is never on the default tested path: the reference engine stays the default, and the gRPC

@@ -220,6 +220,27 @@ var cerbos = builder.AddContainer("cerbos", cerbosImage, cerbosImageTag)
     .WithHttpEndpoint(targetPort: 3593, name: "grpc")
     .WithExplicitStart();
 
+// CS46 — Ory Keto (ReBAC / Zanzibar) engine backing the config-gated "keto" PDP provider, a
+// head-to-head counterpart to SpiceDB and OpenFGA. Kept OFF the default critical path exactly like
+// SpiceDB, OpenFGA, and Cerbos: .WithExplicitStart() so `aspire run` and the deterministic reference
+// PDP never start or block on Keto, and authz-pdp is given the endpoint coordinates WITHOUT a hard
+// WaitFor. The dev container runs the in-memory datastore and loads the OPL namespace schema from the
+// bind-mounted infra/keto config. Keto splits its API across two HTTP ports — read (4466, checks) and
+// write (4467, relationship mutations) — which the .NET adapter talks to over plain REST; the image
+// tag is pinned for determinism. The Aspire resource name `keto` is unique across all resources.
+const string ketoImage = "oryd/keto";
+const string ketoImageTag = "v26.2.0";
+
+var keto = builder.AddContainer("keto", ketoImage, ketoImageTag)
+    .WithArgs("serve", "--config", "/etc/config/keto/keto.yaml")
+    .WithBindMount("../../infra/keto", "/etc/config/keto", isReadOnly: true)
+    // Keto is plain HTTP REST split across two ports: read (4466) answers permission checks, write
+    // (4467) mutates relationships. Both are modeled as http endpoints so the injected
+    // Pdp__Keto__ReadEndpoint / Pdp__Keto__WriteEndpoint are plain http:// REST addresses.
+    .WithHttpEndpoint(targetPort: 4466, name: "read")
+    .WithHttpEndpoint(targetPort: 4467, name: "write")
+    .WithExplicitStart();
+
 // CS13 — Tamper-evident audit log pipeline. The Audit.Service owns the `audit` database and
 // appends every authz/entitlement decision as a hash-chained, append-only row (prev-hash +
 // payload -> row-hash), exposing a chain-verification endpoint + a query API. Postgres already
@@ -250,6 +271,12 @@ var authzPdp = builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-p
     // the OPA/SpiceDB coordinates) so Pdp__Provider=cerbos works without further wiring; no
     // WaitFor(cerbos) keeps the deterministic reference provider off Cerbos' critical path.
     .WithEnvironment("Pdp__Cerbos__Endpoint", cerbos.GetEndpoint("grpc"))
+    // CS46 — Keto coordinates for the config-gated `keto` provider. Injected unconditionally (like the
+    // SpiceDb/Cerbos coordinates) so Pdp__Provider=keto works without further wiring; no WaitFor(keto)
+    // keeps the deterministic reference provider off Keto's critical path. Keto's read + write ports
+    // are injected as two separate endpoints (it splits checks and mutations across ports).
+    .WithEnvironment("Pdp__Keto__ReadEndpoint", keto.GetEndpoint("read"))
+    .WithEnvironment("Pdp__Keto__WriteEndpoint", keto.GetEndpoint("write"))
     .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
     // CS08 — OPA coordinates for the config-gated `opa` provider. Injected unconditionally (like the
     // Unleash coordinates) so Pdp__Provider=opa works without further wiring; no WaitFor(opa) keeps
