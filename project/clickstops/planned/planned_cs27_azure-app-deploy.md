@@ -9,10 +9,24 @@
 **Lane:** Expansion
 **Filed by:** yoga-ae-c2 on 2026-07-04 — rescoped from the original "Full OpenMeter metering + Azure deployment" CS27. Per user decision (2026-07-04) the metering and cloud-deploy concerns are decoupled: full OpenMeter metering (local) moves to CS43 and Azure deployment of OpenMeter moves to CS44; this CS now covers only Azure deployment of the app as it ships today (lightweight metering).
 **Depends on:** CS10, CS12, CS14, CS15, CS25
+**Hold:** ⛔ HELD — do NOT apply a claim (`harness claim CS27 --apply`) or open a claim PR without explicit user confirmation. Cloud/Azure deployment is out of scope at this time. See the **Hold / claim gate** section below.
 
 ## Goal
 
 Deploy the whole Aspire application to Azure via `azd` → Azure Container Apps, and document the local-vs-cloud differences. Metering stays as the shipped lightweight Postgres + OTel counter; OpenMeter is out of scope (CS43/CS44).
+
+## Hold / claim gate
+
+⛔ **This CS is HELD. Do not apply a claim (`harness claim CS27 --apply`) or open a claim PR until every precondition below is satisfied and a maintainer has explicitly lifted the hold.** (A default dry-run `harness claim` preflight/harvest scan is harmless.) Cloud / Azure (or any other cloud) deployment is **out of scope at this time**.
+
+**Preconditions — all must be true before claiming:**
+
+1. **Local validation first.** The current Aspire stack has been validated in detail locally (build + full test suite + `aspire run` smoke of the real scenarios) and that validation is documented. No cloud/deployment work starts before this.
+2. **Explicit user go-ahead.** A maintainer has explicitly confirmed cloud deployment is now in scope and lifted this hold (record who + when here when lifting).
+3. **Observability warranted.** The additional observability detail this work would introduce is confirmed as actually needed for the demo/lab — not speculative.
+4. **Elevated review.** Registered HIGH-RISK in `harness.config.json` (`reviews.high_risk_clickstops`) → GPT-5.5-only reviews, no Sonnet fallback, 5–8 rounds ([REVIEWS.md](../../../REVIEWS.md) § 2.3).
+
+**Guard / enforcement (layered):** (1) this `## Hold / claim gate` is the always-on contract — claiming CS27 requires reading this planned file, so the hold is unavoidable at claim time; (2) CS27 is registered HIGH-RISK in `harness.config.json` (`reviews.high_risk_clickstops`), mechanically raising the review bar; (3) `LEARNINGS.md` **LRN-069** (`status: open`, `claim_area: cs27`) is a before-claim backstop — it shows at the weekly `harness harvest` immediately and at `harness claim CS27` once ≥14 days stale (harvest v0.16.0 staleness-gates `claim_area` matches), and per the bounded-before-claim invariant a claim PR must not open while it is undispositioned. **To lift:** satisfy the preconditions, record the user confirmation above, flip LRN-069 (`status` + a `**Disposition:**`), and remove this ⛔ block.
 
 ## Background
 

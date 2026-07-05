@@ -1,10 +1,10 @@
 # CS40 — Review & PR merge-gate hardening (bypass-free normal merges)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c5
 **Branch:** cs40/content
 **Started:** 2026-07-05
-**Closed:** —
+**Closed:** 2026-07-05
 **Filed by:** yoga-ae-c5 — 2026-07-04; follow-up to the branch-protection hardening + CS34: the ruleset only requires build-test + structural-gate, review-evidence gates are advisory, and Dependabot/workboard PRs can't merge without admin bypass. Directions for each decision were chosen by the user (see Decisions). Renumbered to CS40 (above the in-flight arc, with margin) to resolve CS-number collisions with concurrently-filed sibling CSs.
 **Depends on:** none
 
@@ -66,17 +66,19 @@ Investigation of the open PRs showed the remaining bypass drivers: (1) the harne
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Ruleset: require read-only-gates + copilot-review-attached + independence-invariant | pending | — | gh api PUT; all integration_id 15368; keep build-test + structural-gate; verify via GET |
-| WORKBOARD heads-up on the new required-check set | pending | — | Announce impact on in-flight peer PRs #114/#119/#120 (blocked until reviewed) |
-| Write docs/ci/review-pr-hardening.md | pending | — | Required checks + rationale, copilot-review-attached approach (+ no review-submit retrigger caveat), Dependabot interim admin-merge, bypass posture, workboard-only-at-creation |
-| File 3 harness-upstream issues in henrik-me/agent-harness | pending | — | (a) review-gates skip bot authors; (b) workflow-pins tolerate Dependabot actions bumps; (c) review-gates key off workboard-only label from first run |
-| Verify a compliant content PR merges bypass-free | pending | — | Required checks green + threads resolved → normal merge (or document residual blocker) |
-| Close-out: docs + restart state | pending | — | Update WORKBOARD + CONTEXT.md so a fresh agent can restart from actual state |
-| Close-out: learnings + follow-ups | pending | — | File/disposition learnings; open follow-up CSs if any |
+| Ruleset: require read-only-gates + copilot-review-attached + independence-invariant | done | yoga-ae-c5 | gh api PUT applied; GET-verified 5 required checks (all integration_id 15368) + `copilot_code_review` absent + thread-resolution on + Admin-only bypass. Also removed the root-cause `update` rule that forced universal bypass. |
+| WORKBOARD heads-up on the new required-check set | done | yoga-ae-c5 | PR #145 (workboard-only, merged bypass-free) — announced the 5-required-check set + peer-PR impact + `workboard-only`-at-creation tip. |
+| Write docs/ci/review-pr-hardening.md | done | yoga-ae-c5 | PR #143 (merged bypass-free). 3 GPT-5.5 fact-check rounds + Copilot review (surfaced committed-spec drift → new "Source of truth" section). |
+| File 3 harness-upstream issues in henrik-me/agent-harness | deviated | yoga-ae-c5 | **C35-13** forbids the agent opening issues in the harness repo → the 3 fixes are **documented** in `docs/ci/review-pr-hardening.md` for the maintainer to file. Deviation from Decision 6 (see Notes / Plan-vs-implementation review). |
+| Verify a compliant content PR merges bypass-free | done | yoga-ae-c5 | PR #143 reached CLEAN + MERGEABLE and squash-merged with **no admin bypass** — full dogfood of the 5 required checks. |
+| Close-out: docs + restart state | done | yoga-ae-c5 | Updated CONTEXT.md § Blockers (stale "ruleset not applied" note corrected) + WORKBOARD. |
+| Close-out: learnings + follow-ups | done | yoga-ae-c5 | Notes/Learnings populated; committed-spec reconciliation logged as follow-up; learnings filed. |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- **C35-13 deviation from Decision 6.** Decision 6 said "file three tracking issues in `henrik-me/agent-harness`." OPERATIONS.md **C35-13** forbids this agent opening issues in the harness repo, so the three upstream fixes ((a) review-gates skip bot/Dependabot PRs; (b) managed-drift check tolerate Dependabot GitHub-Actions bumps to managed workflows; (c) review-gates robust `workboard-only` handling / `pull_request_review` trigger) are instead **documented** in `docs/ci/review-pr-hardening.md` for the maintainer to file. Reversible; recorded in the Plan-vs-implementation review.
+- **Follow-up — committed-spec drift (surfaced by Copilot review of PR #143).** `infra/main-protection-ruleset.json` (name `main-protection`) is the harness-intended spec whose four review-gate contexts are injected by `harness sync`; it was **never applied** (authored while the repo was private → HTTP 403) and now drifts from the applied live ruleset `push to main` (id 18513457), which additionally requires `build-test`/`structural-gate`/`read-only-gates`. Reconciling the harness-sync-managed spec is **deferred** (out of CS40's original scope; needs a `sync --mode=check`-aware change) — do NOT hand-edit the injected contexts. Documented in `docs/ci/review-pr-hardening.md § Source of truth & the committed spec`.
+- **Close-out fix.** `CONTEXT.md § Blockers` still claims "Branch-protection ruleset not applied … CI advisory-only"; this is stale (repo public, live ruleset applied + hardened by CS40). Corrected at close-out.
 
 ## Model audit
 
@@ -89,4 +91,11 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** gpt-5.5 (rubber-duck; independent of implementer claude-opus-4.8)
+**Date:** 2026-07-05T03:17:21Z
+**Outcome:** GO
+
+**Findings:** No blocking gaps. CS40 implementation matches the plan; the Decision-6 deviation (document the three upstream fixes instead of filing issues) is justified by OPERATIONS.md C35-13 and documented in both the policy doc and this CS.
+
+**Detail:** All six Decisions PASS — the live ruleset (id 18513457) GET-verified: required checks = exactly [`build-test`, `structural-gate`, `read-only-gates`, `copilot-review-attached`, `independence-invariant`] (integration_id 15368), `copilot_code_review` absent, `required_review_thread_resolution:true`, bypass = Admin (RepositoryRole 5) only, root-cause `update` rule absent. All five Deliverables PASS (doc merged on main via #143; WORKBOARD heads-up via #145; the three upstream fixes documented per C35-13). All five Exit criteria PASS. **Bypass-free merge confirmed:** the rule-suite for the #143 merge commit (`9e1c7b…`) evaluated `result=pass` (not bypass) with every required context SUCCESS. `harness lint` = 22 passed / 0 failed. Tasks-table states accurate (incl. `deviated` for the harness issues).
+
