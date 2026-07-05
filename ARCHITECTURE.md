@@ -42,6 +42,7 @@ graph TD
   WEB -->|bearer token| EG[Edge.Gateway — YARP, coarse-grained]
   EG --> API[Bank.Api — fintech domain + fine-grained maker-checker/SoD]
   API --> ENT[Entitlements.Service]
+  WEB --> ENT
   WEB -->|Playground fan-out| PDP[Authz.Pdp — unified AuthZEN PDP]
   WEB --> GOV[Governance.Service]
   GOV -->|SoD evaluate| PDP

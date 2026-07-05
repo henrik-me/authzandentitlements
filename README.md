@@ -169,8 +169,9 @@ dotnet build AuthzEntitlements.sln
 dotnet test AuthzEntitlements.sln --no-build --no-restore
 ```
 
-Build and test need **no Docker** — tests that require a live engine container (OPA / OpenFGA /
-SpiceDB / Cerbos) self-skip when it is not running.
+Build and test need **no Docker** — the OPA adapter tests are stubbed (deterministic), and the
+integration tests that exercise a live engine container (OpenFGA / SpiceDB / Cerbos) self-skip when
+it is not running.
 
 ## Evaluation lab deliverables
 
