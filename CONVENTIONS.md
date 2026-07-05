@@ -404,8 +404,8 @@ catalog (`ScenarioCatalogRunner`), which passes a provider only when it returns 
   install/PATH change; delete after) rather than the mocked C# adapter tests. Avoid C# raw
   *interpolated* strings with trailing braces (`$$"""…}}"""` → CS9007) for JSON test fixtures
   — use concatenation (LRN-029, LRN-037).
-- **Out-of-process / full-decision engine adapters (SpiceDB, Cerbos, future Keto/Topaz) must follow
-  the four safety patterns** in `docs/authz/pdp-contract.md` § "Out-of-process engine adapter safety":
+- **Out-of-process / full-decision engine adapters (SpiceDB, Cerbos, Keto, Topaz) must follow
+  the four safety patterns** in [`docs/authz/pdp-contract.md` § "Out-of-process engine adapter safety"](docs/authz/pdp-contract.md#out-of-process-engine-adapter-safety):
   the h2c `AppContext` switch set in an early static ctor + `https://` fail-closed rejection; lowercase
   gRPC metadata / `CallCredentials` keys (with an offline casing regression test); the full-decision
   fail-closed response-mapping checklist (unknown obligation → deny, no-output → `ProviderUnavailable`,

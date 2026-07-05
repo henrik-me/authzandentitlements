@@ -474,13 +474,13 @@ then, leave it unmarked and the factory fails it closed on those requests automa
 
 ## Out-of-process engine adapter safety
 
-An engine that runs **out-of-process** (SpiceDB, Cerbos, and future Keto/Topaz) — and especially a
+An engine that runs **out-of-process** (SpiceDB, Cerbos, Keto, Topaz) — and especially a
 **full-decision** engine that owns the whole fintech decision — inherits four safety invariants that
 are load-bearing and easy to get silently wrong. Each was surfaced by a shipped adapter and is
 captured here so the next adapter author inherits it from one document instead of re-deriving it from
 prior adapters and PR review logs. The worked examples below are cited by **file + concept** (not line
-number, which drifts across edits) — the SpiceDB and `Adapters/Cerbos` adapters already implement
-every pattern.
+number, which drifts across edits) — the shipped SpiceDB and `Adapters/Cerbos` adapters are the
+primary worked examples.
 
 ### Cleartext HTTP/2 (h2c) gRPC
 
@@ -509,7 +509,7 @@ mirrors both — the static-constructor switch and the `BuildClient` `https://` 
 Every gRPC metadata / `CallCredentials` key **must be lowercase** (`authorization`, never
 `Authorization`). A mis-cased key is silently rejected by the gRPC stack, so a correctly-configured
 credential (e.g. a SpiceDB preshared key) silently fails to authenticate — there is no error at
-configuration time. Because the failure only shows up against a live engine, the enforcing pattern is
+configuration time. Because the failure only shows up against a live engine, the recommended enforcement is
 an **offline casing regression test** that asserts the header/key casing, so a future edit cannot
 silently re-break live auth without a container.
 
