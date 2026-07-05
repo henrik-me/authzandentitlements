@@ -1,9 +1,9 @@
 # CS46 — Keto + Topaz expansion engine adapters
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae
+**Branch:** cs46/content
+**Started:** 2026-07-05
 **Closed:** —
 **Filed by:** yoga-ae-c4 on 2026-07-04 — the remaining two engine adapters from the CS26 expansion set after SpiceDB (PR #134) and Cerbos (PR #139) shipped; split out so CS26 can close on what's delivered.
 **Phase:** 7 — Expansion + Azure
@@ -68,7 +68,28 @@ Continue the CS26 expansion by adding the **Ory Keto** (Zanzibar ReBAC) and **To
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Keto: `Ory.Keto.Client` CPM pin (pre-release `0.11.0-alpha.0`) + versionless csproj ref | pending | yoga-ae | document the pre-release + client/server version-skew caveat (client `0.11.0-alpha.0` vs server `v26.2.0`) |
+| Keto: adapter — account-only mapper reusing the shared `Rebac*` graph + lazy dual-port client (read `:4466` / write `:4467`) + namespace/tuple bootstrap + fail-closed provider (CS16 explanation) + DI registration in `AddPdp` | pending | yoga-ae | ReBAC, `Name = "keto"`; fail closed on non-account resources; no per-adapter OBO guard (CS45 owns it) |
+| Keto: AppHost container (`oryd/keto:v26.2.0`, `WithExplicitStart`, no hard `WaitFor`) + endpoint injection | pending | yoga-ae | opt-in; default `reference` path stays Docker-free |
+| Keto: tests (offline mapper + provider fail-closed/reason-codes; env-gated integration `KETO_TEST_ENDPOINT`) | pending | yoga-ae | full offline suite green with NO container |
+| Keto: playground entry + `docs/authz/keto-adapter.md` (+ Keto-vs-SpiceDB/OpenFGA ReBAC boundary note) | pending | yoga-ae | mirror the SpiceDB doc's ReBAC boundary honesty |
+| Topaz: `Aserto.Clients` CPM pin + versionless csproj ref | pending | yoga-ae | `1.1.2` (gRPC `:8282` / REST `:8383` / directory `:9292`) |
+| Topaz: adapter — provider + client, locally-built OPA bundle + directory manifest/data, fail-closed provider (CS16 explanation) + DI registration in `AddPdp` | pending | yoga-ae | `Name = "topaz"`; full-decision-or-documented-boundary; no per-adapter OBO guard (CS45) |
+| Topaz: AppHost container (`ghcr.io/aserto-dev/topaz:0.33.14`, `WithExplicitStart`, no hard `WaitFor`) + endpoint injection | pending | yoga-ae | prefer a local OPA bundle over an OCI push; pin manifest/data |
+| Topaz: tests (offline provider fail-closed + parity; env-gated integration `TOPAZ_TEST_ENDPOINT`) | pending | yoga-ae | live policy/directory proven by a pinned-container run |
+| Topaz: playground entry + `docs/authz/topaz-adapter.md` (hybrid boundary note) | pending | yoga-ae | document the faithful mapping + boundary, don't overclaim |
+| Verify the CS45 delegation/OBO fail-closed guard covers both adapters; default stays `reference`; Docker-free build/test/`aspire run` unchanged | pending | yoga-ae | hard dep on the CS45 shared factory guard — no inline per-adapter guard |
+| Close-out: docs + restart state | pending | yoga-ae | update WORKBOARD + CONTEXT.md so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | yoga-ae | file LRNs; planned follow-up CSs for any unresolved issues |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae |
+| Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
 
