@@ -185,9 +185,10 @@ accounted for.
   before committing. Treat
   the dotnet-profile `dotnet format --verify-no-changes` self-check as advisory until a repo
   `.editorconfig` with `end_of_line = lf` exists (LRN-036).
-- **`dotnet sln add` / `dotnet sln remove` on Windows rewrites `AuthzEntitlements.sln` with CRLF +
-  a UTF-8 BOM**, which fails the same `text-encoding` gate. After any `dotnet sln` edit, re-normalize
-  the `.sln` to LF / no-BOM before committing (strip a leading `EF BB BF`, replace `\r\n`→`\n` — e.g.
+- **`dotnet sln add` on Windows rewrites `AuthzEntitlements.sln` with CRLF +
+  a UTF-8 BOM**, which fails the same `text-encoding` gate. After any `dotnet sln` edit (`add` —
+  the observed offender — or, conservatively, `remove`), re-normalize the `.sln` to LF / no-BOM
+  before committing (strip a leading `EF BB BF`, replace `\r\n`→`\n` — e.g.
   `$sln = 'AuthzEntitlements.sln'; [IO.File]::WriteAllText($sln, ([IO.File]::ReadAllText($sln) -replace "\r\n","\n"), (New-Object Text.UTF8Encoding $false))`)
   and confirm the `git diff` contains only the intended project-registration lines. The same applies
   to any Windows tool that rewrites tracked text (LRN-079).
