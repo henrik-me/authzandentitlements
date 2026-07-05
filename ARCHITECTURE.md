@@ -140,11 +140,11 @@ telemetry.
   answer the 22-scenario `FintechScenarioCatalog` identically (`ScenarioCatalogRunner` compares
   decision + primary reason code). The two **ReBAC engines** (`openfga`, `spicedb`) model the same
   domain as relationship tuples and are validated against a separate ReBAC scenario catalog plus the
-  reverse-index `/rebac/*` surface — not the RBAC fintech catalog. Container engines **fail closed**
+  reverse-index `/api/authz/rebac/*` surface — not the RBAC fintech catalog. Container engines **fail closed**
   when their backend is unreachable.
 - **Extra PDP surfaces:** explainability on every decision; shadow / dual-run; what-if
   (non-enforcing); golden-decision snapshot + policy-version drift detection; AuthZEN Access
-  Evaluation conformance; ReBAC reverse-index (`/rebac/*`); and Playground fan-out.
+  Evaluation conformance; ReBAC reverse-index (`/api/authz/rebac/*`); and Playground fan-out.
 - **Planned expansion:** Ory Keto, Oso, Topaz / Aserto (CS26 remainder + CS46 / CS47).
 
 ## Key data flows
@@ -182,7 +182,7 @@ sequenceDiagram
   participant F as ProviderFactory (Pdp:Provider)
   participant E as Engine (reference … cerbos)
   participant AUD as Audit.Service
-  C->>PDP: POST /api/authz/evaluate | /scenarios/verify | /playground/fanout
+  C->>PDP: POST /api/authz/{evaluate | scenarios/verify | playground/fanout}
   PDP->>F: resolve active engine by config
   F-->>PDP: IAuthorizationDecisionProvider (fail-closed on unknown)
   PDP->>E: Evaluate(AccessRequest)
