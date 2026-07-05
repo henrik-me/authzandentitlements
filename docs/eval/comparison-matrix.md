@@ -153,10 +153,16 @@ linked survey document. `†` marks an engine also **integrated** in this repo.
 | OPA † | Policy engine | ABAC / policy-as-code | Per-request (stateless) | No | Self-host / sidecar | [Policy & decision engines](survey/policy-and-decision-engines.md) |
 | Cedar / AVP † | Policy engine | RBAC + ABAC | Per-request | No | In-proc / AWS-managed (AVP) | [Policy & decision engines](survey/policy-and-decision-engines.md) |
 | Cerbos | Policy engine | ABAC / RBAC | Per-request (stateless) | No | Self-host / sidecar | [Policy & decision engines](survey/policy-and-decision-engines.md) |
-| Oso | Policy engine / library | ABAC / ReBAC (Polar) | Per-request | Partial (Oso Cloud) | Library / managed | [Policy & decision engines](survey/policy-and-decision-engines.md) |
+| Oso *(de-scoped)* | Policy engine / library | ABAC / ReBAC (Polar) | Per-request | Partial (Oso Cloud) | Library (non-.NET) / managed cloud | [Policy & decision engines](survey/policy-and-decision-engines.md) |
 | Topaz | Hybrid (OPA + Zanzibar) | ABAC + ReBAC | Directory-backed | Yes | Self-host (Aserto) | [Policy & decision engines](survey/policy-and-decision-engines.md) |
 | Casbin † | Access-control library | RBAC / ABAC | In-process | No | Library (in-proc) | [Policy & decision engines](survey/policy-and-decision-engines.md) |
 | Permit.io | Managed control plane | RBAC + ABAC + ReBAC (over OPA/OpenFGA) | Managed | Yes (via OpenFGA) | Managed SaaS + sidecar | [Policy & decision engines](survey/policy-and-decision-engines.md) |
+
+**Oso is evaluated → de-scoped** from the integration set — it remains *surveyed* (row above), not
+integrated: there is no in-process .NET/Polar library, and Oso's only self-hostable artifact is a
+**development-only** dev-server (pinnable, but vendor-scoped to dev/test, not a production server) —
+production runs on the paid managed Oso Cloud.
+See [ADR 0008](../adr/0008-oso-descoped-from-expansion-engines.md) (verified 2026-07-05).
 
 Entitlements / feature-flag vendors — OpenMeter, Stigg, OpenFeature (the spec/SDK), Flagsmith,
 Unleash `†`, and Microsoft Entra ID Governance — are surveyed in
