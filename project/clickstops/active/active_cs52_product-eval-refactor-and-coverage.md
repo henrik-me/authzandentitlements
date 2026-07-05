@@ -1,9 +1,9 @@
 # CS52 — Product-wide implementation evaluation: refactoring catalog + path to 95% test coverage
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c4
+**Branch:** cs52/content
+**Started:** 2026-07-05
 **Closed:** —
 **Filed by:** yoga-ae-c3 on 2026-07-05 — user request: "run through each area of the product, evaluate the implementation and suggest refactorings, create a CS with the suggestions ... include evaluation on how to get to 95% test coverage." Evaluation performed by four parallel read-only sub-agents (Claude Sonnet 4.6, high reasoning), one per area-cluster, over `main` @ 2fe2bb8.
 **Depends on:** none (evaluation/plan only; implementation waves sequence at claim time)
@@ -218,7 +218,21 @@ How to run coverage locally, the scoped assemblies + exclusions (Decision #5), t
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Wave 0 (D0/D1) — coverage measurement infrastructure: `coverlet.collector` via CPM + `tests/Directory.Build.props`, `coverage.runsettings`, ReportGenerator dotnet-tool, per-assembly baseline capture, report-only CI step in `dotnet-ci.yml`, `docs/testing/coverage.md` | in-progress | yoga-ae-c4 | Non-behavior-changing prerequisite (Decisions #4/#5/#6). Test/CI/config/docs only — no production code. Delivered as a task row per Decision #1. |
+| Wave A (D3/D4) — ServiceDefaults.Tests (Decision #8) + Entitlements.Service endpoint/metering/feature + Bank.Api HTTP-level tests & seams | pending | — | Deferred to a follow-up wave/sub-CS per Decision #1 (highest deficit × risk). |
+| Wave B (D3/D4) — Governance endpoint + Bank.Web page-handlers + Edge/Audit branch gaps | pending | — | Deferred to a follow-up wave/sub-CS per Decision #1. |
+| Wave C (D3/D4) — Compliance, Benchmarks, AppHost app-model assertions, residual PDP branches | pending | — | Deferred to a follow-up wave/sub-CS per Decision #1. |
+| Close-out: docs + restart state | pending | yoga-ae-c4 | Update `WORKBOARD.md` + `CONTEXT.md` so a fresh agent can restart from the actual state (coverage tooling present, baseline recorded, waves pending). |
+| Close-out: learnings + follow-ups | pending | yoga-ae-c4 | File learnings in `LEARNINGS.md` and planned follow-up CSs for Waves A/B/C. |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c4 |
+| Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
 
