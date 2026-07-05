@@ -30,7 +30,7 @@ That spec was authored while the repo was **private**, when repository rulesets 
 
 - **In both:** `copilot-review-attached`, `independence-invariant`.
 - **Live-only:** `build-test`, `structural-gate`, `read-only-gates` (repo-specific build/lint/evidence checks the harness spec never listed).
-- **Spec-only:** `review-log-evidence` (runs as a sub-job of the review-gate workflows, not a standalone required context) and `review-threads-resolved` (enforced live via the `pull_request` rule's `required_review_thread_resolution`, not as a status check).
+- **Spec-only:** `review-log-evidence` and `review-threads-resolved` — both are standalone jobs defined in `review-gates.yml`, but neither is in the live ruleset's **required** set. (Thread resolution is still enforced live, independently, by the `pull_request` rule's `required_review_thread_resolution`.)
 
 Reconciling the drift is split by ownership: the now-stale "ruleset not applied / CI advisory-only" note in `CONTEXT.md` (consumer-owned) is corrected at CS40 close-out, while updating the committed `infra/main-protection-ruleset.json` spec itself — a harness-sync-managed artifact whose review contexts are injected by `harness sync` — is tracked as a CS40 follow-up (see the CS file) rather than hand-edited here.
 
