@@ -181,11 +181,18 @@
     <PackageVersion Include="MonoCloud.Cedar" Version="0.1.0" />
   </ItemGroup>
 
-  <!-- CS02: xUnit test stack for the pure-domain unit tests. -->
+  <!--
+    CS02: xUnit test stack for the pure-domain unit tests.
+    CS52 (Wave 0): coverlet.collector emits Cobertura via the XPlat Code Coverage
+    collector (test-only, honors the zero-runtime-dep rule; Decision #4). Referenced
+    version-less from every test project through tests/Directory.Build.props to avoid
+    per-project drift.
+  -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
   </ItemGroup>
 
 </Project>

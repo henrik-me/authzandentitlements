@@ -218,7 +218,8 @@ How to run coverage locally, the scoped assemblies + exclusions (Decision #5), t
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Wave 0 (D0/D1) — coverage measurement infrastructure: `coverlet.collector` via CPM + `tests/Directory.Build.props`, `coverage.runsettings`, ReportGenerator dotnet-tool, per-assembly baseline capture, report-only CI step in `dotnet-ci.yml`, `docs/testing/coverage.md` | in-progress | yoga-ae-c4 | Non-behavior-changing prerequisite (Decisions #4/#5/#6). Test/CI/config/docs only — no production code. Delivered as a task row per Decision #1. |
+| Wave 0 (D0/D1) — coverage measurement infrastructure: `coverlet.collector` via CPM + `tests/Directory.Build.props`, `coverage.runsettings`, ReportGenerator dotnet-tool, per-assembly baseline capture, `docs/testing/coverage.md` | done | yoga-ae-c4 | Delivered on `cs52/content`. Non-behavior-changing (Decisions #4/#5/#6); test/config/docs only. coverlet 6.0.4 + ReportGenerator 5.4.7 validated on the .NET 10 RC SDK; baseline overall 69.8% line / 71.0% branch; build 0/0, 1742 tests pass. |
+| Wave 0b (D0) — report-only coverage gate in `.github/workflows/dotnet-ci.yml` | pending | — | Deferred, coordination-gated: workflow files are coordinated by yoga-ae-c5 (WORKBOARD note); land after sign-off, then flip to blocking per Decision #6. |
 | Wave A (D3/D4) — ServiceDefaults.Tests (Decision #8) + Entitlements.Service endpoint/metering/feature + Bank.Api HTTP-level tests & seams | pending | — | Deferred to a follow-up wave/sub-CS per Decision #1 (highest deficit × risk). |
 | Wave B (D3/D4) — Governance endpoint + Bank.Web page-handlers + Edge/Audit branch gaps | pending | — | Deferred to a follow-up wave/sub-CS per Decision #1. |
 | Wave C (D3/D4) — Compliance, Benchmarks, AppHost app-model assertions, residual PDP branches | pending | — | Deferred to a follow-up wave/sub-CS per Decision #1. |
@@ -238,6 +239,15 @@ How to run coverage locally, the scoped assemblies + exclusions (Decision #5), t
 
 - **Plan-review provenance:** 4 GPT-5.5 rubber-duck passes (R1 Needs-Fix → 3 fix iterations → Go). Fixes spanned citation directories (Compliance/Audit/PDP adapters/Governance `Sod`), the Decision #3 hash-chain wording, effort/behavior tag standardization (S/M/L × preserving/behavior-change), and Decision #2 behavior-change gate-list completeness (now the exact 18-item set). Table rows R1/R2 pin the initial and final attested Decisions+Deliverables hashes.
 - Evaluation was produced by four parallel read-only sub-agents (Claude Sonnet 4.6, high reasoning) over `main` @ 2fe2bb8; the orchestrator handled cross-cutting build/CI/coverage analysis.
+
+### CS52 Wave 0 — coverage measurement infrastructure (2026-07-05, yoga-ae-c4)
+
+- **Sub-agent ledger:** agent-id `cs52-wave0-coverage-infra` | model `claude-opus-4.8` | role impl-coverage-infra | report-status complete. Delivered `Directory.Packages.props` (coverlet.collector 6.0.4), `tests/Directory.Build.props` (imports root props + version-less coverlet), `coverage.runsettings` (Cobertura + Decision #5 exclusions), `.config/dotnet-tools.json` (ReportGenerator 5.4.7), `docs/testing/coverage.md`, `.gitignore` (coverage artifacts). Sub-agent created no commit (orchestrator committed).
+- **Local review:** GPT-5.5 rubber-duck @ content HEAD `4af1b5d` → **Go-with-amendments**. Dispositioned: (a) baseline %/count reconciliation — clarified in `coverage.md` that ReportGenerator truncates (5322/7614 is reported as 69.8%, not rounded to 69.9%); (b) `Obsolete` in `ExcludeByAttribute` — **kept**, matches the plan's explicit D0 spec (`ExcludeByAttribute=Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverage`).
+- **Learning candidates (to file in `LEARNINGS.md` at close-out):**
+  - `tooling`: MSBuild/XML comments cannot contain `--`; embedding CLI flags (`--collect`/`--settings`) in a `<!-- -->` comment in `Directory.Packages.props`/`.runsettings` makes the file unparseable and silently disables Central Package Management repo-wide (NU1015 on every package) with no pointer to the comment. Reword to avoid `--`.
+  - `env`: single-project `dotnet restore <test>.csproj` fails NU1015 under CPM in this repo; only solution-level `dotnet restore AuthzEntitlements.sln` resolves.
+  - `build-hygiene`: `TestResults/` + `coverage-report/` were not gitignored — added in this change.
 
 ## Plan-vs-implementation review
 

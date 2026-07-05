@@ -9,6 +9,10 @@ artifacts/
 publish/
 *.binlog
 
+# Coverage output (CS52 Wave 0 — coverlet Cobertura + ReportGenerator)
+TestResults/
+coverage-report/
+
 # Aspire / secrets
 .aspire/
 **/appsettings.*.local.json

@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    CS52 (Wave 0): imports the repo-root Directory.Build.props FIRST so its
+    Nullable / ImplicitUsings / TreatWarningsAsErrors settings are preserved.
+    MSBuild stops at the nearest Directory.Build.props, so without this explicit
+    GetPathOfFileAbove import the root props would be silently dropped for every
+    test project under tests/.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    coverlet.collector for the XPlat Code Coverage collector (Decision #4).
+    PrivateAssets=all keeps it a test-only concern that does not flow transitively.
+  -->
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
