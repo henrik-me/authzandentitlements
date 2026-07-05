@@ -207,7 +207,7 @@ id: LRN-075
 date: 2026-07-05
 category: architectural
 source_cs: CS26
-status: open
+status: applied
 tags: [pdp, obo, delegation, break-glass, fail-open, engine-swap, security, cross-cutting]
 claim_area: pdp-adapters
 ```
@@ -233,7 +233,8 @@ lines 80-94 (the in-adapter fail-closed guard on `Subject.Actor`/`Context.Delega
 **Implications carried forward:**
 - Until CS45 lands, every newly-added engine (CS46 Keto/Topaz) MUST carry a fail-closed
   OBO/delegation/break-glass guard; do not ship a non-reference engine without it.
-- This entry stays `open`, tracked by planned CS45; flip to `applied` at CS45 close-out.
+
+**Disposition:** **Applied by CS45** (content PR #159, squash `fa15868`, 2026-07-05). The durable remedy shipped: a capability marker `ISupportsExtendedAuthorizationContext` + a fail-closed `ExtendedContextGuardProvider` that `AuthorizationDecisionProviderFactory` wraps around every non-capable provider, denying `Subject.Actor`/`Context.Delegation`/`Context.BreakGlass` requests with `ExtendedContextUnsupported` across the enforced + factory-resolved paths; the CS26 Cerbos in-adapter guard was removed in favour of the single authoritative seam. The per-adapter guard is no longer needed for new engines — the factory seam covers every non-capable engine automatically (CS46 Keto/Topaz inherit it).
 
 ### LRN-076
 
