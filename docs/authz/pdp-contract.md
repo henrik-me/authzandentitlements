@@ -474,22 +474,27 @@ then, leave it unmarked and the factory fails it closed on those requests automa
 
 ## Out-of-process engine adapter safety
 
-An engine that runs **out-of-process** (SpiceDB, Cerbos, Keto, Topaz) — and especially a
-**full-decision** engine that owns the whole fintech decision — inherits four safety invariants that
-are load-bearing and easy to get silently wrong. Each was surfaced by a shipped adapter and is
-captured here so the next adapter author inherits it from one document instead of re-deriving it from
-prior adapters and PR review logs. The worked examples below are cited by **file + concept** (not line
-number, which drifts across edits) — the shipped SpiceDB and `Adapters/Cerbos` adapters are the
-primary worked examples.
+An engine that runs **out-of-process** — and especially a **full-decision** engine that owns the whole
+fintech decision — must apply the **subset** of the four safety invariants below that matches its transport
+and decision role. Each invariant states its own applicability condition, so an adapter takes only the ones
+that apply: the h2c switch and the gRPC-metadata casing rule are **cleartext-gRPC-specific**, the
+response-mapping checklist is **full-decision-specific**, and the env-gated integration test applies to
+**every** out-of-process adapter. All four are load-bearing and easy to get silently wrong, and each was
+surfaced by a shipped adapter, so they are captured here for the next adapter author instead of being
+re-derived from prior adapters and PR review logs. The shipped adapters are SpiceDB and Cerbos
+(cleartext-h2c gRPC), Keto (HTTP REST), and Topaz (full-decision over TLS); worked examples are cited by
+**file + concept** (not line number, which drifts across edits), with the SpiceDB and `Adapters/Cerbos`
+check services as the primary transport-pattern examples.
 
 ### Cleartext HTTP/2 (h2c) gRPC
 
 A local dev container is typically reached over cleartext HTTP/2 (h2c) gRPC, but .NET's
 `SocketsHttpHandler` refuses HTTP/2-over-cleartext by default. Enable it by setting the
-`System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport` `AppContext` switch — and set it in a
-**static constructor that runs before any `SocketsHttpHandler` / `GrpcChannel` is constructed**. This
-placement is load-bearing: the runtime caches the flag on first handler construction, so setting it
-late is silently inert and the live adapter cannot connect even when the container is running. The
+`System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport` `AppContext` switch — and set it **before
+the first `SocketsHttpHandler` / `GrpcChannel` is constructed** (a **static constructor** on the adapter's
+check service is the recommended placement). The ordering is load-bearing: the runtime caches the flag on
+first handler construction, so setting it after the first handler/channel exists is silently inert and the
+live adapter cannot connect even when the container is running. The
 offline suite still passes, so the failure is invisible until a real container is exercised.
 
 Pair the switch with **fail-closed rejection of `https://` endpoints** — the h2c path is
