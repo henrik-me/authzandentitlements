@@ -1,10 +1,10 @@
 # CS54 — Codify out-of-process PDP adapter safety conventions
 
-**Status:** active
-**Owner:** —
-**Branch:** —
-**Started:** —
-**Closed:** —
+**Status:** done
+**Owner:** yoga-ae
+**Branch:** cs54/content
+**Started:** 2026-07-05
+**Closed:** 2026-07-05
 **Filed by:** yoga-ae-c2 on 2026-07-05 — harvest of open learnings LRN-072/073/074/076 (all `source_cs: CS26`, `claim_area: pdp-adapters`), surfaced while dispositioning the open-learnings backlog. State-of-world probe (2026-07-05): the on-disk max CS id was 50 and `docs/file-planned-cs51-*` was in flight, so this was originally filed as CS52; **renumbered to CS54** on 2026-07-05 after a concurrent sibling (yoga-ae-c3) merged a different CS52 (`product-eval-refactor-and-coverage`) to `main`.
 **Depends on:** none
 
@@ -89,8 +89,23 @@ Consolidate the four recurring **out-of-process / full-decision PDP engine-adapt
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- **Content-PR review journey (5 rounds).** Two independent reviewers (gpt-5.5 rubber-duck + Copilot) converged over R1–R5. Copilot caught factual staleness the rubber-duck missed — "future Keto/Topaz" (both ship on `main` via CS46), an offline-casing-test overclaim, and over-generalizing the four patterns to every engine (they are transport/role-scoped). The gpt-5.5 rubber-duck (R3) then caught a regression the transport-scoping edit introduced: it wrongly labelled the lowercase-gRPC-metadata rule "cleartext-gRPC-only" when LRN-073 makes it apply to any gRPC adapter. Independent-model review earned its keep.
+- **Learning candidate — Topaz mixed-case gRPC metadata (for the Topaz / CS46 owner).** `TopazCheckService` adds `Authorization` and `Aserto-Tenant-Id` metadata keys with mixed case (surfaced by Copilot R4). The lowercase-gRPC-metadata convention (LRN-073) implies these should be lowercase; verify Topaz relies on client-side key normalization (Grpc.Core lowercases keys) or lowercase them for consistency. Filed as **LRN-086** (open, `claim_area: pdp-adapters`); out of scope for this docs-only CS (Topaz code is CS46's deliverable).
+- **A5 review-gate ordering.** `read-only-gates` A5 requires the Copilot review to post-date the latest local rubber-duck Go, so engage Copilot **last** (after recording the final `harness review` Go); otherwise A5 fails and needs a re-engage + re-run.
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-05T22:44:29Z
+**Outcome:** GO
+
+Independent gpt-5.5 rubber-duck PVI review of the merged content (`git diff aedf653..a909104`) against the plan Deliverables/Decisions. Reviewer model differs from the implementer model (claude-opus-4.8), satisfying the independence invariant.
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| D1 — `pdp-contract.md` "Out-of-process engine adapter safety" section (4 patterns, concept-anchored citations) | match | All four patterns present with file+concept citations (no line numbers, per Decision #7). |
+| D2 — `CONVENTIONS.md` conventions.project pointer | match | Project-local PDP engine-adapters pointer links to the new section (Decision #1). |
+| D3 — LRN-072/073/074/076 → `applied` | match | Correctly absent from the content diff; the plan defers the status flips to close-out (recorded in this close-out PR). |
+| D4 — no code changes; build/test green; lint LF/no-BOM | match | Diff touches only `CONVENTIONS.md` + `docs/authz/pdp-contract.md`; `dotnet build` / `dotnet test` / `harness lint` all passed. |
+
+**Test-coverage assessment:** sufficient — documentation-only change, no code path requiring new tests; build/test stayed green and `harness lint` passed.
