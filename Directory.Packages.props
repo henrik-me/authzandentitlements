@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.1.0" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.1.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.1.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.1.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
@@ -119,6 +120,34 @@
   </ItemGroup>
 
   <!--
+    CS46 (Adapter: Ory Keto / ReBAC — Zanzibar). Ory.Keto.Client is the official .NET client for the
+    Ory Keto relationship-based authorization engine. It backs the config-gated "keto" PDP provider
+    (Pdp:Provider=keto) and is never on the default tested path: the reference engine stays the
+    default, and the HTTP REST clients are built lazily only when the keto provider is actually
+    exercised against a running server. Keto is a head-to-head ReBAC counterpart to SpiceDB and
+    OpenFGA (same account questions, HTTP REST read/write split across two ports). The client is an
+    auto-generated OpenAPI client and is pre-release (ALL published versions are -alpha); pinned to
+    0.11.0-alpha.0 (client) for reproducible restores, exercised against the oryd/keto:v26.2.0 server.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Ory.Keto.Client" Version="0.11.0-alpha.0" />
+  </ItemGroup>
+
+  <!--
+    CS46 (Adapter: Topaz / Aserto — full-decision PDP over an OPA bundle). Aserto.Clients is the
+    official .NET client for the Aserto/Topaz Authorizer + Directory APIs. It backs the config-gated
+    "topaz" PDP provider (Pdp:Provider=topaz) and is never on the default tested path: the reference
+    engine stays the default, and the gRPC authorizer client is built lazily only when the topaz
+    provider is actually exercised against a running server. Topaz is OPA-based, so the adapter drives
+    it as a full-decision engine over the SAME Rego bundle the OPA adapter uses (infra/opa/policy) via
+    the authorizer Query API — the head-to-head "OPA standalone vs OPA-inside-Topaz". Pinned to 1.1.2
+    for reproducible restores, exercised against the ghcr.io/aserto-dev/topaz:0.33.14 server.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Aserto.Clients" Version="1.1.2" />
+  </ItemGroup>
+
+  <!--
     CS26 (Adapter: Cerbos — full-decision PDP). Cerbos.Sdk is the official .NET gRPC client for the
     Cerbos policy decision point. It backs the config-gated "cerbos" PDP provider (Pdp:Provider=cerbos)
     and is never on the default tested path: the reference engine stays the default, and the gRPC
@@ -152,11 +181,18 @@
     <PackageVersion Include="MonoCloud.Cedar" Version="0.1.0" />
   </ItemGroup>
 
-  <!-- CS02: xUnit test stack for the pure-domain unit tests. -->
+  <!--
+    CS02: xUnit test stack for the pure-domain unit tests.
+    CS52 (Wave 0): coverlet.collector emits Cobertura via the XPlat Code Coverage
+    collector (test-only, honors the zero-runtime-dep rule; Decision #4). Referenced
+    version-less from every test project through tests/Directory.Build.props to avoid
+    per-project drift.
+  -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
   </ItemGroup>
 
 </Project>

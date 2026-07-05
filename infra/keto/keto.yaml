@@ -1,0 +1,25 @@
+# CS46 — Ory Keto server config for the "keto" PDP adapter (dev / lab only, never a deployment).
+#
+# Keto answers permission checks on the READ port (4466) and mutates relationships on the WRITE port
+# (4467); the .NET adapter (KetoCheckService) talks to both over plain HTTP REST (no gRPC/h2c). The
+# namespace + permission SCHEMA is expressed in the Ory Permission Language (OPL) file loaded via
+# namespaces.location — Keto computes the can_view / can_transact permission rewrites from it, so
+# (unlike the SpiceDB adapter) the adapter never pushes a schema over the API. The container is started
+# with `serve --config /etc/config/keto/keto.yaml` and this directory is bind-mounted read-only at
+# /etc/config/keto (see the AppHost `keto` container). The in-memory DSN keeps the lab deterministic
+# and stateless, mirroring SpiceDB's memory datastore.
+dsn: memory
+
+namespaces:
+  location: file:///etc/config/keto/namespaces.keto.ts
+
+serve:
+  read:
+    host: 0.0.0.0
+    port: 4466
+  write:
+    host: 0.0.0.0
+    port: 4467
+
+log:
+  level: info

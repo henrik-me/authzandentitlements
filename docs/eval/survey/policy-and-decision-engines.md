@@ -249,6 +249,16 @@ a mature de-facto standard for embeddable RBAC/ABAC.
 
 ## Oso (Polar) and Oso Cloud
 
+> **Disposition (this lab): de-scoped.** Oso is **evaluated → de-scoped** from the expansion-engine
+> adapter set — there is no in-process .NET/Polar library, and Oso's only self-hostable artifact is a
+> **development-only** dev-server (pinnable to versioned tags, but scoped by the vendor to local
+> dev/testing, not a production server). Production runs on the paid, proprietary managed Oso Cloud,
+> which is off the self-host-first posture of
+> [ADR 0007](../../adr/0007-self-host-first-authz-with-managed-optionality.md). Re-evaluate only if
+> Oso ships either a maintained in-process .NET/Polar library **or** a self-hostable,
+> production-supported server (not development-only, not paid-cloud-only). See
+> [ADR 0008](../../adr/0008-oso-descoped-from-expansion-engines.md) (verified 2026-07-05).
+
 ### Overview / origin
 
 Oso is an authorization framework from Oso HQ. It began as an **embedded library** built around the
@@ -287,7 +297,11 @@ Cloud SDK's).
 ### Hosting
 
 Embedded library (in-process, legacy) **or** Oso Cloud (managed SaaS, centralized policy + fact
-store). A local/self-hosted PDP binary is available for the Cloud model in some deployment shapes.
+store). For local use Oso ships a **dev-server** (`public.ecr.aws/osohq/dev-server`, pinnable to
+versioned tags such as `:v1.2.3`, or a downloadable native binary) — but Oso scopes it to **local
+development and testing**, not production (ephemeral state; the on-disk format is not a stability
+guarantee). There is **no self-hostable production server**; production runs on the **paid, managed
+Oso Cloud** (as of 2026-07-05).
 
 ### Licensing & maturity
 

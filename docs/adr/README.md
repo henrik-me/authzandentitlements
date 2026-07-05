@@ -24,6 +24,7 @@ says so.
 | [0005](0005-entitlements-via-openfeature-and-usage-metering.md) | Entitlements via OpenFeature + usage metering | Accepted | CS10 |
 | [0006](0006-fail-closed-and-audit-first-decisioning.md) | Fail-closed + audit-first decisioning | Accepted | CS04, CS05, CS13 |
 | [0007](0007-self-host-first-authz-with-managed-optionality.md) | Self-host-first authorization with managed optionality | Accepted | CS05–CS10, CS20, CS25 |
+| [0008](0008-oso-descoped-from-expansion-engines.md) | Oso de-scoped from the expansion-engine set | Accepted | CS26, CS47 |
 
 ## Related evaluation material
 
