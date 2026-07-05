@@ -36,7 +36,7 @@ Formally **disposition Oso**: record the decision to **de-scope** it from the ex
 
 - An **ADR** (`docs/adr/0008-oso-descoped-from-expansion-engines.md`) recording the de-scope decision, the evidence (no maintained in-process .NET/Polar library — `nuget.org/packages/Oso` 404; a development-only dev-server that is pinnable but not a production server; production = paid managed cloud), the conflict with the ADR-0007 self-host-first posture, and the re-evaluation trigger (Decision #3); plus a `docs/adr/README.md` index entry for discoverability.
 - Eval-doc updates: an Oso row/entry in `docs/eval/comparison-matrix.md` and `docs/eval/market-survey.md`, **and** an update to the detailed survey page `docs/eval/survey/policy-and-decision-engines.md` (superseding its older "local/self-hosted PDP binary" wording), each marking Oso **evaluated → de-scoped** with a one-line reason + a link to the ADR.
-- The expansion-engine narrative (CS26 close-out notes and/or `docs/authz/adding-an-engine-adapter.md` engine list) updated so the shipped/planned expansion set reads **Cerbos + SpiceDB + Keto + Topaz**, with **Oso intentionally excluded** (linked to the ADR) — never as a silent gap.
+- The expansion-engine narrative updated so the shipped/planned expansion set reads **Cerbos + SpiceDB + Keto + Topaz**, with **Oso intentionally excluded** (linked to the ADR) — never as a silent gap. This narrative is carried by **ADR 0008 + the eval docs**; `docs/authz/adding-an-engine-adapter.md` is a generic how-to with no shipped/planned engine roster to update.
 - A dated honesty caveat + sources on the pricing/availability claims (per the CS25/LRN-064 eval-doc convention).
 
 ## User-approval gates
@@ -57,7 +57,7 @@ Formally **disposition Oso**: record the decision to **de-scope** it from the ex
 
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
 |---|---|---|---|---|---|---|---|
-| R1 | GPT-5.5 | Claude Opus 4.8 | cs45-47-plan-review (rubber-duck) | bfa49c71578a | 2026-07-05T02:48:12Z | Go-with-amendments | Amendments: added survey-page + ADR-index deliverables. Hash refreshed 2026-07-05: Decisions/Deliverables corrected for dev-server "latest-only" error; de-scope unchanged (see Notes). |
+| R1 | GPT-5.5 | Claude Opus 4.8 | cs45-47-plan-review (rubber-duck) | f34fc40217d2 | 2026-07-05T02:48:12Z | Go-with-amendments | Amendments: added survey-page + ADR-index deliverables. Hash refreshed 2026-07-05: Decisions/Deliverables corrected for dev-server "latest-only" error; de-scope unchanged (see Notes). |
 
 ## Tasks
 
