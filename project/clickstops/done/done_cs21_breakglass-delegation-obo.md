@@ -1,10 +1,10 @@
 # CS21 — Break-glass, delegation & on-behalf-of
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae
 **Branch:** cs21/content
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-05
 **Phase:** Cross-cutting
 **Lane:** Cross-cutting
 **Depends on:** CS05, CS11, CS13, CS14, CS19
