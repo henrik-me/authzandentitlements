@@ -39,7 +39,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS50 | CS50 — AppHost application-model CI smoke test | 🟢 Active | yoga-ae-c2 | cs50/content | 2026-07-05 | — |
 | CS46 | CS46 — Keto + Topaz expansion engine adapters | 🟢 Active | yoga-ae | cs46/content | 2026-07-05 | — |
 | CS47 | CS47 — Oso disposition: de-scope from the expansion-engine set | 🟢 Active | yoga-ae-c4 | cs47/content | 2026-07-05 | — |
 

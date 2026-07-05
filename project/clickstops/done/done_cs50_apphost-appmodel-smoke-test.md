@@ -1,10 +1,10 @@
 # CS50 — AppHost application-model CI smoke test
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c2
 **Branch:** cs50/content
 **Started:** 2026-07-05
-**Closed:** —
+**Closed:** 2026-07-05
 **Phase:** Cross-cutting
 **Lane:** DevEx
 **Filed by:** yoga-ae-c2 on 2026-07-05 — follow-up from CS48 / LRN-078: CS48's local validation found a boot-blocking AppHost resource-name collision that had shipped undetected because no CI job exercises the AppHost application model.
@@ -82,4 +82,20 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-05T16:34:46Z
+**Outcome:** GO
+
+Reviewed content HEAD SHA `2e27035` (CS50 content squash-merged to `main` via PR #168). Independence confirmed (implementer model `claude-opus-4.8`; implementer agents `yoga-ae-c2` + `cs50-impl-smoketest`; reviewer agent `rubber-duck`).
+
+### Per-deliverable outcome table
+
+| Deliverable | Outcome | Evidence / rationale |
+|---|---|---|
+| D1: dedicated `tests/AuthzEntitlements.AppHost.Tests` project in solution with AppHost model smoke test and case-insensitive uniqueness assertion | match | Project in the solution (`AuthzEntitlements.sln`), references AppHost + version-less `Aspire.Hosting.Testing`, 2 tests: `CreateAsync<Projects.AuthzEntitlements_AppHost>()` → `BuildAsync()` with disposal, plus case-insensitive duplicate-name assertion. |
+| D2: `Aspire.Hosting.Testing` CPM pin `13.1.0` | match | `Directory.Packages.props:16` pins `Aspire.Hosting.Testing` to `13.1.0`; test project uses a version-less reference. |
+| D3: LRN-078 flipped to `applied` at close-out with implementing CS/commit | match | Correctly a close-out action (not content-PR content): at content-review time `LEARNINGS.md` still showed `status: open` and the CS task table left "flip LRN-078" pending for close-out. On-track/planned, not dropped. |
+
+### Test-coverage assessment: sufficient
+
+The guard is meaningful: the tests construct the real AppHost via `DistributedApplicationTestingBuilder.CreateAsync<Projects.AuthzEntitlements_AppHost>()`, which executes the model registration path; the current AppHost registers the previously-colliding resources as `unleash` database / `unleash-server` container (`AppHost.cs:59,65`) and `openfga` database / `openfga-server` container (`AppHost.cs:49,178`), so reintroducing either duplicate name fails during model construction/build. Docker-free criterion holds: `BuildAsync()` only, no `StartAsync`. Decisions #1–#5 honored. Test-count delta: before CS50 there was no AppHost test project; after, exactly 2 `[Fact]` AppHost tests. Reviewer independently ran `dotnet test AuthzEntitlements.sln --filter "FullyQualifiedName~AuthzEntitlements.AppHost.Tests"` → `2/0/0`. No scope creep: `git show 2e27035` changes only `AuthzEntitlements.sln`, `Directory.Packages.props`, the active CS task-table progress, and the new test project — no `src/**` runtime or `.github/workflows/**` changes.

@@ -31,7 +31,7 @@ id: LRN-078
 date: 2026-07-05
 category: tooling
 source_cs: CS48
-status: open
+status: applied
 tags: [aspire, apphost, ci, test-coverage, resource-naming]
 ```
 
@@ -41,7 +41,45 @@ tags: [aspire, apphost, ci, test-coverage, resource-naming]
 
 **Evidence:** CS48 validation (PR #160); the fix in `src/AuthzEntitlements.AppHost/AppHost.cs` (containers renamed `unleash-server`/`openfga-server`); `docs/validation/local-stack-validation.md` §3 + §6.
 
-**Disposition:** **open** — the immediate collision is already **fixed** (CS48). Recommend a follow-up planned CS to add an "AppHost application-model builds without throwing" smoke test (constructing the builder) wired into CI, so future Aspire resource-name / graph defects fail fast. Leave `open` until that follow-up CS is filed + closed.
+**Disposition:** **applied by CS50** (content PR #168, squash-merged 2026-07-05 as `2e27035`). The recommended follow-up shipped: `tests/AuthzEntitlements.AppHost.Tests` constructs the AppHost application model via `Aspire.Hosting.Testing` (`CreateAsync` → `BuildAsync`, Docker-free — never `StartAsync`) and asserts it builds without throwing + case-insensitive resource-name uniqueness, registered in `AuthzEntitlements.sln` so `dotnet test`/CI runs it with no workflow change. Verified both directions: passes on the current AppHost, fails on a reintroduced duplicate (the exact CS48 collision class, `DistributedApplicationException`). The immediate collision remains fixed (CS48).
+
+### LRN-079
+
+```yaml
+id: LRN-079
+date: 2026-07-05
+category: tooling
+source_cs: CS50
+status: open
+tags: [dotnet, sln, windows, line-endings, text-encoding, cpm]
+```
+
+**Problem:** `dotnet sln add <proj>` on Windows rewrites `AuthzEntitlements.sln` with **CRLF line endings + a UTF-8 BOM**, which violates the repo's `.gitattributes` LF mandate and fails the harness `text-encoding` gate (part of `harness lint`).
+
+**Finding:** After every `dotnet sln add` / `dotnet sln remove`, re-normalize the `.sln` to **LF, no BOM** before committing (strip a leading `EF BB BF`, replace `\r\n`→`\n`, `[IO.File]::WriteAllText(path, text, UTF8Encoding($false))`). Post-normalization the `git diff` shows only the intended project-registration lines. The same gotcha applies to any tool that rewrites tracked text on Windows.
+
+**Evidence:** CS50 (PR #168) — post-`dotnet sln add` the file carried CRLF + BOM; normalizing kept the diff to the 15 added registration lines and `harness lint` passed 23/0. Mirrors the create/edit-tool CRLF behaviour already noted in CONVENTIONS.md (LF, no BOM).
+
+**Disposition:** **open** — candidate for the CONVENTIONS.md project-local block at the next harvest (git/tooling convention).
+
+### LRN-080
+
+```yaml
+id: LRN-080
+date: 2026-07-05
+category: tooling
+source_cs: CS50
+status: open
+tags: [xunit, dotnet, usings, test-project]
+```
+
+**Problem:** New xUnit test source files in this repo do **not** resolve `[Fact]` / `FactAttribute` via global usings — omitting an explicit `using Xunit;` yields `CS0246` (type or namespace not found).
+
+**Finding:** Every test `.cs` must include an explicit `using Xunit;` even though the test projects enable `ImplicitUsings` (that does not bring in the xUnit namespace). Mirror the existing suites (e.g. `tests/AuthzEntitlements.Edge.Gateway.Tests/*.cs`).
+
+**Evidence:** CS50 (PR #168) — `tests/AuthzEntitlements.AppHost.Tests/AppHostApplicationModelSmokeTests.cs` includes `using Xunit;`; all existing test files do the same.
+
+**Disposition:** **open** — minor convention; candidate for CONVENTIONS.md consolidation at harvest.
 
 ### LRN-069
 
