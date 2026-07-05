@@ -56,7 +56,7 @@ tags: [dotnet, sln, windows, line-endings, text-encoding, cpm]
 
 **Problem:** `dotnet sln add <proj>` on Windows rewrites `AuthzEntitlements.sln` with **CRLF line endings + a UTF-8 BOM**, which violates the repo's `.gitattributes` LF mandate and fails the harness `text-encoding` gate (part of `harness lint`).
 
-**Finding:** After every `dotnet sln add` / `dotnet sln remove`, re-normalize the `.sln` to **LF, no BOM** before committing (strip a leading `EF BB BF`, replace `\r\n`→`\n`, `[IO.File]::WriteAllText(path, text, UTF8Encoding($false))`). Post-normalization the `git diff` shows only the intended project-registration lines. The same gotcha applies to any tool that rewrites tracked text on Windows.
+**Finding:** After every `dotnet sln add` / `dotnet sln remove`, re-normalize the `.sln` to **LF, no BOM** before committing (strip a leading `EF BB BF`, replace `\r\n`→`\n`, `[IO.File]::WriteAllText(path, text, (New-Object Text.UTF8Encoding $false))`). Post-normalization the `git diff` shows only the intended project-registration lines. The same gotcha applies to any tool that rewrites tracked text on Windows.
 
 **Evidence:** CS50 (PR #168) — post-`dotnet sln add` the file carried CRLF + BOM; normalizing kept the diff to the 15 added registration lines and `harness lint` passed 23/0. Mirrors the create/edit-tool CRLF behaviour already noted in CONVENTIONS.md (LF, no BOM).
 
