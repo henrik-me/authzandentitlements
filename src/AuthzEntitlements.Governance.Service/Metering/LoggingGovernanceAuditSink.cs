@@ -20,14 +20,22 @@ public sealed partial class LoggingGovernanceAuditSink(ILogger<LoggingGovernance
     public void Record(GovernanceDecision decision) =>
         GovernanceDecisionLogged(
             logger,
-            decision.TenantCode,
+            Clean(decision.TenantCode),
             GovernanceWire.Token(decision.DecisionType),
-            decision.Target,
+            Clean(decision.Target),
             GovernanceWire.Token(decision.Outcome),
-            decision.PrincipalId,
-            decision.Reason,
-            decision.CorrelationId,
+            Clean(decision.PrincipalId),
+            Clean(decision.Reason),
+            Clean(decision.CorrelationId),
             decision.TimestampUtc);
+
+    // Strip CR/LF from every request-derived string before it reaches the ILogger message template, so
+    // an untrusted tenant/principal/target/reason/correlation value can never inject a newline to forge
+    // a fake audit log line (CWE-117 log injection) — mirrors LoggingPdpDecisionAuditSink.Clean. The
+    // decision-type/outcome tokens are bounded enum values, so they need no cleaning. Only the rendered
+    // log string is sanitized; the GovernanceDecision audit-of-record keeps the raw values.
+    private static string? Clean(string? value) =>
+        value?.Replace('\r', ' ').Replace('\n', ' ');
 
     [LoggerMessage(
         EventId = 1100,
@@ -38,11 +46,11 @@ public sealed partial class LoggingGovernanceAuditSink(ILogger<LoggingGovernance
                   "correlationId={CorrelationId} at={TimestampUtc}")]
     private static partial void GovernanceDecisionLogged(
         ILogger logger,
-        string tenantCode,
+        string? tenantCode,
         string decisionType,
-        string target,
+        string? target,
         string outcome,
-        string principalId,
+        string? principalId,
         string? reason,
         string? correlationId,
         DateTimeOffset timestampUtc);
