@@ -117,4 +117,21 @@ full PDP test project green (existing parity + OBO + new break-glass/delegation)
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** gpt-5.5 (rubber-duck, agent `cs21-plan-vs-impl`) — independent of the claude-opus-4.8/4.6 + claude-sonnet-4.5 implementers
+**Date:** 2026-07-05
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Rationale |
+|---|---|---|
+| Break-glass: heightened audit + auto-expiry + mandatory post-review | match | PDP elevates only `MissingScope`/`RoleNotAuthorized` under an active matching grant, gated by `PassesHardInvariants` (no integrity bypass), emitting `BreakGlassInvoked` + `require_break_glass_review`; heightened audit (`BreakGlass`/`BreakGlassGrantId` at Warning); governance grants auto-expire (`IsActive(now)`) and are reviewable only post-expiry (`RequiresReview`). |
+| Delegation (manager→delegate) + OBO integration | match | Reference provider enforces OBO actor scope ∧ the grant's own `Scopes` ∧ active matching manager/delegate grant ∧ non-blank `GrantId` ∧ injected-clock expiry, else `DelegationScopeMissing`/`DelegationNotActive`; CS19 agent-OBO byte-identical when no delegation grant present. |
+| PDP + Governance enforcement + product UX + runbook | match | Additive/defaulted `EvaluationContext`; new reason/obligation contracts; 9 governance endpoints (issue/list/pending-review/review + create/list/revoke); Bank.Web `PdpContextDto` mirror + `GovernanceClient` + `/break-glass` & `/delegation` pages; runbook `docs/governance/break-glass-and-delegation-runbook.md`. |
+| Exit criterion — break-glass works/auto-expires/forces post-review; delegation + OBO enforced + audited | match | Scenario catalog + tests cover elevation, expiry boundary, integrity guard, masking-bypass regression, delegation active/expired/mismatch/scope-ceiling, blank-grant-id fail-closed, and the byte-identical human path. |
+
+**Test-coverage:** sufficient — full solution `dotnet test` **1484/0**; targeted PDP/Governance/Bank.Web CS21 suites green; break-glass/delegation are reference-provider-only (engine parity isolated to actor/grant-free scenarios).
+
+**Scope:** no drift. Documented follow-ups (in the runbook): EF persistence for the in-memory grant stores; production RFC-8693 token-exchange OBO issuance; PDP-authoritative delegation revocation; reviewer-identity binding.
+
+**Review rounds:** 11 independent GPT-5.5 rubber-duck diff reviews (R1 Needs-Fix → R2–R11 Go) — R1 caught a break-glass integrity-masking bypass (fixed with `PassesHardInvariants`); GitHub Copilot review across 8 rounds surfaced store encapsulation, post-review timing, blank-grant-id fail-closed, delegated-scope-ceiling, retention-vs-mandatory-review, and a CWE-117 governance-audit log-forging vector — all fixed. Reviewer model disjoint from every implementer (independence invariant A3).
