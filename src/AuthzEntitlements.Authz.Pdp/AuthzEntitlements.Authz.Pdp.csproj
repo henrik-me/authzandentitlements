@@ -20,6 +20,11 @@
     <PackageReference Include="Authzed.Net" />
   </ItemGroup>
 
+  <!-- CS26: Cerbos.Sdk backs the gRPC "cerbos" full-decision PDP adapter. Version is centrally managed (CPM). -->
+  <ItemGroup>
+    <PackageReference Include="Cerbos.Sdk" />
+  </ItemGroup>
+
   <!-- CS06: Casbin.NET backs the in-process "casbin" RBAC/ABAC PDP adapter. -->
   <ItemGroup>
     <PackageReference Include="Casbin.NET" />

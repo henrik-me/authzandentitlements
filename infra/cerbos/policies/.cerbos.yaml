@@ -1,0 +1,17 @@
+# CS26 — Cerbos server config for the "cerbos" PDP adapter (dev / lab only, never a deployment).
+#
+# The disk driver loads the fintech resource policy (bank.yaml) from this directory. The Cerbos disk
+# store IGNORES dotfiles, so this .cerbos.yaml config sitting alongside the policies is not itself
+# treated as a policy. The container is started with `server --config=/policies/.cerbos.yaml` and the
+# infra/cerbos/policies directory is bind-mounted read-only at /policies (see the AppHost `cerbos`
+# container). gRPC (3593) is what the .NET adapter talks to over cleartext h2c; the HTTP API (3592)
+# is exposed for ad-hoc curl/inspection.
+server:
+  httpListenAddr: ":3592"
+  grpcListenAddr: ":3593"
+
+storage:
+  driver: "disk"
+  disk:
+    directory: "/policies"
+    watchForChanges: false

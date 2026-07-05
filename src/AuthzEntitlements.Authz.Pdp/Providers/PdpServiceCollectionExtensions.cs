@@ -1,5 +1,6 @@
 using AuthzEntitlements.Authz.Pdp.Audit;
 using AuthzEntitlements.Authz.Pdp.Contracts;
+using AuthzEntitlements.Authz.Pdp.Providers.Adapters.Cerbos;
 using AuthzEntitlements.Authz.Pdp.Providers.Adapters.Opa;
 using AuthzEntitlements.Authz.Pdp.Providers.OpenFga;
 using AuthzEntitlements.Authz.Pdp.Providers.SpiceDb;
@@ -63,6 +64,20 @@ public static class PdpServiceCollectionExtensions
             client.Timeout = TimeSpan.FromSeconds(opa.TimeoutSeconds);
         });
         services.AddSingleton<IAuthorizationDecisionProvider, Adapters.Opa.OpaDecisionProvider>();
+
+        // CS26 — Cerbos adapter: an out-of-process, full-decision PDP (the head-to-head with OPA)
+        // reached over gRPC. Cerbos owns the WHOLE fintech decision natively in YAML/CEL policies
+        // (infra/cerbos/policies), like OPA does in Rego. Bind its options + register the lazy gRPC
+        // client and the provider. Selection stays config-driven — "Pdp:Provider" defaults to
+        // "reference", so registering this adapter does not require a live Cerbos for
+        // builds/tests/`aspire run`: the client is built lazily only on first actual check. The
+        // service is a singleton so the client/channel is cached, and it is also exposed as
+        // ICerbosCheckClient — the narrow forward-decision seam CerbosDecisionProvider depends on
+        // (LRN-038) — resolved from the SAME singleton.
+        services.Configure<CerbosOptions>(configuration.GetSection(CerbosOptions.SectionName));
+        services.AddSingleton<CerbosCheckService>();
+        services.AddSingleton<ICerbosCheckClient>(sp => sp.GetRequiredService<CerbosCheckService>());
+        services.AddSingleton<IAuthorizationDecisionProvider, Adapters.Cerbos.CerbosDecisionProvider>();
 
         services.AddSingleton<AuthorizationDecisionProviderFactory>();
         services.AddPdpDecisionAuditSink(configuration);

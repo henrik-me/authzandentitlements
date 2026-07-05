@@ -194,6 +194,25 @@ var spicedb = builder.AddContainer("spicedb", spicedbImage, spicedbImageTag)
     .WithHttpEndpoint(targetPort: 50051, name: "grpc")
     .WithExplicitStart();
 
+// CS26 — Cerbos (full-decision PDP) engine backing the config-gated "cerbos" PDP provider, the
+// head-to-head, out-of-process counterpart to OPA (both own the WHOLE fintech decision natively — OPA
+// in Rego over REST, Cerbos in YAML/CEL over gRPC). Kept OFF the default critical path exactly like
+// OPA and SpiceDB: .WithExplicitStart() so `aspire run` and the deterministic reference PDP never
+// start or block on Cerbos, and authz-pdp is given the endpoint coordinates WITHOUT a hard WaitFor.
+// The policies are authored as YAML on disk (the disk driver) and bind-mounted from
+// infra/cerbos/policies; the container's config (.cerbos.yaml, a dotfile the disk loader ignores)
+// lives alongside them. Cerbos serves gRPC over h2c on 3593; the image tag is pinned for determinism.
+const string cerbosImage = "ghcr.io/cerbos/cerbos";
+const string cerbosImageTag = "0.53.0";
+
+var cerbos = builder.AddContainer("cerbos", cerbosImage, cerbosImageTag)
+    .WithArgs("server", "--config=/policies/.cerbos.yaml")
+    .WithBindMount("../../infra/cerbos/policies", "/policies", isReadOnly: true)
+    // gRPC on 3593, modeled as an http endpoint so the injected Pdp__Cerbos__Endpoint is a plain
+    // http:// (h2c) address the .NET gRPC client can use without TLS.
+    .WithHttpEndpoint(targetPort: 3593, name: "grpc")
+    .WithExplicitStart();
+
 // CS13 — Tamper-evident audit log pipeline. The Audit.Service owns the `audit` database and
 // appends every authz/entitlement decision as a hash-chained, append-only row (prev-hash +
 // payload -> row-hash), exposing a chain-verification endpoint + a query API. Postgres already
@@ -220,6 +239,10 @@ var authzPdp = builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-p
     // WaitFor(spicedb) keeps the deterministic reference provider off SpiceDB's critical path.
     .WithEnvironment("Pdp__SpiceDb__Endpoint", spicedb.GetEndpoint("grpc"))
     .WithEnvironment("Pdp__SpiceDb__PresharedKey", spicedbPresharedKey)
+    // CS26 — Cerbos coordinates for the config-gated `cerbos` provider. Injected unconditionally (like
+    // the OPA/SpiceDB coordinates) so Pdp__Provider=cerbos works without further wiring; no
+    // WaitFor(cerbos) keeps the deterministic reference provider off Cerbos' critical path.
+    .WithEnvironment("Pdp__Cerbos__Endpoint", cerbos.GetEndpoint("grpc"))
     .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
     // CS08 — OPA coordinates for the config-gated `opa` provider. Injected unconditionally (like the
     // Unleash coordinates) so Pdp__Provider=opa works without further wiring; no WaitFor(opa) keeps
