@@ -47,6 +47,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthzEntitlements.Complianc
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthzEntitlements.Bank.Web.Tests", "tests\AuthzEntitlements.Bank.Web.Tests\AuthzEntitlements.Bank.Web.Tests.csproj", "{071E7232-773B-4622-AC90-4416D923354E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthzEntitlements.AppHost.Tests", "tests\AuthzEntitlements.AppHost.Tests\AuthzEntitlements.AppHost.Tests.csproj", "{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -297,6 +299,18 @@ Global
 		{071E7232-773B-4622-AC90-4416D923354E}.Release|x64.Build.0 = Release|Any CPU
 		{071E7232-773B-4622-AC90-4416D923354E}.Release|x86.ActiveCfg = Release|Any CPU
 		{071E7232-773B-4622-AC90-4416D923354E}.Release|x86.Build.0 = Release|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Debug|x64.Build.0 = Debug|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Debug|x86.Build.0 = Debug|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Release|x64.ActiveCfg = Release|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Release|x64.Build.0 = Release|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Release|x86.ActiveCfg = Release|Any CPU
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -322,5 +336,6 @@ Global
 		{A1B2C3D4-0003-4000-8000-000000000024} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{A1B2C3D4-0004-4000-8000-000000000024} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{071E7232-773B-4622-AC90-4416D923354E} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{9BD150E3-EE7D-4E44-BC40-F0FEEDB7EB40} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

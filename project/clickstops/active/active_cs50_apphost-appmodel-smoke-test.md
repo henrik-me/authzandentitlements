@@ -61,9 +61,9 @@ Add a minimal automated test that constructs the `AuthzEntitlements.AppHost` **a
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Add `tests/AuthzEntitlements.AppHost.Tests` project + `Aspire.Hosting.Testing` (CPM 13.1.0) | in-progress | yoga-ae-c2 | version-less refs; add to AuthzEntitlements.sln |
-| Smoke test: CreateAsync → BuildAsync (no StartAsync) asserts no throw + resource-name uniqueness | pending | yoga-ae-c2 | Docker-free; fallback to builder.Resources assertion if BuildAsync needs infra |
-| Verify guard: passes on current AppHost, fails on a reintroduced duplicate name | pending | yoga-ae-c2 | prove the exit criterion |
+| Add `tests/AuthzEntitlements.AppHost.Tests` project + `Aspire.Hosting.Testing` (CPM 13.1.0) | done | sub-agent | agent-id=cs50-impl-smoketest \| role=impl-test-author \| report-status=complete \| learnings=2 — version-less refs; added to AuthzEntitlements.sln (CPM entry on disk) |
+| Smoke test: CreateAsync → BuildAsync (no StartAsync) asserts no throw + resource-name uniqueness | done | sub-agent | agent-id=cs50-impl-smoketest \| role=impl-test-author \| report-status=complete \| learnings=2 — Docker-free; 2 [Fact]s; BuildAsync used, no fallback needed |
+| Verify guard: passes on current AppHost, fails on a reintroduced duplicate name | done | sub-agent | agent-id=cs50-impl-smoketest \| role=impl-test-author \| report-status=complete \| learnings=2 — orchestrator re-verified: dup `unleash` → 2 failed (DistributedApplicationException @ AppHost.cs:65); reverted → 2 passed |
 | Close-out: docs + restart state | pending | yoga-ae-c2 | update WORKBOARD + CONTEXT.md so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | yoga-ae-c2 | flip LRN-078 to applied with the implementing commit |
 
