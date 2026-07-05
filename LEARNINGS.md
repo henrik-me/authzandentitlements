@@ -107,7 +107,7 @@ id: LRN-082
 date: 2026-07-05
 category: process
 source_cs: CS47
-status: open
+status: applied
 claim_area: cs46
 tags: [cross-cs, docs-staleness, oso, consistency, file-ownership]
 ```
@@ -118,7 +118,45 @@ tags: [cross-cs, docs-staleness, oso, consistency, file-ownership]
 
 **Evidence:** CS47 (PR #170) plan-vs-impl + rubber-duck reviews flagged `active_cs46_keto-topaz-adapters.md` (~line 22, "unpinnable `latest`-only dev-server"); left untouched per file-ownership rules; ADR 0008 is the corrected authority.
 
-**Disposition:** **open** — for CS46's owner to reconcile; tracked via `claim_area: cs46`.
+**Disposition:** **applied** — CS46 (this CS) reconciled its plan Background's Oso reference to ADR-0008 (Oso's only self-hostable path is a **development-only** dev-server with no production self-hosting path) at close-out.
+
+### LRN-083
+
+```yaml
+id: LRN-083
+date: 2026-07-05
+category: architectural
+source_cs: CS46
+status: applied
+tags: [keto, rebac, adapter, fail-closed, serialization, dotnet]
+```
+
+**Problem:** The Ory Keto ReBAC adapter (CS46) seeds the shared `RebacSeedTuples` graph via Keto's write API. Object→object structural tuples (e.g. `customer:acme -> owner -> account:acme-checking`) must be written as Zanzibar **subject_sets** (namespace+object, empty relation), not `subject_id`s. The generated `Ory.Keto.Client 0.11.0-alpha.0` `KetoCreateRelationshipBody.ToJson()` emits `"subject_id": ""` even for a subject-set body.
+
+**Finding:** Verified live against `oryd/keto:v26.2.0`: a `PUT /admin/relation-tuples` whose JSON carries BOTH an (empty) `subject_id` AND a `subject_set` makes Keto **store `subject_id=""` and silently DROP the `subject_set`** — the structural relationship is lost and indirect-path checks (RM / branch / region) fail. Correctness therefore hinges on `subject_id` being **absent** (not empty) whenever a `subject_set` is present. Remediation: build the write body from a hand-rolled record serialized with `System.Text.Json` `JsonIgnoreCondition.WhenWritingNull` (subject-set tuples omit `subject_id` entirely), guarded by an offline test that asserts the **absence** (not emptiness) of `subject_id`. Also: Keto's `PUT /admin/relation-tuples` **appends** (it is NOT an idempotent upsert) — re-seeding a persistent store duplicates tuples; harmless here because the DSN is in-memory and the adapter is a once-per-process DI singleton.
+
+**Evidence:** CS46 Keto PR #172; `src/AuthzEntitlements.Authz.Pdp/Providers/Keto/KetoSeedTupleMapper.cs` (`WhenWritingNull`) + `KetoCheckService.WriteSeedRelationshipsAsync`; `tests/AuthzEntitlements.Authz.Pdp.Tests/KetoSeedTupleMapperTests.cs`; a live query showed the structural tuples stored as clean `subject_set`s (no `subject_id`) with catalog parity 3/3. The GPT-5.5 R1 review caught the fail-open.
+
+**Disposition:** **applied** — remediated in CS46 (PR #172).
+
+### LRN-084
+
+```yaml
+id: LRN-084
+date: 2026-07-05
+category: architectural
+source_cs: CS46
+status: applied
+tags: [topaz, aserto, opa, adapter, offline, docker]
+```
+
+**Problem:** The Topaz/Aserto adapter (CS46) drives Topaz as a full-decision engine over its OPA bundle. Topaz normally pulls its policy bundle from an OCI registry (a push/pull the lab must avoid — the plan's escalation gate), and its authorizer + directory span three ports (8282 gRPC / 8383 REST / 9292 directory), so booting it offline and querying a pure-policy decision are non-obvious.
+
+**Finding:** `ghcr.io/aserto-dev/topaz:0.33.14` boots and answers fully **offline** from a **local** OPA bundle: `infra/topaz/config.yaml` sets `opa.local_bundles.paths: /policy` (bind-mounted from `infra/opa/policy`) and REMOVES the stock OCI `services`/`bundles` blocks, so no registry is contacted; anonymous auth is enabled (api-key off). The .NET Aserto authorizer `QueryAsync` (query `x = data.authz.bank.decision`, `input=<AccessRequest>`) requires an explicit `IdentityContext { Type = IDENTITY_TYPE_NONE }` (the authorizer REJECTS an unset/UNKNOWN identity type), and the Rego decision object lands at `response.result[0].bindings.<var>`. Topaz serves the authorizer over TLS with a self-signed dev cert → connect insecure but scope the any-cert acceptance to **loopback** endpoints (non-loopback uses normal CA validation). The whole fintech decision comes from the OPA bundle + request input; Topaz's Zanzibar directory is left empty (documented parity boundary) — the "OPA standalone vs OPA-inside-Topaz" head-to-head.
+
+**Evidence:** CS46 Topaz PR #176; `infra/topaz/config.yaml`; `src/AuthzEntitlements.Authz.Pdp/Providers/Adapters/Topaz/TopazCheckService.cs`; live full `FintechScenarioCatalog` decision+reason parity 2/2 against a real `ghcr.io/aserto-dev/topaz:0.33.14`.
+
+**Disposition:** **applied** — implemented in CS46 (PR #176).
 
 ### LRN-069
 
