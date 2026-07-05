@@ -1,10 +1,10 @@
 # CS48 — Local stack validation + demo/lab readiness
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c2
 **Branch:** cs48/content
 **Started:** 2026-07-05
-**Closed:** —
+**Closed:** 2026-07-05
 **Phase:** 7 — Expansion + Azure
 **Lane:** Validation
 **Filed by:** yoga-ae-c2 on 2026-07-04 — prerequisite that gates the CS27/CS43/CS44 holds (their `## Hold / claim gate` precondition #1 is "the current stack has been validated in detail locally and that validation is documented"). Filed at the user's direction after those three were put on hold.
