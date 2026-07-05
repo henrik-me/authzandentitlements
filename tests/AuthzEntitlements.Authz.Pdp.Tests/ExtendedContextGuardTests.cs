@@ -133,7 +133,7 @@ public sealed class ExtendedContextGuardTests
     }
 
     [Fact]
-    public void ReferenceProvider_ObopermitPassesThrough_Unchanged()
+    public void ReferenceProvider_OboPermitPassesThrough_Unchanged()
     {
         // Teller reads an in-tenant account on behalf of an agent holding the delegated read scope: the
         // reference's CS19 OBO intersection PERMITS. The guard must not intercept a capable engine.
