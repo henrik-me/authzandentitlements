@@ -1,10 +1,10 @@
 # CS49 — Refresh README + ARCHITECTURE to shipped reality (usage, architecture, data flows)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c3
 **Branch:** cs49/docs-readme-architecture-refresh
 **Started:** 2026-07-04
-**Closed:** —
+**Closed:** 2026-07-05
 **Filed by:** yoga-ae-c3, 2026-07-04 — user request: "update readme and architecture .md files to reflect how to use the product/lab, as well as document the system architecture, and key data flows".
 **Phase:** Maintenance (docs)
 **Lane:** Docs
@@ -112,4 +112,19 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-05T05:21:13Z
+**Outcome:** GO
+
+Per-deliverable outcome:
+
+| Deliverable | Outcome | Notes |
+|---|---|---|
+| README.md rewritten (usage, quickstart, how-to-use, build/test, eval-lab index, doc map, status, license) | match | — |
+| ARCHITECTURE.md rewritten (overview, 11 projects, diagrams, four-layer/audit model, 8-engine seam, key data flows, stores, observability, security, decision log, eval framing, roadmap) | match | — |
+| CS49 clickstop record | match | — |
+| WORKBOARD.md Active Work row | dropped | Acknowledged descope (documented in the plan) to keep the docs PR immune to concurrent WORKBOARD churn — not a gap. |
+| Gates green (harness lint, sync --mode=check, LF/no-BOM) | match | lint 22 passed / 0 failed; sync no drift. |
+| Independent GPT-5.5 review recorded in PR body | match | 13 review rounds + a plan re-attestation + Copilot. |
+
+Coverage: **sufficient** — README + ARCHITECTURE cover run/use, the system architecture, and the key data flows with no material gaps (8 engines documented, four-layer model present, four key data-flow diagrams, no completion overclaim, harness pin v0.16.0).
