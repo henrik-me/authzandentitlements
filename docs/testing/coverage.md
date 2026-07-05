@@ -81,7 +81,11 @@ recorded honestly and is the motivation for `ServiceDefaults.Tests` in Wave A
 | AuthzEntitlements.ServiceDefaults | 1.4 | 14.3 |
 | **Overall** | **69.8** | **71.0** |
 
-Overall counted totals: 5322 / 7614 coverable lines; 1342 / 1888 branches.
+Overall counts (from ReportGenerator): 5322 / 7614 coverable lines and
+1342 / 1888 branches. ReportGenerator reports these as **69.8% line / 71.0%
+branch** — it truncates the percentage to one decimal, so a manual
+`5322 / 7614 ≈ 69.9%` differs by one rounding step. The tool-reported figures
+(the table above) are the authoritative baseline used for the ratchet.
 
 ## Ratchet policy (Decision #6)
 
