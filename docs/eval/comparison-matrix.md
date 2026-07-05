@@ -159,9 +159,10 @@ linked survey document. `†` marks an engine also **integrated** in this repo.
 | Permit.io | Managed control plane | RBAC + ABAC + ReBAC (over OPA/OpenFGA) | Managed | Yes (via OpenFGA) | Managed SaaS + sidecar | [Policy & decision engines](survey/policy-and-decision-engines.md) |
 
 **Oso is evaluated → de-scoped** from the integration set — it remains *surveyed* (row above), not
-integrated: there is no maintained in-process .NET/Polar library, and the only local option is an
-unpinnable (`latest`-only), development-only dev-server, with production gated behind paid Oso Cloud.
-See [ADR 0008](../adr/0008-oso-descoped-from-expansion-engines.md) (verified 2026-07-04).
+integrated: there is no in-process .NET/Polar library, and Oso's only self-hostable artifact is a
+**development-only** dev-server (pinnable, but vendor-scoped to dev/test, not a production server) —
+production runs on the paid managed Oso Cloud.
+See [ADR 0008](../adr/0008-oso-descoped-from-expansion-engines.md) (verified 2026-07-05).
 
 Entitlements / feature-flag vendors — OpenMeter, Stigg, OpenFeature (the spec/SDK), Flagsmith,
 Unleash `†`, and Microsoft Entra ID Governance — are surveyed in

@@ -63,9 +63,9 @@ Formally **disposition Oso**: record the decision to **de-scope** it from the ex
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| ADR `0008-oso-descoped-from-expansion-engines.md` + `docs/adr/README.md` index entry | pending | yoga-ae-c4 | de-scope decision + evidence (no in-process .NET/Polar lib as of 2026-07-04; `latest`-only dev-only dev-server; paid-cloud production), conflicting postures (image-pin determinism; ADR-0007 self-host-first), re-eval trigger (Decision #3) |
-| Eval-doc updates: `comparison-matrix.md` + `market-survey.md` + `survey/policy-and-decision-engines.md` Oso rows → evaluated → de-scoped w/ one-line reason + ADR link | pending | yoga-ae-c4 | supersede the survey page's older "local/self-hosted PDP binary" Oso wording |
-| Expansion narrative: `docs/authz/adding-an-engine-adapter.md` engine list reads Cerbos + SpiceDB + Keto + Topaz, Oso intentionally excluded → ADR | pending | yoga-ae-c4 | never a silent gap; dated honesty caveat + sources on pricing/availability |
+| ADR `0008-oso-descoped-from-expansion-engines.md` + `docs/adr/README.md` index entry | done | yoga-ae-c4 | ADR 0008 (Nygard) + sorted README index row; de-scope evidence **re-verified 2026-07-05** against primary sources (no in-process .NET/Polar lib — `nuget.org/packages/Oso` 404; dev-server pinnable but vendor-dev-only; production = paid managed cloud); conflicts with ADR-0007 self-host-first; re-eval trigger (Decision #3) |
+| Eval-doc updates: `comparison-matrix.md` + `market-survey.md` + `survey/policy-and-decision-engines.md` Oso rows → evaluated → de-scoped w/ one-line reason + ADR link | done | yoga-ae-c4 | marked Oso de-scoped (kept surveyed, no `†`); superseded the survey page's older "local/self-hosted PDP binary" wording; TCO Oso-only consistency fixes |
+| Expansion narrative: `docs/authz/adding-an-engine-adapter.md` engine list reads Cerbos + SpiceDB + Keto + Topaz, Oso intentionally excluded → ADR | done | yoga-ae-c4 | `adding-an-engine-adapter.md` has NO shipped/planned engine roster (it is a generic how-to) — the expansion narrative is carried by ADR 0008 + the eval docs instead; Oso is never a silent gap |
 | Close-out: docs + restart state | pending | yoga-ae-c4 | update WORKBOARD + CONTEXT.md so a fresh agent can restart from actual state |
 | Close-out: learnings + follow-ups | pending | yoga-ae-c4 | file LRNs; planned follow-up CSs for any unresolved issues |
 
@@ -80,7 +80,19 @@ Formally **disposition Oso**: record the decision to **de-scope** it from the ex
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- **R2 review correction (evidence fix).** The independent GPT-5.5 rubber-duck review (R2) caught a
+  factual error inherited from the CS26 feasibility notes: the Oso Cloud **dev-server is not
+  `latest`-only / unpinnable**. Verified 2026-07-05 against Oso's docs
+  (`osohq.com/docs/develop/local-dev/oso-dev-server` — "Pin Dev Server versions in CI", versioned
+  tags like `:v1.2.3`, plus a native binary). The de-scope **conclusion stands** on corrected
+  grounds — no in-process .NET/Polar library (`nuget.org/packages/Oso` 404) **and** no self-hostable
+  **production** server (the dev-server is vendor-scoped to development/testing; production is the
+  paid, proprietary managed Oso Cloud) — but the "unpinnable/`latest`-only" wording was removed from
+  ADR 0008 and all three eval docs.
+- **Scope boundary (deliberate).** `managed-vs-selfhost-tco.md` still labels SpiceDB / Cerbos / Keto
+  / Topaz "planned (CS26)" although SpiceDB + Cerbos shipped (PRs #134/#139) and Keto + Topaz moved
+  to CS46. Left untouched — outside CS47's Oso-only scope; filed as a follow-up learning for a
+  doc-freshness pass.
 
 ## Plan-vs-implementation review
 

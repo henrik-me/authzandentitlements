@@ -72,9 +72,9 @@ Every surveyed engine / product, its family, and a direct link to its section.
 | OpenID AuthZEN | Standards | [authzen.md](survey/authzen.md) |
 
 **Oso is evaluated → de-scoped** from the lab's expansion engines (it remains surveyed above): no
-maintained in-process .NET/Polar library, and only an unpinnable (`latest`-only), development-only
-dev-server or paid Oso Cloud for hosting. See
-[ADR 0008](../adr/0008-oso-descoped-from-expansion-engines.md) (verified 2026-07-04).
+in-process .NET/Polar library, and Oso's only self-hostable option is a **development-only**
+dev-server (pinnable, but not a production server) — production runs on the paid managed Oso Cloud.
+See [ADR 0008](../adr/0008-oso-descoped-from-expansion-engines.md) (verified 2026-07-05).
 
 ## See also
 

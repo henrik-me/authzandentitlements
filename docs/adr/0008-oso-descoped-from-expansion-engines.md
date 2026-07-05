@@ -15,34 +15,39 @@ CS26 planned five expansion engines behind the unified PDP seam
 Topaz. SpiceDB and Cerbos shipped (PRs #134, #139); Keto and Topaz split to a separate follow-on
 CS (CS46); Oso is dispositioned here.
 
-The CS05 `IAuthorizationDecisionProvider` seam an engine plugs into requires an engine that runs
-either **in-process** or as a **pinnable, self-hostable** container — the shape every other
-integrated engine takes, and the basis of the repo's image-pinning-for-determinism convention
-(opt-in engines pin their image tags — e.g. CS26 shipped `authzed/spicedb:v1.54.0` and
-`ghcr.io/cerbos/cerbos:0.53.0`; `latest` is non-deterministic). Oso, uniquely among the five, offers
-no such path.
+The CS05 `IAuthorizationDecisionProvider` seam an engine plugs into is fed by an engine that runs
+either **in-process** or as a **self-hostable, production-grade server** pinned to a deterministic
+image tag — the shape every other integrated engine takes (opt-in engines pin their tags, e.g. CS26
+shipped `authzed/spicedb:v1.54.0` and `ghcr.io/cerbos/cerbos:0.53.0`). Oso, uniquely among the five,
+offers neither: no in-process .NET binding, and no self-hostable **production** server — only a
+vendor-designated *development* server and the paid, proprietary managed cloud.
 
 ## Decision
 
-**De-scope Oso** — do not ship an Oso adapter. The CS26 feasibility research (verified 2026-07-04)
-found:
+**De-scope Oso** — do not ship an Oso adapter. The CS26 feasibility research, re-verified during CS47
+against primary sources (2026-07-05), found:
 
-- **No maintained, publicly-discoverable in-process .NET/Polar library.** `github.com/osohq/oso`
-  lists Python, Ruby, Java, Node.js, Go, and Rust — C#/.NET is absent, and `nuget.org/packages/Oso`
-  returns 404. The classic OSS Oso library is additionally in **maintenance-only** mode, deprecated
-  in favour of Oso Cloud.
-- **The only .NET path is Oso Cloud.** The `OsoCloud` NuGet SDK (`1.10.0`, net6.0→net10, HTTP REST)
-  talks to the hosted **Oso Cloud** API **or** to a local **dev-server** image
-  `public.ecr.aws/osohq/dev-server:latest`.
-- **The dev-server is `latest`-only** (no pinned semver tag confirmed from public docs) and is
-  **explicitly a development server** — no SLA, persistence, or production support. Production
-  requires a **paid Oso Cloud** account.
+- **No maintained, in-process .NET/Polar library.** `github.com/osohq/oso` lists Python, Ruby,
+  Java, Node.js, Go, and Rust — C#/.NET is absent, and `nuget.org/packages/Oso` returns 404. The
+  classic OSS Oso library is additionally in **maintenance-only** mode, deprecated in favour of
+  Oso Cloud.
+- **The only .NET path is the managed Oso Cloud SDK.** The `OsoCloud` NuGet package (an HTTP REST
+  client) talks to the hosted **Oso Cloud** API **or** to a local **dev-server**
+  (`public.ecr.aws/osohq/dev-server`, also a downloadable native binary).
+- **The self-hostable dev-server is a development tool, not a production server.** It *is* pinnable
+  (versioned tags such as `:v1.2.3`, per Oso's "Pin Dev Server versions in CI" guidance) — so the
+  earlier "`latest`-only / unpinnable" concern does **not** hold — but Oso scopes it to **local
+  development and testing** ("before deploying to production"; ephemeral `.oso/` state; the on-disk
+  format is explicitly not a stability guarantee). There is **no self-hostable production server**;
+  production requires a **paid, proprietary Oso Cloud** account.
 
-This conflicts with two established repo postures: the **image-pinning-for-determinism** convention
-(`latest` is non-deterministic) and the self-host-first stance of
-[ADR 0007](0007-self-host-first-authz-with-managed-optionality.md) — Oso offers no pinnable,
-self-hostable production path. Note the gap is narrow: the **Oso Cloud** SDK *does* target .NET; what
-is missing is an in-process or pinnable-self-hostable path.
+This conflicts with the self-host-first stance of
+[ADR 0007](0007-self-host-first-authz-with-managed-optionality.md): Oso offers **no self-hostable
+production path** — its production model is the paid, proprietary managed cloud, with self-hosting
+limited to a development-only server. The gap is narrow and specific: the **Oso Cloud** SDK *does*
+target .NET, and the dev-server *is* pinnable; what is missing is an **in-process .NET/Polar
+library** or a **self-hostable, production-grade server** of the kind the other four opt-in engines
+provide.
 
 ## Consequences
 
@@ -64,9 +69,11 @@ is missing is an in-process or pinnable-self-hostable path.
 
 ## Alternatives considered
 
-- **Ship the `latest` dev-server anyway.** Rejected: it is unpinnable (`latest`-only) and
-  development-only (no SLA / persistence / production support), which breaks the image-pin
-  determinism convention every other opt-in engine follows.
+- **Ship the dev-server as a pinned container.** Technically feasible — the dev-server is pinnable
+  (versioned tags) and the `OsoCloud` SDK targets .NET — but rejected: Oso designates the dev-server
+  for **local development / testing only** (no production SLA, persistence, or support), so shipping
+  it as an engine would misrepresent Oso as production-self-hostable when its only production path is
+  the paid managed cloud. Acceptable solely for a throwaway lab demo (see *When to use / when not*).
 - **Integrate paid Oso Cloud.** Rejected: it is a paid-cloud-only managed dependency on the decision
   hot path — off the self-host-first default of
   [ADR 0007](0007-self-host-first-authz-with-managed-optionality.md), which keeps managed offerings
@@ -77,20 +84,22 @@ is missing is an in-process or pinnable-self-hostable path.
 Re-evaluate Oso **only if** it ships **either**:
 
 - **(a)** a maintained **in-process .NET/Polar library** targeting modern .NET; **or**
-- **(b)** a **pinnable, self-hostable production server** image — not `latest`-only, not
-  paid-cloud-only.
+- **(b)** a **self-hostable, production-supported server** — i.e. the dev-server graduates to a
+  supported production deployment, or an equivalent OSS server ships (not development-only, not
+  paid-cloud-only).
 
-Until one of those holds, Oso stays de-scoped. A maintainer who wants Oso for a lab-only demo
-despite these constraints (e.g. accepting the `latest` dev-server) reopens the implement-vs-de-scope
-decision as a fresh CS.
+Until one of those holds, Oso stays de-scoped. A maintainer who wants Oso purely for a throwaway lab
+demo — accepting the development-only dev-server (pinned to a versioned tag) — reopens the
+implement-vs-de-scope decision as a fresh CS.
 
 ## Sources
 
-Pricing / availability verified as of **2026-07-04** against the sources below; Oso's
-packaging / product may change — see the re-evaluation trigger.
+Availability verified as of **2026-07-05** against the sources below; Oso's packaging / product may
+change — see the re-evaluation trigger.
 
 - <https://www.osohq.com/>
-- <https://www.osohq.com/docs>
-- <https://github.com/osohq/oso> — the language-SDK list (no C#/.NET)
-- `OsoCloud` NuGet package (`1.10.0`, net6.0→net10, HTTP REST) — the only .NET path
-- `public.ecr.aws/osohq/dev-server:latest` — the `latest`-only, development-only local image
+- <https://www.osohq.com/docs/develop/local-dev/oso-dev-server> — the dev-server (development /
+  testing scope; pinnable versioned tags via "Pin Dev Server versions in CI"; native binary)
+- <https://github.com/osohq/oso> — the embedded-library language-SDK list (no C#/.NET)
+- `nuget.org/packages/Oso` returns 404 (no in-process .NET package); `OsoCloud` NuGet — the
+  managed-cloud .NET HTTP SDK
