@@ -1,9 +1,9 @@
 # CS40 — Review & PR merge-gate hardening (bypass-free normal merges)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c5
+**Branch:** cs40/content
+**Started:** 2026-07-05
 **Closed:** —
 **Filed by:** yoga-ae-c5 — 2026-07-04; follow-up to the branch-protection hardening + CS34: the ruleset only requires build-test + structural-gate, review-evidence gates are advisory, and Dependabot/workboard PRs can't merge without admin bypass. Directions for each decision were chosen by the user (see Decisions). Renumbered to CS40 (above the in-flight arc, with margin) to resolve CS-number collisions with concurrently-filed sibling CSs.
 **Depends on:** none
@@ -66,11 +66,26 @@ Investigation of the open PRs showed the remaining bypass drivers: (1) the harne
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Ruleset: require read-only-gates + copilot-review-attached + independence-invariant | pending | — | gh api PUT; all integration_id 15368; keep build-test + structural-gate; verify via GET |
+| WORKBOARD heads-up on the new required-check set | pending | — | Announce impact on in-flight peer PRs #114/#119/#120 (blocked until reviewed) |
+| Write docs/ci/review-pr-hardening.md | pending | — | Required checks + rationale, copilot-review-attached approach (+ no review-submit retrigger caveat), Dependabot interim admin-merge, bypass posture, workboard-only-at-creation |
+| File 3 harness-upstream issues in henrik-me/agent-harness | pending | — | (a) review-gates skip bot authors; (b) workflow-pins tolerate Dependabot actions bumps; (c) review-gates key off workboard-only label from first run |
+| Verify a compliant content PR merges bypass-free | pending | — | Required checks green + threads resolved → normal merge (or document residual blocker) |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD + CONTEXT.md so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File/disposition learnings; open follow-up CSs if any |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c5 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 

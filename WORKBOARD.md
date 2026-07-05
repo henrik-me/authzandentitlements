@@ -14,7 +14,7 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 | yoga-ae-c4 | yoga | C:\src\authzandentitlements_copilot4 | 🟢 Active | 2026-07-04 |
 | yoga-ae-c5 | yoga | C:\src\authzandentitlements_copilot5 | 🟢 Active | 2026-07-04 |
 
-> **Repo-health / DevEx maintenance (yoga-ae-c5 · 2026-07-04, no CS):** Branch protection + Dependabot hardened — required build+test checks on the "push to main" ruleset, `.github/dependabot.yml` added, and all 15 open Dependabot alerts fixed. **CS34** (log-forging CWE-117 sanitization) done; **CS35** (review & PR merge-gate hardening) filed. Removed the ruleset's **"Restrict updates"** rule that was forcing every merge through admin bypass — normal PRs can now merge once their required checks pass. Other orchestrators: ping yoga-ae-c5 before touching branch-protection, Dependabot, or `.github/workflows/`.
+> **Repo-health / DevEx maintenance (yoga-ae-c5 · 2026-07-04, no CS):** Branch protection + Dependabot hardened — required build+test checks on the "push to main" ruleset, `.github/dependabot.yml` added, and all 15 open Dependabot alerts fixed. **CS34** (log-forging CWE-117 sanitization) done; **CS40** (review & PR merge-gate hardening) claimed. Removed the ruleset's **"Restrict updates"** rule that was forcing every merge through admin bypass — normal PRs can now merge once their required checks pass. Other orchestrators: ping yoga-ae-c5 before touching branch-protection, Dependabot, or `.github/workflows/`.
 
 ## Active Work
 
@@ -38,5 +38,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
 | CS26 | CS26 — Expansion engines (SpiceDB/Cerbos/Keto/Oso/Topaz) | 🟢 Active | yoga-ae-c4 | cs26/content | 2026-07-04 | — |
+| CS40 | CS40 — Review & PR merge-gate hardening (bypass-free normal merges) | 🟢 Active | yoga-ae-c5 | cs40/content | 2026-07-05 | — |
 
 > **Note:** WORKBOARD shows live coordination state only — active orchestrators and their active work. The queue lives in `project/clickstops/planned/` (priority order via filename + per-file `**Depends on:**`); historical record lives in `project/clickstops/done/`. Do not duplicate either here.
