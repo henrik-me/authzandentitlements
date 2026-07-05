@@ -1,9 +1,9 @@
 # CS50 — AppHost application-model CI smoke test
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c2
+**Branch:** cs50/content
+**Started:** 2026-07-05
 **Closed:** —
 **Phase:** Cross-cutting
 **Lane:** DevEx
@@ -61,7 +61,20 @@ Add a minimal automated test that constructs the `AuthzEntitlements.AppHost` **a
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Add `tests/AuthzEntitlements.AppHost.Tests` project + `Aspire.Hosting.Testing` (CPM 13.1.0) | in-progress | yoga-ae-c2 | version-less refs; add to AuthzEntitlements.sln |
+| Smoke test: CreateAsync → BuildAsync (no StartAsync) asserts no throw + resource-name uniqueness | pending | yoga-ae-c2 | Docker-free; fallback to builder.Resources assertion if BuildAsync needs infra |
+| Verify guard: passes on current AppHost, fails on a reintroduced duplicate name | pending | yoga-ae-c2 | prove the exit criterion |
+| Close-out: docs + restart state | pending | yoga-ae-c2 | update WORKBOARD + CONTEXT.md so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | yoga-ae-c2 | flip LRN-078 to applied with the implementing commit |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c2 |
+| Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
 
