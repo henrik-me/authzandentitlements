@@ -1,9 +1,9 @@
 # CS45 — Delegation/OBO fail-closed guard across swappable PDP adapters
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c4
+**Branch:** cs45/content
+**Started:** 2026-07-05
 **Closed:** —
 **Filed by:** yoga-ae-c4 on 2026-07-04 — surfaced by the CS26 Cerbos review (PR #139), which caught that the Cerbos adapter ignored `Subject.Actor`/`Context.Delegation` and could permit an on-behalf-of call the reference denies; investigation showed the gap is cross-cutting (only `ReferenceDecisionProvider` handles OBO; `FintechRuleEvaluator` has zero delegation handling).
 **Phase:** Cross-cutting
@@ -66,11 +66,27 @@ Close the cross-cutting **fail-open** where a non-reference PDP engine, selected
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Capability marker `ISupportsExtendedAuthorizationContext` (Contracts) + `ReferenceDecisionProvider` declares it | pending | — | Decision #3 — future-proof opt-in, not a `Name=="reference"` check |
+| `ExtendedContextUnsupported` reason code, distinct from `ProviderUnavailable` | pending | — | Decision #5 — must not be misclassified as an engine outage by `PlaygroundFanoutService.allAgree` |
+| Fail-closed guard decorator; factory wraps it around any non-capable provider (`GetActiveProvider`/`GetProvider`/`TryGetProvider`) | pending | — | Decisions #2/#4 — covers enforced + playground/shadow/what-if; trigger = `Subject.Actor` OR `Context.Delegation` OR `Context.BreakGlass` |
+| Reconcile the CS26 Cerbos in-adapter guard (single authoritative guard) | pending | — | Decision #6 — remove the per-adapter guard or keep as documented defense-in-depth |
+| Tests: every non-capable provider fails closed (`ExtendedContextUnsupported`) via BOTH enforced + factory-resolved paths; reference OBO permit/deny unaffected; non-delegated catalog unaffected | pending | — | Exit criteria |
+| Docs: `docs/authz/pdp-contract.md` + `docs/authz/adding-an-engine-adapter.md` — OBO/delegation/break-glass boundary + how an engine opts in | pending | — | Deliverable |
+| Close-out: docs + restart state | pending | — | Update WORKBOARD, CONTEXT.md, and the adapter contract docs so a fresh agent can restart from actual state |
+| Close-out: learnings + follow-ups | pending | — | File learnings in LEARNINGS.md; flip LRN-075 → applied; open follow-up CSs for unresolved gaps |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c4 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
