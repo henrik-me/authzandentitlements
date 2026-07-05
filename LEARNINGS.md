@@ -67,7 +67,7 @@ tags: [dotnet, sln, windows, line-endings, text-encoding, cpm]
 ```yaml
 id: LRN-080
 date: 2026-07-05
-category: convention
+category: tooling
 source_cs: CS50
 status: open
 tags: [xunit, dotnet, usings, test-project]

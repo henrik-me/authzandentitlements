@@ -1,10 +1,10 @@
 # CS50 — AppHost application-model CI smoke test
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c2
 **Branch:** cs50/content
 **Started:** 2026-07-05
-**Closed:** —
+**Closed:** 2026-07-05
 **Phase:** Cross-cutting
 **Lane:** DevEx
 **Filed by:** yoga-ae-c2 on 2026-07-05 — follow-up from CS48 / LRN-078: CS48's local validation found a boot-blocking AppHost resource-name collision that had shipped undetected because no CI job exercises the AppHost application model.
