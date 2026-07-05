@@ -61,9 +61,9 @@ Capture the two recurring **.NET / Windows build-tooling gotchas** surfaced by L
 
 | Task | State | Owner | Notes |
 |------|-------|-------|-------|
-| Add both conventions to the `CONVENTIONS.md` `conventions.project` local block: (a) after `dotnet sln add` / `dotnet sln remove` on Windows, re-normalize the `.sln` to LF / no-BOM before committing and verify the diff is only registration lines (LRN-079); (b) every xUnit test `.cs` needs an explicit `using Xunit;` despite `ImplicitUsings` (LRN-080). Edit only between the `harness:local-start id=conventions.project` / `harness:local-end` markers. | pending | yoga-ae | Documentation-only; no code / `.csproj` / `.sln` change (Decision #4). |
-| Close-out: docs + restart state | pending | yoga-ae | Update `WORKBOARD.md` + `CONTEXT.md` so a fresh agent can restart from the actual state (both conventions codified; solution unchanged). |
-| Close-out: learnings + follow-ups | pending | yoga-ae | Flip LRN-079/080 to `status: applied` in `LEARNINGS.md`, each `**Disposition:**` citing this CS + the merge commit. |
+| Add both conventions to the `CONVENTIONS.md` `conventions.project` local block: (a) after `dotnet sln add` / `dotnet sln remove` on Windows, re-normalize the `.sln` to LF / no-BOM before committing and verify the diff is only registration lines (LRN-079); (b) every xUnit test `.cs` needs an explicit `using Xunit;` despite `ImplicitUsings` (LRN-080). Edit only between the `harness:local-start id=conventions.project` / `harness:local-end` markers. | done | yoga-ae | Content PR #182 (`ec0bd5c`); PVI scope fix PR #183 (`d6549f3`). Documentation-only; no code / `.csproj` / `.sln` change (Decision #4). |
+| Close-out: docs + restart state | done | yoga-ae | `CONTEXT.md` CS53 paragraph added; WORKBOARD row removed at close-out. |
+| Close-out: learnings + follow-ups | done | yoga-ae | LRN-079/080 flipped to `status: applied` in `LEARNINGS.md`, each `**Disposition:**` citing content PR #182 (`ec0bd5c`) + PVI fix PR #183 (`d6549f3`). |
 
 ## Model audit
 
@@ -80,4 +80,16 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-05T20:34:00Z
+**Outcome:** GO
+
+| Deliverable | Outcome | Evidence |
+|---|---|---|
+| D1 — both conventions in `CONVENTIONS.md` `conventions.project` block | match | Both entries present in "### Language + build" inside the local-block markers. The `.sln` bullet attributes the observed CRLF+BOM rewrite to `dotnet sln add` and frames `remove` as conservative (within LRN-079 scope, after the PR #183 fix); the `using Xunit;` bullet matches LRN-080. |
+| D2 — LRN-079/080 flip to `applied` at close-out | match | Both dispositioned to CS53 and flipped to `applied` in this close-out (status + `**Disposition:**` citing content PR #182 `ec0bd5c` + PVI fix PR #183 `d6549f3`). |
+| D3 — no code changes; solution green; `harness lint` passes | match | Content diff touched only `CONVENTIONS.md` (doc-only); `harness lint` 23 passed / 0 failed / 10 skipped. |
+
+**Test-coverage assessment:** sufficient — documentation-only convention capture; no code change, and the `text-encoding` + composed-block gates cover the risk.
+
+**Round history:** R1 (GPT-5.5) NEEDS-FIX on D1 — the `.sln` bullet over-claimed that `dotnet sln remove` was *observed* to rewrite CRLF+BOM, but LRN-079 only observed `add`. Fixed in PR #183 (`d6549f3`) → R2 (GPT-5.5) GO.

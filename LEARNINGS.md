@@ -50,7 +50,7 @@ id: LRN-079
 date: 2026-07-05
 category: tooling
 source_cs: CS50
-status: open
+status: applied
 tags: [dotnet, sln, windows, line-endings, text-encoding, cpm]
 ```
 
@@ -60,7 +60,7 @@ tags: [dotnet, sln, windows, line-endings, text-encoding, cpm]
 
 **Evidence:** CS50 (PR #168) — post-`dotnet sln add` the file carried CRLF + BOM; normalizing kept the diff to the 15 added registration lines and `harness lint` passed 23/0. Mirrors the create/edit-tool CRLF behaviour already noted in CONVENTIONS.md (LF, no BOM).
 
-**Disposition:** **open** — filed into **CS53** (`project/clickstops/planned/planned_cs53_dotnet-tooling-conventions.md`, open-learnings harvest 2026-07-05) to codify this into the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS53 closes.
+**Disposition:** **Applied by CS53** (content PR #182, squash `ec0bd5c`, 2026-07-05; plan-vs-impl scope fix PR #183, squash `d6549f3`). Codified into the `CONVENTIONS.md` `conventions.project` "Language + build" block: `dotnet sln add` is the observed CRLF+BOM offender, so after any `dotnet sln` edit (`add` — or, conservatively, `remove`) re-normalize `AuthzEntitlements.sln` to LF / no-BOM before committing and confirm the diff is only the intended registration lines.
 
 ### LRN-080
 
@@ -69,7 +69,7 @@ id: LRN-080
 date: 2026-07-05
 category: tooling
 source_cs: CS50
-status: open
+status: applied
 tags: [xunit, dotnet, usings, test-project]
 ```
 
@@ -79,7 +79,7 @@ tags: [xunit, dotnet, usings, test-project]
 
 **Evidence:** CS50 (PR #168) — `tests/AuthzEntitlements.AppHost.Tests/AppHostApplicationModelSmokeTests.cs` includes `using Xunit;`; all existing test files do the same.
 
-**Disposition:** **open** — filed into **CS53** (`project/clickstops/planned/planned_cs53_dotnet-tooling-conventions.md`, open-learnings harvest 2026-07-05) to codify this into the `CONVENTIONS.md` `conventions.project` block; flip to `applied` when CS53 closes.
+**Disposition:** **Applied by CS53** (content PR #182, squash `ec0bd5c`, 2026-07-05). Codified into the `CONVENTIONS.md` `conventions.project` "Language + build" block: every xUnit test `.cs` must include an explicit `using Xunit;` even with `ImplicitUsings` (which does not import the `Xunit` namespace), else `CS0246`.
 
 ### LRN-081
 
