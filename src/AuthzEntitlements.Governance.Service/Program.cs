@@ -90,9 +90,11 @@ app.MapGet("/", () => TypedResults.Ok(new
         "/api/governance/grants/{id}/revoke",
         "/api/governance/review-campaigns",
         "/api/governance/break-glass",
+        "/api/governance/break-glass/{id}",
         "/api/governance/break-glass/pending-review",
         "/api/governance/break-glass/{id}/review",
         "/api/governance/delegations",
+        "/api/governance/delegations/{id}",
         "/api/governance/delegations/{id}/revoke",
     },
 }));
