@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using AuthzEntitlements.Audit.Service.Data;
+using AuthzEntitlements.Audit.Service.Domain;
 using AuthzEntitlements.Audit.Service.Endpoints;
 using AuthzEntitlements.Audit.Service.Services;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,12 @@ builder.AddServiceDefaults();
 // that matches the installed runtime.
 builder.Services.AddDbContext<AuditDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("audit")));
+
+// CS36 (LRN-057, Decision #4): the authoritative request-snapshot size cap is configurable
+// (default 16 KB). An over-cap snapshot degrades to null at ingest (fail-open, logged) rather than
+// persisting an unbounded queryable blob.
+builder.Services.Configure<RequestSnapshotOptions>(
+    builder.Configuration.GetSection(RequestSnapshotOptions.SectionName));
 
 // Serialize enums as their names so the wire contract is stable and readable.
 builder.Services.ConfigureHttpJsonOptions(options =>

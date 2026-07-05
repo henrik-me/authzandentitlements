@@ -35,4 +35,11 @@ public sealed class AuditEntry
     public string RowHash { get; set; } = string.Empty;
 
     public DateTimeOffset ReceivedAtUtc { get; set; }
+
+    // CS36 (LRN-057): the PDP's canonical JSON snapshot of the full AccessRequest, persisted so the
+    // Audit Explorer can replay the decision 1:1. Nullable — older rows and non-PDP producers have
+    // none, and an over-size or unserializable snapshot fails open to null. It is deliberately NOT
+    // part of AuditHashChain.ComputeRowHash (the same non-hashed posture as ReceivedAtUtc): it is
+    // reconstructed replay context, not producer-supplied content bound by the tamper-evident chain.
+    public string? RequestSnapshot { get; set; }
 }

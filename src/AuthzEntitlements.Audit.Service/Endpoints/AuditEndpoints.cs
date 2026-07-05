@@ -2,7 +2,10 @@ using AuthzEntitlements.Audit.Service.Contracts;
 using AuthzEntitlements.Audit.Service.Data;
 using AuthzEntitlements.Audit.Service.Domain;
 using AuthzEntitlements.Audit.Service.Services;
+using AuthzEntitlements.ServiceDefaults;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("AuthzEntitlements.Audit.Service.Tests")]
@@ -32,6 +35,8 @@ public static class AuditEndpoints
     private static async Task<IResult> IngestDecisionAsync(
         IngestDecisionRequest request,
         AuditChainWriter writer,
+        IOptions<RequestSnapshotOptions> snapshotOptions,
+        ILoggerFactory loggerFactory,
         CancellationToken ct)
     {
         // Producer is stamped server-side ("pdp") so a caller cannot spoof the producer
@@ -50,7 +55,25 @@ public static class AuditEndpoints
             request.Tenant,
             Producer: "pdp");
 
-        var entry = await writer.AppendAsync(payload, ct);
+        // CS36 (LRN-057): the request snapshot is persisted NON-hashed (never in `payload`, so the
+        // tamper-evident chain is unchanged). Size-guard it fail-open against the CONFIGURABLE cap
+        // (Decision #4) — an over-cap snapshot is stored as null (best-effort replay) rather than an
+        // unbounded queryable blob. The fail-open drop is logged (sanitized) so it stays observable.
+        var maxChars = snapshotOptions.Value.EffectiveMaxSnapshotChars;
+        var snapshot = RequestSnapshotGuard.Clamp(request.RequestSnapshot, maxChars);
+        if (snapshot is null && request.RequestSnapshot is not null)
+        {
+            loggerFactory
+                .CreateLogger(typeof(AuditEndpoints))
+                .LogWarning(
+                    "Request snapshot dropped (reason=oversize provider={Provider} length={Length} " +
+                    "max={Max}); row audited without a snapshot.",
+                    LogSanitizer.Clean(request.Provider),
+                    request.RequestSnapshot.Length,
+                    maxChars);
+        }
+
+        var entry = await writer.AppendAsync(payload, snapshot, ct);
 
         return TypedResults.Created(
             $"/api/audit/entries?sequence={entry.Sequence}",
@@ -119,25 +142,33 @@ public static class AuditEndpoints
             .OrderBy(e => e.Sequence)
             .Skip(skip)
             .Take(take)
-            .Select(e => new AuditEntryView(
-                e.Sequence,
-                e.TimestampUtc,
-                e.TraceId,
-                e.Provider,
-                e.SubjectId,
-                e.Action,
-                e.ResourceType,
-                e.ResourceId,
-                e.Decision,
-                e.Reason,
-                e.Tenant,
-                e.Producer,
-                e.PrevHash,
-                e.RowHash))
+            .Select(ToEntryView)
             .ToListAsync(ct);
 
         return TypedResults.Ok((IReadOnlyList<AuditEntryView>)entries);
     }
+
+    // The read-model projection AuditEntry -> AuditEntryView. Kept as a static Expression (not a
+    // compiled Func) so EF Core translates it server-side, AND so the projection — including that
+    // the CS36 RequestSnapshot is carried through — is unit-testable by compiling it over an
+    // in-memory entry without a database.
+    internal static readonly Expression<Func<AuditEntry, AuditEntryView>> ToEntryView =
+        e => new AuditEntryView(
+            e.Sequence,
+            e.TimestampUtc,
+            e.TraceId,
+            e.Provider,
+            e.SubjectId,
+            e.Action,
+            e.ResourceType,
+            e.ResourceId,
+            e.Decision,
+            e.Reason,
+            e.Tenant,
+            e.Producer,
+            e.PrevHash,
+            e.RowHash,
+            e.RequestSnapshot);
 
     // Composable (AND-semantics) read-model filters, kept as a pure IQueryable transform so the
     // exact selection logic is unit-testable over an in-memory sequence without a database.

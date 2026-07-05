@@ -14,4 +14,9 @@ public sealed record IngestDecisionRequest(
     string? ResourceId,
     string Decision,
     string Reason,
-    string? Tenant);
+    string? Tenant,
+    // CS36 (LRN-057): the PDP's canonical JSON snapshot of the full AccessRequest, forwarded so the
+    // Audit Explorer can replay the decision faithfully. Additive/defaulted (older producers and the
+    // non-PDP audit sources simply omit it -> null). It is persisted NON-hashed and is NOT part of
+    // AuditPayload/ComputeRowHash; the server size-guards it before persisting (see AuditEndpoints).
+    string? RequestSnapshot = null);

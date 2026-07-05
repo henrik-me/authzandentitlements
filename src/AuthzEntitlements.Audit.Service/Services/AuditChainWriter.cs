@@ -20,7 +20,8 @@ public sealed class AuditChainWriter(IServiceScopeFactory scopeFactory)
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    public async Task<AuditEntry> AppendAsync(AuditPayload payload, CancellationToken ct)
+    public async Task<AuditEntry> AppendAsync(
+        AuditPayload payload, string? requestSnapshot, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(payload);
 
@@ -48,24 +49,7 @@ public sealed class AuditChainWriter(IServiceScopeFactory scopeFactory)
             var (sequence, prevHash, rowHash) =
                 AuditHashChain.Append(previousSequence, previousRowHash, payload);
 
-            var entry = new AuditEntry
-            {
-                Sequence = sequence,
-                TimestampUtc = payload.TimestampUtc,
-                TraceId = payload.TraceId,
-                Provider = payload.Provider,
-                SubjectId = payload.SubjectId,
-                Action = payload.Action,
-                ResourceType = payload.ResourceType,
-                ResourceId = payload.ResourceId,
-                Decision = payload.Decision,
-                Reason = payload.Reason,
-                Tenant = payload.Tenant,
-                Producer = payload.Producer,
-                PrevHash = prevHash,
-                RowHash = rowHash,
-                ReceivedAtUtc = DateTimeOffset.UtcNow,
-            };
+            var entry = CreateEntry(sequence, prevHash, rowHash, payload, requestSnapshot);
 
             db.AuditEntries.Add(entry);
             await db.SaveChangesAsync(ct);
@@ -78,4 +62,30 @@ public sealed class AuditChainWriter(IServiceScopeFactory scopeFactory)
             _gate.Release();
         }
     }
+
+    // Materialize the persistable row. RowHash is computed by the caller from the PAYLOAD ONLY, so
+    // the non-hashed RequestSnapshot (CS36) is attached here WITHOUT ever entering the tamper-evident
+    // hash — the same posture as the server-stamped ReceivedAtUtc. Kept internal + static so the
+    // mapping (and the hash-independence of the snapshot) is unit-testable without a database.
+    internal static AuditEntry CreateEntry(
+        long sequence, string prevHash, string rowHash, AuditPayload payload, string? requestSnapshot) =>
+        new()
+        {
+            Sequence = sequence,
+            TimestampUtc = payload.TimestampUtc,
+            TraceId = payload.TraceId,
+            Provider = payload.Provider,
+            SubjectId = payload.SubjectId,
+            Action = payload.Action,
+            ResourceType = payload.ResourceType,
+            ResourceId = payload.ResourceId,
+            Decision = payload.Decision,
+            Reason = payload.Reason,
+            Tenant = payload.Tenant,
+            Producer = payload.Producer,
+            PrevHash = prevHash,
+            RowHash = rowHash,
+            ReceivedAtUtc = DateTimeOffset.UtcNow,
+            RequestSnapshot = requestSnapshot,
+        };
 }

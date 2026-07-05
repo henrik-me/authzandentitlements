@@ -3,6 +3,8 @@ using AuthzEntitlements.Authz.Pdp.Audit;
 using AuthzEntitlements.Authz.Pdp.Contracts;
 using AuthzEntitlements.Authz.Pdp.Providers;
 using AuthzEntitlements.Authz.Pdp.Telemetry;
+using AuthzEntitlements.ServiceDefaults;
+using Microsoft.Extensions.Logging;
 
 namespace AuthzEntitlements.Authz.Pdp.Services;
 
@@ -15,13 +17,19 @@ public sealed class PdpDecisionService
 {
     private readonly IAuthorizationDecisionProvider _provider;
     private readonly IPdpDecisionAuditSink _audit;
+    private readonly ILogger<PdpDecisionService>? _logger;
 
+    // The logger is an optional trailing dependency (defaulted null) so every existing positional
+    // construction — including in test/benchmark projects that build the service by hand — keeps
+    // compiling; DI supplies the real logger in the running service.
     public PdpDecisionService(
         AuthorizationDecisionProviderFactory factory,
-        IPdpDecisionAuditSink audit)
+        IPdpDecisionAuditSink audit,
+        ILogger<PdpDecisionService>? logger = null)
     {
         _provider = factory.GetActiveProvider();
         _audit = audit;
+        _logger = logger;
     }
 
     public string ProviderName => _provider.Name;
@@ -78,6 +86,22 @@ public sealed class PdpDecisionService
             decisionName,
             reasonCode);
 
+        // CS36 (LRN-057): capture ONE canonical JSON snapshot of the full request so the Audit
+        // Explorer can replay this decision faithfully. Fail-open to null (never throws), and it is
+        // persisted NON-hashed downstream, so it cannot affect the decision, telemetry, or the
+        // tamper-evident chain. When it fails open to null, log a sanitized (LRN-059) warning so the
+        // lost-snapshot degradation stays observable.
+        var requestSnapshot = RequestSnapshotSerializer.TrySerialize(request);
+        if (requestSnapshot is null)
+        {
+            _logger?.LogWarning(
+                "Request snapshot unavailable (reason=serializer-failure provider={Provider} " +
+                "subject={Subject} action={Action}); decision audited without a snapshot.",
+                LogSanitizer.Clean(_provider.Name),
+                LogSanitizer.Clean(request.Subject.Id),
+                LogSanitizer.Clean(request.Action.Name));
+        }
+
         _audit.Record(new PdpDecisionAuditEvent(
             TimestampUtc: DateTimeOffset.UtcNow,
             // Prefer the decision span's trace id so the audit event and the pdp.evaluate span
@@ -102,7 +126,8 @@ public sealed class PdpDecisionService
             // it was invoked. DelegationId records any delegation grant carried in context (matched or not).
             BreakGlass: breakGlassInvoked,
             BreakGlassGrantId: breakGlassInvoked ? request.Context.BreakGlass?.GrantId : null,
-            DelegationId: request.Context.Delegation?.GrantId));
+            DelegationId: request.Context.Delegation?.GrantId,
+            RequestSnapshot: requestSnapshot));
 
         return explained;
     }
