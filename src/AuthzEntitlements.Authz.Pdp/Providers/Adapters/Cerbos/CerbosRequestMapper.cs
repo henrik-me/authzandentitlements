@@ -38,9 +38,23 @@ public static class CerbosRequestMapper
     private const string StatusAttr = "status";
 
     // The resource id used for this request (and to Find the matching result entry): the resource's
-    // own id when present, else the stable placeholder.
+    // own id when present and non-blank, else the stable placeholder. A whitespace-only id normalizes
+    // to the placeholder so an effectively-blank id is never sent to Cerbos.
     public static string ResourceIdFor(AccessRequest request) =>
-        request.Resource.Id is { Length: > 0 } id ? id : ResourceIdPlaceholder;
+        string.IsNullOrWhiteSpace(request.Resource.Id) ? ResourceIdPlaceholder : request.Resource.Id;
+
+    // The principal roles Cerbos evaluates: the subject's non-blank roles, or the RolePlaceholder when
+    // the subject has no usable role. Cerbos requires every role to be a non-empty string, so a
+    // null/blank entry is dropped — it would match no eligible-role set anyway, exactly as the reference
+    // engine treats an ineligible role (RoleNotAuthorized).
+    public static string[] PrincipalRoles(Subject subject)
+    {
+        var roles = subject.Roles?
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .ToArray();
+
+        return roles is { Length: > 0 } ? roles : new[] { RolePlaceholder };
+    }
 
     // Builds the full CheckResources request (single principal, single resource entry, single action).
     public static CheckResourcesRequest Map(AccessRequest request) =>
@@ -52,11 +66,7 @@ public static class CerbosRequestMapper
 
     private static Principal BuildPrincipal(AccessRequest request)
     {
-        var roles = request.Subject.Roles is { Count: > 0 } r
-            ? r.ToArray()
-            : new[] { RolePlaceholder };
-
-        var principal = Principal.NewInstance(request.Subject.Id, roles);
+        var principal = Principal.NewInstance(request.Subject.Id, PrincipalRoles(request.Subject));
 
         if (!string.IsNullOrWhiteSpace(request.Subject.Tenant))
         {
