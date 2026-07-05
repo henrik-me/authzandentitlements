@@ -24,7 +24,7 @@ namespace AuthzEntitlements.Authz.Pdp.Providers.SpiceDb;
 // adapter uses, written into SpiceDB's schema (SpiceDbSchema) with the SpiceDB relation names of the
 // same spelling, so SpiceDB and OpenFGA are seeded from ONE relationship graph and must answer every
 // account question identically.
-public sealed class SpiceDbCheckService : ISpiceDbCheckClient
+public sealed class SpiceDbCheckService : ISpiceDbCheckClient, IDisposable
 {
     private readonly SpiceDbOptions _options;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -32,6 +32,7 @@ public sealed class SpiceDbCheckService : ISpiceDbCheckClient
     // All volatile so the fast-path (pre-semaphore) read of _bootstrapped safely publishes the
     // clients: the volatile writes of the clients before the volatile write of _bootstrapped
     // guarantee a thread that observes _bootstrapped==true also sees fully-constructed clients.
+    private volatile GrpcChannel? _channel;
     private volatile SchemaService.SchemaServiceClient? _schema;
     private volatile PermissionsService.PermissionsServiceClient? _permissions;
     private volatile bool _bootstrapped;
@@ -70,10 +71,23 @@ public sealed class SpiceDbCheckService : ISpiceDbCheckClient
                 return;
             }
 
-            var (schema, permissions) = BuildClients();
-            await WriteSchemaAsync(schema, cancellationToken).ConfigureAwait(false);
-            await WriteSeedRelationshipsAsync(permissions, cancellationToken).ConfigureAwait(false);
+            var (channel, schema, permissions) = BuildClients();
+            try
+            {
+                await WriteSchemaAsync(schema, cancellationToken).ConfigureAwait(false);
+                await WriteSeedRelationshipsAsync(permissions, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // A failed bootstrap (e.g. SpiceDB unreachable) must not leak the channel: the next
+                // check re-enters and builds a fresh one, so dispose this attempt's channel before
+                // rethrowing (the provider turns the throw into a fail-closed deny). Without this,
+                // repeated fail-closed checks accumulate abandoned channels/sockets until restart.
+                channel.Dispose();
+                throw;
+            }
 
+            _channel = channel;
             _schema = schema;
             _permissions = permissions;
             _bootstrapped = true;
@@ -110,7 +124,7 @@ public sealed class SpiceDbCheckService : ISpiceDbCheckClient
         return response.Permissionship == CheckPermissionResponse.Types.Permissionship.HasPermission;
     }
 
-    private (SchemaService.SchemaServiceClient, PermissionsService.PermissionsServiceClient) BuildClients()
+    private (GrpcChannel Channel, SchemaService.SchemaServiceClient Schema, PermissionsService.PermissionsServiceClient Permissions) BuildClients()
     {
         if (string.IsNullOrWhiteSpace(_options.Endpoint))
         {
@@ -150,7 +164,7 @@ public sealed class SpiceDbCheckService : ISpiceDbCheckClient
         };
 
         var channel = GrpcChannel.ForAddress(_options.Endpoint, channelOptions);
-        return (new SchemaService.SchemaServiceClient(channel), new PermissionsService.PermissionsServiceClient(channel));
+        return (channel, new SchemaService.SchemaServiceClient(channel), new PermissionsService.PermissionsServiceClient(channel));
     }
 
     private static async Task WriteSchemaAsync(
@@ -202,5 +216,14 @@ public sealed class SpiceDbCheckService : ISpiceDbCheckClient
             ObjectType = typeAndId[..separator],
             ObjectId = typeAndId[(separator + 1)..],
         };
+    }
+
+    // Disposes the cached gRPC channel (and the bootstrap gate) when the DI container disposes this
+    // singleton at shutdown. The failure path in EnsureBootstrappedAsync disposes its own channel, so
+    // this only releases the one successfully-bootstrapped channel.
+    public void Dispose()
+    {
+        _channel?.Dispose();
+        _gate.Dispose();
     }
 }
