@@ -76,7 +76,9 @@ Investigation of the open PRs showed the remaining bypass drivers: (1) the harne
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- **C35-13 deviation from Decision 6.** Decision 6 said "file three tracking issues in `henrik-me/agent-harness`." OPERATIONS.md **C35-13** forbids this agent opening issues in the harness repo, so the three upstream fixes ((a) review-gates skip bot/Dependabot PRs; (b) managed-drift check tolerate Dependabot GitHub-Actions bumps to managed workflows; (c) review-gates robust `workboard-only` handling / `pull_request_review` trigger) are instead **documented** in `docs/ci/review-pr-hardening.md` for the maintainer to file. Reversible; recorded in the Plan-vs-implementation review.
+- **Follow-up — committed-spec drift (surfaced by Copilot review of PR #143).** `infra/main-protection-ruleset.json` (name `main-protection`) is the harness-intended spec whose four review-gate contexts are injected by `harness sync`; it was **never applied** (authored while the repo was private → HTTP 403) and now drifts from the applied live ruleset `push to main` (id 18513457), which additionally requires `build-test`/`structural-gate`/`read-only-gates`. Reconciling the harness-sync-managed spec is **deferred** (out of CS40's original scope; needs a `sync --mode=check`-aware change) — do NOT hand-edit the injected contexts. Documented in `docs/ci/review-pr-hardening.md § Source of truth & the committed spec`.
+- **Close-out fix.** `CONTEXT.md § Blockers` still claims "Branch-protection ruleset not applied … CI advisory-only"; this is stale (repo public, live ruleset applied + hardened by CS40). Corrected at close-out.
 
 ## Model audit
 
