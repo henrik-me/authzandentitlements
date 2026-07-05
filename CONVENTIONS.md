@@ -407,8 +407,8 @@ catalog (`ScenarioCatalogRunner`), which passes a provider only when it returns 
 - **Out-of-process / full-decision engine adapters (SpiceDB, Cerbos, Keto, Topaz) must follow the
   applicable subset of the four safety patterns** in [`docs/authz/pdp-contract.md` § "Out-of-process engine adapter safety"](docs/authz/pdp-contract.md#out-of-process-engine-adapter-safety)
   — each pattern states its transport/role condition: the h2c `AppContext` switch set before the first
-  handler/channel + `https://` fail-closed rejection and lowercase gRPC metadata / `CallCredentials` keys
-  (both **cleartext-gRPC-only**); the full-decision fail-closed response-mapping checklist (unknown
+  handler/channel + `https://` fail-closed rejection (**cleartext-gRPC-only**) and lowercase gRPC metadata /
+  `CallCredentials` keys (**any gRPC adapter, cleartext or TLS**); the full-decision fail-closed response-mapping checklist (unknown
   obligation → deny, no-output → `ProviderUnavailable`, ambiguous → deny; **full-decision-only**); and an
   env-gated `<ENGINE>_TEST_ENDPOINT` integration test (**every** out-of-process adapter) that soft-skips
   when unset. See that section for the domain detail and worked-example citations (LRN-072/073/074/076).

@@ -477,9 +477,9 @@ then, leave it unmarked and the factory fails it closed on those requests automa
 An engine that runs **out-of-process** — and especially a **full-decision** engine that owns the whole
 fintech decision — must apply the **subset** of the four safety invariants below that matches its transport
 and decision role. Each invariant states its own applicability condition, so an adapter takes only the ones
-that apply: the h2c switch and the gRPC-metadata casing rule are **cleartext-gRPC-specific**, the
-response-mapping checklist is **full-decision-specific**, and the env-gated integration test applies to
-**every** out-of-process adapter. All four are load-bearing and easy to get silently wrong, and each was
+that apply: the h2c switch is **cleartext-gRPC-specific**, the gRPC-metadata casing rule is
+**gRPC-specific** (cleartext or TLS), the response-mapping checklist is **full-decision-specific**, and the
+env-gated integration test applies to **every** out-of-process adapter. All four are load-bearing and easy to get silently wrong, and each was
 surfaced by a shipped adapter, so they are captured here for the next adapter author instead of being
 re-derived from prior adapters and PR review logs. The shipped adapters are SpiceDB and Cerbos
 (cleartext-h2c gRPC), Keto (HTTP REST), and Topaz (full-decision over TLS); worked examples are cited by
