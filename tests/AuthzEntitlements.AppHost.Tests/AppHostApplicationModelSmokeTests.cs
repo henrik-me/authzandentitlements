@@ -55,7 +55,10 @@ public class AppHostApplicationModelSmokeTests
     /// <c>:5000</c>, collided, and left the existing <c>.GetEndpoint("http")</c> references
     /// (edge-gateway → bank-api, authz-pdp → audit-service) unresolved. This asserts every project
     /// resource declares an <c>http</c>-scheme endpoint named <c>http</c> so the default
-    /// <c>aspire run</c> can never silently regress to <c>:5000</c> again.
+    /// <c>aspire run</c> can never silently regress to <c>:5000</c> again. The assertion
+    /// intentionally covers <em>every</em> project resource, not only the five regressed
+    /// services: bank-web and edge-gateway already expose <c>http</c> via
+    /// <c>WithExternalHttpEndpoints()</c>, so all project resources must carry an <c>http</c> endpoint.
     /// </summary>
     [Fact]
     public async Task AppHost_every_project_resource_exposes_an_http_endpoint()
@@ -126,19 +129,24 @@ public class AppHostApplicationModelSmokeTests
         Assert.Equal(8080, httpEndpoint.TargetPort);
 
 #pragma warning disable ASPIRECERTIFICATES001 // guard the anti-HTTPS-flip annotation set by WithoutHttpsCertificate()
-        var httpsCert = keycloak.Annotations
+        var httpsCerts = keycloak.Annotations
             .OfType<HttpsCertificateAnnotation>()
-            .LastOrDefault();
+            .ToList();
 
         Assert.True(
-            httpsCert is not null,
+            httpsCerts.Count > 0,
             "Keycloak must carry an HttpsCertificateAnnotation (from WithoutHttpsCertificate()) so the " +
             "run-mode HTTPS-endpoint update never flips the fixed 8088 endpoint to https/8443.");
-        Assert.False(
-            httpsCert!.UseDeveloperCertificate ?? true,
+
+        // Select by the property under test rather than annotation ordering (annotation order is not a
+        // stable contract, so LastOrDefault() would be a brittle false-failure): the anti-flip
+        // annotation is the one with UseDeveloperCertificate == false.
+        var antiFlip = httpsCerts.FirstOrDefault(c => (c.UseDeveloperCertificate ?? true) == false);
+        Assert.True(
+            antiFlip is not null,
             "Keycloak's HttpsCertificateAnnotation must set UseDeveloperCertificate=false; otherwise the " +
             "BeforeStart update rewrites the 8088 endpoint to https/8443 and breaks http://localhost:8088 OIDC.");
-        Assert.Null(httpsCert.Certificate);
+        Assert.Null(antiFlip!.Certificate);
 #pragma warning restore ASPIRECERTIFICATES001
     }
 }

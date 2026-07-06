@@ -95,7 +95,7 @@ const string realm = "authz-bank";
 const int keycloakPort = 8088;
 var keycloakAuthority = $"http://localhost:{keycloakPort}/realms/{realm}";
 
-// CS56 — .NET 10 GA + Aspire.Hosting.Keycloak 13.4.6 flip the fixed host endpoint to HTTPS.
+// CS56 — the .NET 10 GA + Aspire.Hosting.Keycloak 13.4.6 bump flips the fixed host endpoint to HTTPS.
 // In run mode the integration subscribes to a BeforeStart HTTPS-endpoint update that, when a
 // developer certificate is available, rewrites the "http" endpoint to UriScheme "https" /
 // targetPort 8443 — so host 8088 binds container 8443 and `http://localhost:8088/...` returns
