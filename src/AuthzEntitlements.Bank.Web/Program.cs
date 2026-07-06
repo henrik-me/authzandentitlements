@@ -154,8 +154,10 @@ app.MapGet("/logout", async (HttpContext httpContext) =>
     // now empty) — and Keycloak rejects that with "Missing parameters: id_token_hint". So when there
     // is no id_token to use as the hint, just clear any local cookie and return home instead of
     // bouncing through the identity provider. When authenticated, the id_token is present and the
-    // normal sign-out carries id_token_hint correctly.
-    var idToken = await httpContext.GetTokenAsync("id_token");
+    // normal sign-out carries id_token_hint correctly. Read the token from the cookie scheme
+    // explicitly (where SaveTokens persists it, matching the handler's SignOutScheme) so the guard
+    // is independent of the default-scheme configuration.
+    var idToken = await httpContext.GetTokenAsync(CookieAuthenticationDefaults.AuthenticationScheme, "id_token");
     if (string.IsNullOrEmpty(idToken))
     {
         await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
