@@ -1,10 +1,10 @@
 # CS56 — Repair `aspire run`: Keycloak HTTP scheme + internal-service endpoints
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs56/content
 **Started:** 2026-07-06
-**Closed:** —
+**Closed:** 2026-07-06
 **Filed by:** yoga-ae-c4 on 2026-07-05 — user opened `bank-web` under `aspire run` and got an OIDC discovery failure ("The response ended prematurely"). Live investigation this session traced it (plus several "Finished"/"Failed to start" resources) to the **.NET 10 GA + Aspire 13.4.6 lockstep bump (PR #190→#189, `357b08d`)**. User directive: "File a bug-fix CS to repair aspire run properly (Keycloak scheme + internal-service ports), then implement."
 **Depends on:** none
 
