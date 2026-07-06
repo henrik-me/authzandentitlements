@@ -182,8 +182,8 @@ dotnet test AuthzEntitlements.sln --no-build --no-restore
 ```
 
 Build and test need **no Docker** — the OPA adapter tests are stubbed (deterministic), and the
-OpenFGA / SpiceDB / Cerbos / Keto / Topaz integration tests are env-gated, soft-skipping unless their
-`*_TEST_*` endpoint variable is set.
+OpenFGA / SpiceDB / Cerbos / Keto / Topaz integration tests are env-gated, soft-skipping unless the
+matching `*_TEST_*` URL / endpoint variable is set (e.g. `OPENFGA_TEST_API_URL`).
 
 ### End-to-end smoke gate
 

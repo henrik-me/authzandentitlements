@@ -277,11 +277,12 @@ provisioned dashboards (Service Health, Request Rates, PDP Performance, Complian
 
 The default `dotnet test AuthzEntitlements.sln` runs the full suite with **no Docker** — the in-process
 engines run the 22-scenario parity offline, OPA is stubbed deterministically, and the other container
-engines (OpenFGA / SpiceDB / Cerbos / Keto / Topaz) soft-skip unless their `*_TEST_*` endpoint is set.
+engines (OpenFGA / SpiceDB / Cerbos / Keto / Topaz) soft-skip unless the matching `*_TEST_*` URL /
+endpoint variable is set (e.g. `OPENFGA_TEST_API_URL`).
 A separate **end-to-end smoke gate** (`tests/AuthzEntitlements.E2E.Tests`, opt-in via `RUN_ASPIRE_E2E=1`,
 needs Docker) boots the real `aspire run` stack with `Aspire.Hosting.Testing` and asserts the runtime
-basics the offline suites structurally cannot — every service reaches Healthy, Keycloak OIDC + a token
-round-trip work, `bank-web` serves 200, and an **authenticated** `teller1`/`manager1` flow drives
+basics the offline suites structurally cannot — every service reaches Healthy, Keycloak OIDC and a token
+round-trip succeed, `bank-web` serves 200, and an **authenticated** `teller1`/`manager1` flow drives
 tenant-scoped reads and role-gated writes (a teller's create-account is denied) through the live edge
 gateway, plus governance break-glass called directly on the governance service (pinning Keycloak to
 its declared port so the token issuer / JWKS / authority align). It is the mandatory local pre-PR gate
