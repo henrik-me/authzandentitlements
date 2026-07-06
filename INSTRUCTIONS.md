@@ -613,10 +613,24 @@ above are managed by the harness and will be overwritten on the next
 `harness.config.json` under `composed.overrides["INSTRUCTIONS.md"].local_blocks`.
 
 <!-- harness:local-start id=instructions.harness -->
+**Get latest FIRST — with a plain `git pull`.** Fetch the latest state **before**
+reading these instructions or running any harness command (per Session Start). Do
+**not** use `startup`/`sync` or any `npx …agent-harness` command as the get-latest
+step — running a harness CLI is what collides a fresh pull with a stale pin. After
+`git pull`, take the harness pin from the now-current **`harness.config.json`
+`version`** (the single source of truth — every `#<ver>` doc literal is sync-rendered
+from it; never hard-code it or copy it from a cached session/doc snapshot, which can
+lag), then invoke `npx …agent-harness#<pin> …` with that value. If `startup`/`sync`
+fails right after a pull with `Template file not found: …/template/managed/<X>.md
+(required for managed target "<X>")`, your CLI is **older** than the just-pulled pin —
+re-run at the pinned version. (Upstream enforcement tracked: agent-harness#502.)
+
 **This repo has no local Node dependencies.** The agent-harness runs via
-`npx -y github:henrik-me/agent-harness#v0.17.0 <cmd>` — there is **no `package.json`**,
-so **skip the Session-Start `npm ci` step** (it does not apply here; `node --test`
-reports 0/0, which is expected).
+`npx -y github:henrik-me/agent-harness#<pin> <cmd>` — where **`<pin>` = the `version`
+field in `harness.config.json`** (look it up, e.g.
+`node -p "require('./harness.config.json').version"`; never hard-code it). There is
+**no `package.json`**, so **skip the Session-Start `npm ci` step** (it does not apply
+here; `node --test` reports 0/0, which is expected).
 
 **Machine prerequisites** (install once per machine): **.NET 10 SDK**, **Node >= 20**,
 **Docker** (running), the **`aspire` CLI** (`dotnet tool install -g Aspire.Cli`), and
@@ -624,7 +638,7 @@ reports 0/0, which is expected).
 
 **New-agent start here (from a fresh clone):**
 1. `git pull`; derive your agent ID (`<machine>-ae`).
-2. Run `npx -y github:henrik-me/agent-harness#v0.17.0 startup` (session sanity + queue).
+2. Run `npx -y github:henrik-me/agent-harness#<pin> startup` (session sanity + queue) — `<pin>` from `harness.config.json` `version` (see above).
 3. Read [CONTEXT.md](CONTEXT.md) — the **CS dependency map + parallelization waves** and current state.
 4. Read [ARCHITECTURE.md](ARCHITECTURE.md) — goals, the four-layer authz model, decisions, and the phase roadmap.
 5. Claim the first ready clickstop — **CS01 (aspire-foundations)** — and follow the Per-CS loop.

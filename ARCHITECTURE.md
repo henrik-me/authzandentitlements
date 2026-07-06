@@ -308,7 +308,7 @@ Full STRIDE analysis: [docs/security/threat-model.md](docs/security/threat-model
 ### Decision: Adopt agent-harness for process orchestration
 - **Date:** 2026-07-02 · **Status:** Accepted
 - **Context:** Multi-agent, parallelizable build; need clickstop lifecycle, review gates, CI.
-- **Decision:** Adopt `henrik-me/agent-harness` (pin has since advanced to **`v0.17.0`**); work is
+- **Decision:** Adopt `henrik-me/agent-harness` (current pin tracked in `harness.config.json` — the `version` field, the single source of truth); work is
   tracked as clickstops.
 - **Consequences:** PR review-evidence + plan-review gates apply; the repo is the persistent memory.
 

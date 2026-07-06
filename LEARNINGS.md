@@ -24,6 +24,26 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-091
+
+```yaml
+id: LRN-091
+date: 2026-07-06
+category: operational
+source_cs: CS51
+status: open
+tags: [get-latest-first, harness, version-pin, startup, sequencing]
+claim_area: orchestrator-loop
+```
+
+**Problem:** Running the harness CLI (`startup --pull-ff-only`) as the **first action instead of getting latest first** pulled a newer pin mid-command while still executing an older CLI from a stale snapshot — colliding a fresh pull with a stale-CLI `sync` and yielding a cryptic `Template file not found` for a managed target (`DISPATCH-PREAMBLE.md`) that exists only in the newer version. Compounded by hand-maintained `#<ver>` literals in consumer-owned docs that lag the real pin.
+
+**Finding:** Get latest **first** with a plain `git pull` (never `startup`/`sync`/any `npx …agent-harness` command, which runs the stale pin), **then** read the pin from `harness.config.json` `version` (the single source of truth — every `#<ver>` doc literal is sync-rendered from it), **then** invoke the harness at that pin. Consumer-owned docs must **look up** the pin from `harness.config.json`, never hard-code a version literal. The harness should also enforce this (startup pull-first + re-exec/validate at the pulled pin), tracked via agent-harness#502.
+
+**Evidence:** This session began at `harness.config.json` = v0.17.0 (HEAD `5b0668c`) but the agent's base-instruction snapshot pinned `#v0.12.0`; the first `startup` at `#v0.12.0` failed `sync --mode=check` with `Template file not found: …/template/managed/DISPATCH-PREAMBLE.md (required for managed target "DISPATCH-PREAMBLE.md")`; re-running at `#v0.17.0` (the `harness.config.json` `version`) → 23 passed / 0 failed, no drift. The prior v0.16.0→v0.17.0 incident (PR #157 adds `DISPATCH-PREAMBLE.md`) is recorded in CS51 Background. Consumer-owned pin literals de-hardcoded to a `harness.config.json` lookup in `INSTRUCTIONS.md` (`instructions.harness`), `README.md`, and `ARCHITECTURE.md` by CS51.
+
+**Disposition:** **open** — the INSTRUCTIONS.md `instructions.harness` note + the de-hardcoding (CS51) are the consumer mitigation; upstream enforcement is tracked via agent-harness#502. Flips `open → applied` at CS51 close-out (recording the commit/PR).
+
 ### LRN-090
 
 ```yaml
