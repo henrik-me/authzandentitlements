@@ -344,10 +344,12 @@ public sealed class AuthenticatedFlowE2ETests
         });
 
     /// <summary>
-    /// GETs <paramref name="url"/>, retrying on connection failure, a per-request client timeout,
-    /// or any non-200 status until <paramref name="timeout"/> elapses, then returns the last
-    /// response. Absorbs container/realm readiness and JWT-handler JWKS warm-up; a persistent
-    /// non-200 surfaces as an assertion failure. The overall CTS deadline still propagates.
+    /// GETs <paramref name="url"/>. While the timeout window remains, retries on connection failure,
+    /// a per-request client timeout, or any non-200 status. Returns the first 200, or — once the
+    /// window elapses — the last non-200 response that was received. If the endpoint was never
+    /// reachable within the window (only connection/timeout failures, no response), the last such
+    /// exception propagates. The overall CTS deadline always propagates. Absorbs container/realm
+    /// readiness and JWT-handler JWKS warm-up; a persistent non-200 surfaces as an assertion failure.
     /// </summary>
     private static async Task<HttpResponseMessage> GetUntilOkAsync(
         HttpClient client, string url, TimeSpan timeout, CancellationToken cancellationToken)
@@ -381,10 +383,11 @@ public sealed class AuthenticatedFlowE2ETests
     }
 
     /// <summary>
-    /// POSTs a JSON body, retrying on connection failure or a per-request client timeout (never on
-    /// an HTTP status) until <paramref name="timeout"/> elapses, then returns the response. The auth
-    /// path is warm by the time creates run, so the first HTTP status received (201/403/500) is the
-    /// real outcome. The overall CTS deadline still propagates.
+    /// POSTs a JSON body and returns the first response received (any status — the auth path is warm
+    /// by the time creates run, so 201/403/500 is the real outcome). While the timeout window remains,
+    /// retries only on connection failure or a per-request client timeout (never on an HTTP status).
+    /// If the endpoint was never reachable within the window, the last such exception propagates. The
+    /// overall CTS deadline always propagates.
     /// </summary>
     private static async Task<HttpResponseMessage> PostJsonAsync(
         HttpClient client, string url, string json, TimeSpan timeout, CancellationToken cancellationToken)
