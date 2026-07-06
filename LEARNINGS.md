@@ -24,6 +24,26 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-090
+
+```yaml
+id: LRN-090
+date: 2026-07-06
+category: architectural
+source_cs: CS59
+status: open
+tags: [oidc, logout, keycloak, bank-web, id-token-hint]
+claim_area: bank-web-logout
+```
+
+**Problem:** Signing out of `bank-web` when there was **no active OIDC session** dead-ended on Keycloak's error page **"We are sorry… Missing parameters: id_token_hint"** (HTTP 400) instead of returning home. The `/logout` endpoint unconditionally drove an OIDC RP-initiated logout (`Results.SignOut([Cookie, Oidc])`).
+
+**Finding:** ASP.NET Core's `OpenIdConnectHandler.SignOutAsync` sets `message.IdTokenHint = await Context.GetTokenAsync(Options.SignOutScheme, "id_token")` — it sources `id_token_hint` from the **saved cookie tokens** (`SaveTokens = true`, `SignOutScheme` = the cookie scheme), **not** from the `AuthenticationProperties` passed to `SignOut`. When `/logout` runs with no active session (expired cookie, a prior sign-out, or a dropped chunk of the large `.AspNetCore.Cookies`), `GetTokenAsync("id_token")` returns null, yet the handler still redirects to Keycloak's end-session endpoint emitting `post_logout_redirect_uri` (the `SignedOutCallbackPath` `/signout-callback-oidc`) with an **empty** `id_token_hint`. The dev realm's `bank-web` client allows post-logout redirects (`redirectUris: ["*"]`, `post.logout.redirect.uris: "+"`), and per the OIDC RP-Initiated Logout spec Keycloak requires `id_token_hint` to validate a supplied `post_logout_redirect_uri` — absent it, HTTP 400. Stashing the id_token in the sign-out `AuthenticationProperties` does **not** help (the handler ignores them). **Fix/prevention:** guard the endpoint — when `GetTokenAsync("id_token")` is empty, `SignOutAsync` the local cookie and `Results.LocalRedirect("/")` instead of driving the OIDC end-session; the authenticated path still carries the hint correctly and is unchanged.
+
+**Evidence:** `src/AuthzEntitlements.Bank.Web/Program.cs` (the `/logout` guard + `options.SaveTokens = true` / `options.SignedOutCallbackPath = "/signout-callback-oidc"`); `infra/keycloak/authz-bank-realm.json` (the `bank-web` client's `redirectUris` `*` / `post.logout.redirect.uris` `+`); the ASP.NET Core aspnetcore `OpenIdConnectHandler.SignOutAsync` source (`message.IdTokenHint = await Context.GetTokenAsync(Options.SignOutScheme, "id_token")`); the CS59 live reproduction (unauthenticated `/logout` → 302 to `…/logout?post_logout_redirect_uri=…` with **no** `id_token_hint` → Keycloak 400 "We are sorry…"; after the fix → local redirect home; the authenticated browser flow emits `id_token_hint` unchanged).
+
+**Disposition:** **open** — fixed in-band by CS59 (`src/AuthzEntitlements.Bank.Web/Program.cs`, the `/logout` guard). Flips `open → applied` at CS59 close-out.
+
 ### LRN-089
 
 ```yaml

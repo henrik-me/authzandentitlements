@@ -145,10 +145,29 @@ app.MapGet("/login", () =>
         new AuthenticationProperties { RedirectUri = "/" },
         [OidcScheme]));
 
-app.MapGet("/logout", () =>
-    Results.SignOut(
+app.MapGet("/logout", async (HttpContext httpContext) =>
+{
+    // RP-initiated logout only makes sense when there is an active OIDC session. If the local
+    // session is already gone (cookie expired, a prior sign-out, or a lost id_token), the OIDC
+    // handler would still redirect to Keycloak's end-session endpoint with a post_logout_redirect_uri
+    // but NO id_token_hint (it sources the hint from GetTokenAsync(SignOutScheme,"id_token"), which is
+    // now empty) — and Keycloak rejects that with "Missing parameters: id_token_hint". So when there
+    // is no id_token to use as the hint, just clear any local cookie and return home instead of
+    // bouncing through the identity provider. When authenticated, the id_token is present and the
+    // normal sign-out carries id_token_hint correctly. Read the token from the cookie scheme
+    // explicitly (where SaveTokens persists it, matching the handler's SignOutScheme) so the guard
+    // is independent of the default-scheme configuration.
+    var idToken = await httpContext.GetTokenAsync(CookieAuthenticationDefaults.AuthenticationScheme, "id_token");
+    if (string.IsNullOrEmpty(idToken))
+    {
+        await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        return Results.LocalRedirect("/");
+    }
+
+    return Results.SignOut(
         new AuthenticationProperties { RedirectUri = "/" },
-        [CookieAuthenticationDefaults.AuthenticationScheme, OidcScheme]));
+        [CookieAuthenticationDefaults.AuthenticationScheme, OidcScheme]);
+});
 
 app.MapDefaultEndpoints();
 
