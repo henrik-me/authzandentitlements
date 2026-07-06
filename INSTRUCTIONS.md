@@ -614,7 +614,9 @@ above are managed by the harness and will be overwritten on the next
 
 <!-- harness:local-start id=instructions.harness -->
 **Get latest FIRST — with a plain `git pull`.** Fetch the latest state **before**
-acting on these instructions or running any harness command (per Session Start). Do
+acting on these instructions or running any harness command (per the Session-Start
+**Pull** rule — `git pull` first; `startup --pull-ff-only` is the *second* step, run
+only after the pin is known). Do
 **not** use `startup`/`sync` or any `npx …agent-harness` command as the get-latest
 step — running a harness CLI is what collides a fresh pull with a stale pin. After
 `git pull`, take the harness pin from the now-current **`harness.config.json`
