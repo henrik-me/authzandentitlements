@@ -1,10 +1,10 @@
 # CS57 — First e2e smoke gate: `aspire run` stack boots + basics work
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs57/content
 **Started:** 2026-07-06
-**Closed:** —
+**Closed:** 2026-07-06
 **Filed by:** yoga-ae-c4 on 2026-07-05 — user request: "create a test that needs to be run locally part of every change made before sending off to PR review, include the test in the harness startup process as well. The test needs to verify the steps with aspire run and all the necessary services. This is the start of the e2e test gate, ensuring the basics of the system works." Design approach **Option A** confirmed by the user (Aspire.Hosting.Testing `StartAsync` .NET e2e + a node `harness startup` wrapper).
 **Depends on:** none (extends the CS50 app-model smoke test + the CS56 `aspire run` acceptance checks into an automated e2e gate)
 
@@ -97,4 +97,19 @@ Stand up the **first end-to-end smoke gate** for the system: an automated test t
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-06T06:38:41Z
+**Outcome:** GO
+
+Independent plan-vs-implementation review against the merged content (`main` @ `c908d27`).
+
+| Item | Outcome | Notes |
+|---|---|---|
+| D1 | match | `StartAsync` e2e asserts 7 Healthy services, OIDC discovery, token round-trip, and bank-web 200; `RUN_ASPIRE_E2E` skip + 8088 guard present; the Decision #2 dynamic-endpoint / issuer-shape deviation is documented (Notes + LRN-088) and sound. |
+| D2 | match | Node wrapper skips Docker-down / 8088-busy and `spawnSync`s `dotnet test tests/AuthzEntitlements.E2E.Tests -c Debug` with `RUN_ASPIRE_E2E=1` plus a 15-minute timeout. |
+| D3 | match | E2E project is in the solution; `.sln` is LF/no-BOM; env-unset default is a true xUnit skip. |
+| D4 | match | `docs/testing/e2e-smoke.md` accurately describes the dynamic Keycloak endpoint behavior, issuer-shape assertion, prerequisites, skips, and "skipped ≠ pre-PR pass". |
+| D5 | match | REVIEWS.md + INSTRUCTIONS.md additions are inside the local markers; mandatory-local pre-PR wiring + skipped-not-pass language present; LRN-088 present. |
+| Decisions #1–#7 | match | Covered by D1–D5: testing tech, basics/deviation, opt-in skip, startup wrapper/8088 guard, local honor-system v1, solution registration, no new deps. |
+
+**Test-coverage:** sufficient — the opt-in local/startup gate with a Docker-free CI skip is the intended v1 tradeoff; the real e2e ran green (4/4) and exercises the CS56 regression surfaces (Keycloak HTTP/OIDC issuer behavior + project-service runtime health/port failures). Future CI-required / UI / per-engine coverage is explicit roadmap, not dropped. Exit criteria met: build 0/0, default sln test 1799 pass + e2e skipped, real e2e 4/4 green, `harness lint` 23/0, LF/no-BOM.
