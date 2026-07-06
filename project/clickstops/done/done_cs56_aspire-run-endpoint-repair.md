@@ -1,10 +1,10 @@
 # CS56 — Repair `aspire run`: Keycloak HTTP scheme + internal-service endpoints
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs56/content
 **Started:** 2026-07-06
-**Closed:** —
+**Closed:** 2026-07-06
 **Filed by:** yoga-ae-c4 on 2026-07-05 — user opened `bank-web` under `aspire run` and got an OIDC discovery failure ("The response ended prematurely"). Live investigation this session traced it (plus several "Finished"/"Failed to start" resources) to the **.NET 10 GA + Aspire 13.4.6 lockstep bump (PR #190→#189, `357b08d`)**. User directive: "File a bug-fix CS to repair aspire run properly (Keycloak scheme + internal-service ports), then implement."
 **Depends on:** none
 
@@ -98,4 +98,19 @@ Evidence gathered live this session (HEAD `3b57392`):
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-06T05:06:53Z
+**Outcome:** GO
+
+Independent plan-vs-implementation review against the merged content (`main` @ `388a653`).
+
+| Item | Outcome | Assessment |
+|---|---|---|
+| D1 — Keycloak HTTP endpoint | match | `.WithoutHttpsCertificate()`; the mechanism deviation is documented and the outcome preserves HTTP 8088→8080 plus the `http://localhost:8088/realms/authz-bank` issuer. |
+| D2 — Internal service endpoints | match | `.WithHttpEndpoint()` on all five internal services (bank-api, audit-service, entitlements-service, governance-service, authz-pdp). |
+| D3 — App-model smoke guards | match | Two guards; the anti-flip `HttpsCertificateAnnotation` deviation is sound + documented (the flip fires at `BeforeStart`, not the Docker-free `BuildAsync`). |
+| D4 — Docs | match | Triage doc updated; demo/local-stack docs carry no contradicting HTTP/port claims, so leaving them unchanged is acceptable. |
+| D5 — LRN-087 | match | Filed with the Aspire/Keycloak/internal-endpoint regression + guard lesson. |
+| Decisions #1–#6 | match | #1–#4 → D1–D3; #5 preserved (surgical diff, opt-in engines still `WithExplicitStart`); #6 live-run acceptance recorded. |
+
+**Test-coverage:** sufficient — the Docker-free `BuildAsync` smoke tests cannot assert the runtime HTTPS flip or dynamic port assignment, but the recorded live `aspire run` acceptance covers all 7 services on unique ports, Keycloak HTTP OIDC 200, the token round-trip, and bank-web 200. Verified: `dotnet build` 0/0, `dotnet test` 1799/0, `harness lint` 23/0.
