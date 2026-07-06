@@ -72,12 +72,12 @@ Evidence gathered live this session (HEAD `3b57392`):
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| T1 (D1) — `AppHost.cs`: bind Keycloak fixed host port 8088 → container HTTP 8080 (restore `http://localhost:8088` authority) | pending | yoga-ae-c4 | Verify issuer stays `http://localhost:8088/realms/authz-bank` (R2) |
-| T2 (D2) — `AppHost.cs`: add `.WithHttpEndpoint()` (name `http`, dynamic port) to bank-api, audit-service, entitlements-service, governance-service, authz-pdp | pending | yoga-ae-c4 | Fixes `:5000` collision + resolves existing `.GetEndpoint("http")` refs (L143/L325) |
-| T3 (D3) — App-model smoke-test guard: every `AddProject` has an `http` endpoint + Keycloak endpoint HTTP on 8088→8080 | pending | yoga-ae-c4 | Offline/deterministic (no container start) |
-| T4 (D4) — Docs: update `docs/observability/aspire-run-500-triage.md`; sweep demo/local-stack docs | pending | yoga-ae-c4 | — |
-| T5 (D5) — `LEARNINGS.md`: file the .NET 10 / Aspire 13.4.6 endpoint-regression LRN | pending | yoga-ae-c4 | — |
-| T6 (Decision #6) — Full `aspire run` acceptance: 7 project services Running/healthy, bank-web login round-trips, no `:5000` bind error | pending | yoga-ae-c4 | Exit gate; result recorded in this file |
+| T1 (D1) — `AppHost.cs`: keep Keycloak's fixed 8088 endpoint on HTTP → container 8080 | done | yoga-ae-c4 | Implemented via `.WithoutHttpsCertificate()` (gates off the dev-cert HTTPS flip); issuer unchanged. See Notes |
+| T2 (D2) — `AppHost.cs`: add `.WithHttpEndpoint()` (name `http`, dynamic port) to bank-api, audit-service, entitlements-service, governance-service, authz-pdp | done | yoga-ae-c4 | Fixes `:5000` collision + resolves existing `.GetEndpoint("http")` refs (L143/L325) |
+| T3 (D3) — App-model smoke-test guard: every `AddProject` has an `http` endpoint + Keycloak endpoint HTTP on 8088→8080 | done | yoga-ae-c4 | 2 Docker-free guards; also asserts the anti-flip `HttpsCertificateAnnotation` (see Notes deviation) |
+| T4 (D4) — Docs: update `docs/observability/aspire-run-500-triage.md`; sweep demo/local-stack docs | done | yoga-ae-c4 | Triage doc extended; demo/local-stack docs had no contradicting claims (left as-is) |
+| T5 (D5) — `LEARNINGS.md`: file the .NET 10 / Aspire 13.4.6 endpoint-regression LRN | done | yoga-ae-c4 | LRN-087 (status open → applied at close-out) |
+| T6 (Decision #6) — Full `aspire run` acceptance: 7 project services Running/healthy, bank-web login round-trips, no `:5000` bind error | done | yoga-ae-c4 | ✅ 2026-07-06 (see Notes for evidence): all 7 project services on unique ports (no `:5000`); Keycloak discovery + teller1 token round-trip HTTP 200 over `http://localhost:8088`; bank-web serves HTTP 200 |
 | Close-out: docs + restart state | pending | yoga-ae-c4 | Update `WORKBOARD.md` + `CONTEXT.md` so a fresh agent can restart from the actual `aspire run` state |
 | Close-out: learnings + follow-ups | pending | yoga-ae-c4 | File learnings in `LEARNINGS.md`; planned follow-up CS for R5 (Bank.Web/Edge dynamic ports) if pursued |
 
@@ -91,6 +91,10 @@ Evidence gathered live this session (HEAD `3b57392`):
 | Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
+
+- **2026-07-06 — D1 implemented as `.WithoutHttpsCertificate()`.** The plan's D1 tentatively proposed "drop `port:` + `.WithHttpEndpoint(8088→8080)`". Decompiling `Aspire.Hosting.Keycloak` 13.4.6-preview showed `AddKeycloak(name, port)` already declares the fixed endpoint as HTTP 8088→container 8080; the regression is a **run-mode dev-cert HTTPS flip** — `SubscribeHttpsEndpointsUpdate` (registered `OnBeforeStart`) rewrites that `http` endpoint to `https`/8443 when a developer certificate is available. The fix records an `HttpsCertificateAnnotation{UseDeveloperCertificate=false}` via `.WithoutHttpsCertificate()`, which gates the flip off — keeping HTTP 8088→8080 and the stable `http://localhost:8088` issuer. `[Experimental ASPIRECERTIFICATES001]` suppressed via inline `#pragma` (no csproj change). Fallback K2 was not needed.
+- **2026-07-06 — deviation from D3 / Decision #4 rationale (recorded per the plan-review hash-immutability rule; hashed sections left unchanged).** D3/Decision #4 asserted that checking the Keycloak *endpoint binding* (HTTP 8088→8080) in the app-model smoke test "catches the HTTPS-flip regression." That is not sufficient: the flip fires only at `BeforeStart`/`StartAsync`, never during the Docker-free `BuildAsync` the smoke test uses, so at build time the endpoint annotation is *always* HTTP 8088→8080 regardless of the fix. The durable guard is asserting the **anti-flip `HttpsCertificateAnnotation{UseDeveloperCertificate=false}`**. The delivered smoke test asserts **both** — the endpoint (http/8088/8080, pinning the fixed port+target) **and** the anti-flip annotation (catching removal of the fix). This note is the correction of record.
+- **2026-07-06 — live `aspire run` acceptance (Decision #6 exit gate): PASS.** Fresh `aspire run` on the fixed branch. Evidence: (1) all **7** project services reached Running on **unique** ports — audit 51999, authz-pdp 51997, bank-api 51103, bank-web 51106(http)/51105(https), edge-gateway 51107, entitlements 51998, governance 51104 — with **no `:5000`** listener (the collision is gone; previously bank-api/entitlements/governance crashed "Finished" and authz-pdp/edge-gateway "Failed to start"). (2) `curl http://localhost:8088/realms/authz-bank/.well-known/openid-configuration` → **HTTP 200** with `issuer` `http://localhost:8088/realms/authz-bank` (was an empty reply before). (3) OIDC **token round-trip** — `bank-web` client + `teller1`/`Passw0rd!` password grant against `http://localhost:8088/.../token` → access token acquired. (4) `bank-web` home page → **HTTP 200** (no OIDC-discovery 500 — the exact user scenario). Keycloak/postgres/observability containers healthy.
 
 ## Plan-vs-implementation review
 

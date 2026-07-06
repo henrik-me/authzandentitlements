@@ -95,12 +95,24 @@ const string realm = "authz-bank";
 const int keycloakPort = 8088;
 var keycloakAuthority = $"http://localhost:{keycloakPort}/realms/{realm}";
 
+// CS56 — the .NET 10 GA + Aspire.Hosting.Keycloak 13.4.6 bump flips the fixed host endpoint to HTTPS.
+// In run mode the integration subscribes to a BeforeStart HTTPS-endpoint update that, when a
+// developer certificate is available, rewrites the "http" endpoint to UriScheme "https" /
+// targetPort 8443 — so host 8088 binds container 8443 and `http://localhost:8088/...` returns
+// an empty reply (the OIDC "response ended prematurely" the user hit). WithoutHttpsCertificate()
+// records an HttpsCertificateAnnotation with UseDeveloperCertificate=false, which gates that
+// update off, keeping Keycloak's fixed 8088 endpoint on HTTP → container 8080. This preserves the
+// stable `http://localhost:8088/realms/authz-bank` issuer shared by the browser + all services
+// (the dev realm is sslRequired=none). See docs/observability/aspire-run-500-triage.md + LRN-087.
+#pragma warning disable ASPIRECERTIFICATES001 // dev-lab: pin Keycloak's fixed endpoint to HTTP (no dev-cert HTTPS flip)
 var keycloak = builder.AddKeycloak("keycloak", port: keycloakPort)
     .WithRealmImport("../../infra/keycloak")
     // Keycloak 26's "organization" feature (default-on) throws "Session not bound
     // to a realm" while wiring the bank-workload service account during realm
     // import. The lab does not use Keycloak organizations, so disable the feature.
-    .WithEnvironment("KC_FEATURES_DISABLED", "organization");
+    .WithEnvironment("KC_FEATURES_DISABLED", "organization")
+    .WithoutHttpsCertificate();
+#pragma warning restore ASPIRECERTIFICATES001
 
 // CS10 — Commercial entitlements service. Owns the `entitlements` database and is
 // service-discovered by bank-api. The in-memory feature provider is the default so the
@@ -108,6 +120,10 @@ var keycloak = builder.AddKeycloak("keycloak", port: keycloakPort)
 // coordinates are still injected so switching Entitlements__FeatureProvider=Unleash
 // works without further wiring.
 var entitlementsService = builder.AddProject<Projects.AuthzEntitlements_Entitlements_Service>("entitlements-service")
+    // CS56 — declare an explicit dynamic-port `http` endpoint. Without it, Aspire 13.4.6 leaves
+    // this endpoint-less project on Kestrel's default :5000, so parallel internal services collide
+    // (address already in use) and `.GetEndpoint("http")` references cannot resolve.
+    .WithHttpEndpoint()
     .WithReference(entitlementsDb)
     .WaitFor(entitlementsDb)
     .WithEnvironment("Entitlements__FeatureProvider", "InMemory")
@@ -117,6 +133,9 @@ var entitlementsService = builder.AddProject<Projects.AuthzEntitlements_Entitlem
     .WaitFor(observability);
 
 var bankApi = builder.AddProject<Projects.AuthzEntitlements_Bank_Api>("bank-api")
+    // CS56 — explicit dynamic-port `http` endpoint (see entitlements-service). This is also the
+    // endpoint edge-gateway injects via `bankApi.GetEndpoint("http")` below.
+    .WithHttpEndpoint()
     .WithReference(bankDb)
     .WaitFor(bankDb)
     .WithReference(keycloak)
@@ -276,6 +295,9 @@ var topaz = builder.AddContainer("topaz", topazImage, topazImageTag)
 // of the default `aspire run` stack: it starts by default and the PDP forwards decisions to it
 // (below). CS12 fans its OTLP telemetry to the persistent observability collector.
 var auditService = builder.AddProject<Projects.AuthzEntitlements_Audit_Service>("audit-service")
+    // CS56 — explicit dynamic-port `http` endpoint (see entitlements-service). This is also the
+    // endpoint authz-pdp injects via `auditService.GetEndpoint("http")` below.
+    .WithHttpEndpoint()
     .WithReference(auditDb)
     .WaitFor(auditDb)
     .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
@@ -289,6 +311,8 @@ var auditService = builder.AddProject<Projects.AuthzEntitlements_Audit_Service>(
 // Pdp__Provider=openfga works once the explicit-start container is running. CS12 fans the PDP's
 // own PDP-decision OTLP telemetry out to the persistent observability collector like the other services.
 var authzPdp = builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-pdp")
+    // CS56 — explicit dynamic-port `http` endpoint (see entitlements-service).
+    .WithHttpEndpoint()
     .WithEnvironment("Pdp__OpenFga__ApiUrl", openfga.GetEndpoint("http"))
     // CS26 — SpiceDB coordinates for the config-gated `spicedb` provider. Injected unconditionally
     // (like the OpenFGA/OPA coordinates) so Pdp__Provider=spicedb works without further wiring; no
@@ -332,6 +356,8 @@ var authzPdp = builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-p
 // reference engine (default) or the opt-in OPA container (Pdp__Provider=opa). The SoD call is
 // fail-closed, so no hard WaitFor(authz-pdp) is needed to keep the default `aspire run` deterministic.
 var governanceService = builder.AddProject<Projects.AuthzEntitlements_Governance_Service>("governance-service")
+    // CS56 — explicit dynamic-port `http` endpoint (see entitlements-service).
+    .WithHttpEndpoint()
     .WithReference(governanceDb)
     .WaitFor(governanceDb)
     .WithReference(authzPdp)

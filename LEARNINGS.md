@@ -24,6 +24,26 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-087
+
+```yaml
+id: LRN-087
+date: 2026-07-06
+category: operational
+source_cs: CS56
+status: open
+tags: [aspire, keycloak, endpoints, dotnet10, regression]
+claim_area: aspire-run
+```
+
+**Problem:** The .NET 10 GA + Aspire 13.4.6 lockstep bump (PR #189) silently broke the default `aspire run`: `bank-web` login failed OIDC discovery ("response ended prematurely") and several project resources showed **Finished** / **Failed to start**. Two independent regressions rode the bump and neither was caught by `dotnet build`/`dotnet test` (which never evaluate the running app model).
+
+**Finding:** (1) `Aspire.Hosting.Keycloak` 13.4.6 declares Keycloak's fixed host endpoint as HTTP 8088→container 8080 but, in run mode, subscribes to a `BeforeStart` HTTPS-endpoint update that rewrites that `http` endpoint to `https`/targetPort 8443 whenever a developer certificate is available — so host 8088 bound the container's HTTPS (8443) listener and `http://localhost:8088/...` returned an empty reply. Fix: `.WithoutHttpsCertificate()` records an `HttpsCertificateAnnotation{UseDeveloperCertificate=false}` that gates the flip off, keeping HTTP 8088→8080 and the stable `http://localhost:8088` issuer. (2) Under 13.4.6, an `AddProject` resource with no HTTP endpoint (no `launchSettings.json`, no `WithHttpEndpoint()`) is no longer assigned an endpoint or `ASPNETCORE_URLS`, so the five internal services fell back to Kestrel `:5000`, collided, and left `.GetEndpoint("http")` references unresolved. Fix: declare an explicit `.WithHttpEndpoint()` (dynamic port) on each. Lesson: declare project HTTP endpoints explicitly, and guard both regressions in the AppHost app-model smoke test — critically, assert the anti-flip `HttpsCertificateAnnotation`, because the flip fires only at `BeforeStart` (never during the Docker-free `BuildAsync`), so the endpoint annotation alone does not catch it.
+
+**Evidence:** `src/AuthzEntitlements.AppHost/AppHost.cs` (Keycloak `.WithoutHttpsCertificate()`; `.WithHttpEndpoint()` on bank-api/audit-service/entitlements-service/governance-service/authz-pdp); `tests/AuthzEntitlements.AppHost.Tests/AppHostApplicationModelSmokeTests.cs` (project-http-endpoint + Keycloak 8088→8080 HTTP + anti-flip annotation guards); `docs/observability/aspire-run-500-triage.md` § "CS56"; decompiled `Aspire.Hosting.Keycloak.AddKeycloak` + `Aspire.Hosting.ResourceBuilderExtensions.SubscribeHttpsEndpointsUpdate`/`WithoutHttpsCertificate` (13.4.6-preview.1.26319.6); PR #189 (the .NET 10 GA + Aspire 13.4.6 bump).
+
+**Disposition:** **open** — both regressions are fixed in-band by CS56 (in `AppHost.cs`, guarded by the app-model smoke test); the entry stays `open` and flips to `applied` at CS56 close-out per the harvest convention, after the orchestrator's live `aspire run` acceptance gate (all 7 project services Running/healthy, bank-web login round-trip — Decision #6) passes.
+
 ### LRN-086
 
 ```yaml
