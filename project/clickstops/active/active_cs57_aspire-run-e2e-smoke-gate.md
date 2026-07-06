@@ -1,9 +1,9 @@
 # CS57 — First e2e smoke gate: `aspire run` stack boots + basics work
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c4
+**Branch:** cs57/content
+**Started:** 2026-07-06
 **Closed:** —
 **Filed by:** yoga-ae-c4 on 2026-07-05 — user request: "create a test that needs to be run locally part of every change made before sending off to PR review, include the test in the harness startup process as well. The test needs to verify the steps with aspire run and all the necessary services. This is the start of the e2e test gate, ensuring the basics of the system works." Design approach **Option A** confirmed by the user (Aspire.Hosting.Testing `StartAsync` .NET e2e + a node `harness startup` wrapper).
 **Depends on:** none (extends the CS50 app-model smoke test + the CS56 `aspire run` acceptance checks into an automated e2e gate)
@@ -72,7 +72,23 @@ Stand up the **first end-to-end smoke gate** for the system: an automated test t
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per OPERATIONS.md § Claim) | planned | — | — |
+| T1 (D1) — `tests/AuthzEntitlements.E2E.Tests` project: csproj (mirror AppHost.Tests), `AspireStackSmokeE2ETests` (StartAsync + 4 basic assertions), `AspireStackE2EFactAttribute` (RUN_ASPIRE_E2E skip), 8088 pre-check | pending | yoga-ae-c4 | `CreateHttpClient("bank-web","http")`; `WaitForResourceHealthyAsync` StopOnResourceUnavailable |
+| T2 (D2) — `tests/e2e-aspire-smoke.test.mjs` node wrapper (Docker + 8088 skip → `dotnet test` with RUN_ASPIRE_E2E=1) | pending | yoga-ae-c4 | zero-dep Node 20 stdlib; hooked by `harness startup` |
+| T3 (D3) — add E2E.Tests to `AuthzEntitlements.sln` (re-normalize `.sln` LF/no-BOM, LRN-079) | pending | yoga-ae-c4 | tests skip without RUN_ASPIRE_E2E → CI stays Docker-free |
+| T4 (D4) — `docs/testing/e2e-smoke.md` (coverage, how-to-run, skip conditions, roadmap; skipped ≠ pre-PR pass) | pending | yoga-ae-c4 | — |
+| T5 (D5) — REVIEWS.md `reviews.project-gates` + INSTRUCTIONS.md `instructions.harness` local blocks (pre-PR e2e gate) | pending | yoga-ae-c4 | edit only between harness:local-start/end markers |
+| T6 (Exit gate) — local e2e acceptance: `RUN_ASPIRE_E2E=1 dotnet test tests/AuthzEntitlements.E2E.Tests` (Docker up) green; wrapper skips w/o Docker; default `dotnet test <sln>` skips e2e | pending | yoga-ae-c4 | Result recorded in this file |
+| Close-out: docs + restart state | pending | yoga-ae-c4 | Update `WORKBOARD.md` + `CONTEXT.md` so a fresh agent can restart from the e2e-gate state |
+| Close-out: learnings + follow-ups | pending | yoga-ae-c4 | File learnings in `LEARNINGS.md`; planned follow-up CS for the CI-required e2e (Decision #5) |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c4 |
+| Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
 
