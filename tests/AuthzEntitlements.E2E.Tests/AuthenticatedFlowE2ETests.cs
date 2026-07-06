@@ -356,40 +356,57 @@ public sealed class AuthenticatedFlowE2ETests
     {
         var deadline = DateTime.UtcNow + timeout;
         HttpResponseMessage? lastResponse = null;
-        while (true)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
+            while (true)
             {
-                var response = await client.GetAsync(url, cancellationToken);
-                if (response.StatusCode == HttpStatusCode.OK)
+                cancellationToken.ThrowIfCancellationRequested();
+                try
                 {
+                    var response = await client.GetAsync(url, cancellationToken);
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        lastResponse?.Dispose();
+                        lastResponse = null;
+                        return response;
+                    }
+
+                    // Retain the most recent non-200 so it can be returned (and asserted on) if the
+                    // window elapses before a 200 arrives.
                     lastResponse?.Dispose();
-                    return response;
+                    lastResponse = response;
+                }
+                catch (HttpRequestException)
+                {
+                    // endpoint not yet reachable — fall through to the deadline check + retry
+                }
+                catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // per-request client timeout (HttpClient.Timeout), not the overall CTS deadline
+                    // (a slow Keycloak realm import can exceed the client timeout) — fall through.
                 }
 
-                // Retain the most recent non-200 so it can be returned (and asserted on) if the
-                // window elapses before a 200 arrives.
-                lastResponse?.Dispose();
-                lastResponse = response;
-            }
-            catch (HttpRequestException) when (DateTime.UtcNow < deadline)
-            {
-                // endpoint not yet reachable — retry below
-            }
-            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested && DateTime.UtcNow < deadline)
-            {
-                // per-request client timeout (HttpClient.Timeout), not the overall CTS deadline —
-                // e.g. a slow Keycloak realm import can exceed the client timeout; retry below.
-            }
+                if (DateTime.UtcNow >= deadline)
+                {
+                    if (lastResponse is null)
+                    {
+                        throw new TimeoutException(
+                            $"GET {url} did not return any response within {timeout} (endpoint never reachable).");
+                    }
 
-            if (DateTime.UtcNow >= deadline)
-            {
-                return lastResponse ?? throw new TimeoutException(
-                    $"GET {url} did not return any response within {timeout} (endpoint never reachable).");
-            }
+                    var result = lastResponse;
+                    lastResponse = null;
+                    return result;
+                }
 
-            await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+            }
+        }
+        finally
+        {
+            // Dispose any retained non-200 not handed to the caller (CTS cancellation / TimeoutException
+            // paths) so no response leaks.
+            lastResponse?.Dispose();
         }
     }
 
