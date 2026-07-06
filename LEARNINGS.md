@@ -31,7 +31,7 @@ id: LRN-090
 date: 2026-07-06
 category: architectural
 source_cs: CS59
-status: open
+status: applied
 tags: [oidc, logout, keycloak, bank-web, id-token-hint]
 claim_area: bank-web-logout
 ```
