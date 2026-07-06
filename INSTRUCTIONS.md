@@ -632,4 +632,12 @@ reports 0/0, which is expected).
 The full plan is repo-resident: strategy/arc in `project/clickstops/**`, the dependency
 map + waves in CONTEXT.md, and architecture/goals/roadmap in ARCHITECTURE.md. Session-state
 `plan.md` is scratch only (per Planning-locality).
+
+**Pre-PR e2e smoke gate (CS57).** Before opening any PR, run the e2e smoke gate **green** —
+with Docker running and no active `aspire run` on port 8088:
+`node --test tests/e2e-aspire-smoke.test.mjs` (or
+`RUN_ASPIRE_E2E=1 dotnet test tests/AuthzEntitlements.E2E.Tests`). It boots the real
+`aspire run` stack and asserts the basics (see [docs/testing/e2e-smoke.md](docs/testing/e2e-smoke.md));
+a *skipped* run is **not** a pass. `harness startup` now runs this gate automatically when
+Docker is up and port 8088 is free (and skips green otherwise).
 <!-- harness:local-end id=instructions.harness -->
