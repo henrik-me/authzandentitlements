@@ -341,9 +341,10 @@ public sealed class AuthenticatedFlowE2ETests
         });
 
     /// <summary>
-    /// GETs <paramref name="url"/>, retrying on connection failure or any non-200 status until
-    /// <paramref name="timeout"/> elapses, then returns the last response. Absorbs container/realm
-    /// readiness and JWT-handler JWKS warm-up; a persistent non-200 surfaces as an assertion failure.
+    /// GETs <paramref name="url"/>, retrying on connection failure, a per-request client timeout,
+    /// or any non-200 status until <paramref name="timeout"/> elapses, then returns the last
+    /// response. Absorbs container/realm readiness and JWT-handler JWKS warm-up; a persistent
+    /// non-200 surfaces as an assertion failure. The overall CTS deadline still propagates.
     /// </summary>
     private static async Task<HttpResponseMessage> GetUntilOkAsync(
         HttpClient client, string url, TimeSpan timeout, CancellationToken cancellationToken)
@@ -365,6 +366,11 @@ public sealed class AuthenticatedFlowE2ETests
             catch (HttpRequestException) when (DateTime.UtcNow < deadline)
             {
                 // endpoint not yet reachable — retry below
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested && DateTime.UtcNow < deadline)
+            {
+                // per-request client timeout (HttpClient.Timeout), not the overall CTS deadline —
+                // e.g. a slow Keycloak realm import can exceed the client timeout; retry below.
             }
 
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
@@ -390,6 +396,11 @@ public sealed class AuthenticatedFlowE2ETests
             }
             catch (HttpRequestException) when (DateTime.UtcNow < deadline)
             {
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested && DateTime.UtcNow < deadline)
+            {
+                // per-request client timeout (HttpClient.Timeout), not the overall CTS deadline — retry.
                 await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
             }
         }
