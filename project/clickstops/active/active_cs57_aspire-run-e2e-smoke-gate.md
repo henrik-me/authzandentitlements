@@ -77,7 +77,7 @@ Stand up the **first end-to-end smoke gate** for the system: an automated test t
 | T3 (D3) — add E2E.Tests to `AuthzEntitlements.sln` (re-normalize `.sln` LF/no-BOM, LRN-079) | pending | yoga-ae-c4 | tests skip without RUN_ASPIRE_E2E → CI stays Docker-free |
 | T4 (D4) — `docs/testing/e2e-smoke.md` (coverage, how-to-run, skip conditions, roadmap; skipped ≠ pre-PR pass) | pending | yoga-ae-c4 | — |
 | T5 (D5) — REVIEWS.md `reviews.project-gates` + INSTRUCTIONS.md `instructions.harness` local blocks (pre-PR e2e gate) | pending | yoga-ae-c4 | edit only between harness:local-start/end markers |
-| T6 (Exit gate) — local e2e acceptance: `RUN_ASPIRE_E2E=1 dotnet test tests/AuthzEntitlements.E2E.Tests` (Docker up) green; wrapper skips w/o Docker; default `dotnet test <sln>` skips e2e | pending | yoga-ae-c4 | Result recorded in this file |
+| T6 (Exit gate) — local e2e acceptance: `RUN_ASPIRE_E2E=1 dotnet test tests/AuthzEntitlements.E2E.Tests` (Docker up) green; wrapper skips w/o Docker; default `dotnet test <sln>` skips e2e | done | yoga-ae-c4 | ✅ 2026-07-06: e2e booted the stack + 4/4 checks (~39s); wrapper ran green (~46s); default sln test skips e2e (1799 pass, Docker-free). See Notes |
 | Close-out: docs + restart state | pending | yoga-ae-c4 | Update `WORKBOARD.md` + `CONTEXT.md` so a fresh agent can restart from the e2e-gate state |
 | Close-out: learnings + follow-ups | pending | yoga-ae-c4 | File learnings in `LEARNINGS.md`; planned follow-up CS for the CI-required e2e (Decision #5) |
 
@@ -91,6 +91,9 @@ Stand up the **first end-to-end smoke gate** for the system: an automated test t
 | Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
+
+- **2026-07-06 — Decision #2 deviation: Keycloak endpoint resolution under `Aspire.Hosting.Testing` (recorded per the plan-review hash-immutability rule; hashed sections unchanged).** Decision #2b/#2c specified OIDC discovery/token over the literal `http://localhost:8088/...` fixed authority with `issuer == http://localhost:8088/realms/authz-bank`. Under the testing builder the fixed host port 8088 is **proxied to a dynamically-allocated host port** (unlike `aspire run`, which binds 8088 directly), so a hardcoded `localhost:8088` is connection-refused. Implementation resolves Keycloak's base via `app.GetEndpoint("keycloak","http")` and builds the discovery/token URLs from it; and because Keycloak dev-mode stamps the issuer from the request host, the issuer assertion was adapted from the exact 8088 authority to a **realm-path + http-scheme shape** (`issuer` non-empty, `StartsWith("http://")`, `EndsWith("/realms/authz-bank")`). This preserves the plan's intent (OIDC discovery works + coherent http realm issuer + real token round-trip) and still catches both CS56 regressions (a Keycloak HTTPS-flip breaks the http discovery/issuer; a service-port collision fails `WaitForResourceHealthyAsync`). Filed as **LRN-088**.
+- **2026-07-06 — T6 exit gate PASS.** The real e2e was run and passed: `RUN_ASPIRE_E2E=1 dotnet test tests/AuthzEntitlements.E2E.Tests` booted the full stack and passed all 4 checks (~39s); `node --test tests/e2e-aspire-smoke.test.mjs` ran the e2e green (~46s). Default `dotnet test AuthzEntitlements.sln` (no flag) reports the e2e **Skipped** (existing 1799 pass, Docker-free); `dotnet build` 0/0; `harness lint` 23/0; clean teardown (only the by-design `ContainerLifetime.Persistent` observability container remained, then stopped).
 
 ## Plan-vs-implementation review
 

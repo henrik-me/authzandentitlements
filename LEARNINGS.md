@@ -24,6 +24,24 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-088
+
+```yaml
+id: LRN-088
+date: 2026-07-06
+category: tooling
+source_cs: CS57
+status: open
+tags: [aspire, testing, e2e, keycloak, endpoints]
+claim_area: e2e-tests
+```
+
+**Problem:** The CS57 e2e smoke test (`Aspire.Hosting.Testing` `StartAsync`) failed on the first attempt with connection-refused when hitting the hardcoded `http://localhost:8088` Keycloak authority.
+
+**Finding:** `Aspire.Hosting.Testing`'s `DistributedApplicationTestingBuilder` **proxies fixed host ports to dynamically-allocated host ports** — so a resource pinned to host port 8088 in `AppHost.cs` (Keycloak, for a stable issuer under `aspire run`) is NOT reachable at `localhost:8088` from a test; resolve endpoints via `app.GetEndpoint(name, "http")` / `app.CreateHttpClient(name, "http")` instead of hardcoding. Also, Keycloak (dev mode) stamps the OIDC `issuer` from the **request host**, so under the testing proxy the issuer is the proxied host:port, not the fixed-8088 authority — an e2e should assert the realm-path + http-scheme shape (a coherent http realm issuer), not the exact `aspire run` authority. Both CS56 regressions remain caught: an HTTPS-flip breaks the http discovery/issuer, and a service-port collision fails `WaitForResourceHealthyAsync`.
+
+**Evidence:** `tests/AuthzEntitlements.E2E.Tests/AspireStackSmokeE2ETests.cs` (dynamic endpoint resolution + issuer-shape assertion); the CS57 impl first-attempt failure (hardcoded 8088 → connection refused) fixed by dynamic resolution; contrast with `aspire run`, which binds 8088 directly (CS56).
+
 ### LRN-087
 
 ```yaml

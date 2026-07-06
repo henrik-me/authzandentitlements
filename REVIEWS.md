@@ -1017,4 +1017,18 @@ review policy above. Each bullet cites its source `LRN-NNN`.
   claims the briefing itself provided; surface corrections in the report rather than silently
   propagating them (LRN-043).
 
+### E2E smoke gate — mandatory before every PR
+
+- **Run the e2e smoke gate green before opening every PR** — with **Docker running** and
+  **no active `aspire run` on port 8088**, run `node --test tests/e2e-aspire-smoke.test.mjs`
+  (or `RUN_ASPIRE_E2E=1 dotnet test tests/AuthzEntitlements.E2E.Tests`) so the gate **actually
+  runs** and passes all four checks (7 services Healthy, OIDC discovery, token round-trip,
+  `bank-web` root 200). It boots the real `aspire run` stack — the only check that catches
+  runtime boot/OIDC/port regressions that `dotnet build`/`dotnet test` miss (CS57).
+- **A *skipped* run is NOT a pass.** The wrapper skips green when Docker is down or 8088 is
+  busy (a convenience for Docker-less startup/CI), but a skip does **not** satisfy this gate —
+  the pre-PR requirement is Docker up, 8088 free, and the e2e running **green**. This is a
+  local, honor-system gate (like local review), not a CI-required check in v1. See
+  [docs/testing/e2e-smoke.md](docs/testing/e2e-smoke.md).
+
 <!-- harness:local-end id=reviews.project-gates -->
