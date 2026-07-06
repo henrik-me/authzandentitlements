@@ -381,9 +381,10 @@ public sealed class AuthenticatedFlowE2ETests
     }
 
     /// <summary>
-    /// POSTs a JSON body, retrying only on connection failure (never on an HTTP status) until
-    /// <paramref name="timeout"/> elapses, then returns the response. The auth path is warm by the
-    /// time creates run, so the first HTTP status received (201/403/500) is the real outcome.
+    /// POSTs a JSON body, retrying on connection failure or a per-request client timeout (never on
+    /// an HTTP status) until <paramref name="timeout"/> elapses, then returns the response. The auth
+    /// path is warm by the time creates run, so the first HTTP status received (201/403/500) is the
+    /// real outcome. The overall CTS deadline still propagates.
     /// </summary>
     private static async Task<HttpResponseMessage> PostJsonAsync(
         HttpClient client, string url, string json, TimeSpan timeout, CancellationToken cancellationToken)
