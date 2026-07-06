@@ -621,9 +621,9 @@ step — running a harness CLI is what collides a fresh pull with a stale pin. A
 `version`** (the single source of truth — every `#<ver>` doc literal is sync-rendered
 from it; never hard-code it or copy it from a cached session/doc snapshot, which can
 lag), then invoke `npx …agent-harness#<pin> …` with that value. If `startup`/`sync`
-fails right after a pull with `Template file not found: …/template/managed/<X>.md
-(required for managed target "<X>")`, your CLI is **older** than the just-pulled pin —
-re-run at the pinned version. (Upstream enforcement tracked: agent-harness#502.)
+fails right after a pull with `Template file not found: …/template/managed/<X>.md (required for managed target "<X>")`,
+your CLI is **older** than the just-pulled pin — re-run at the pinned version.
+(Upstream enforcement tracked: agent-harness#502.)
 
 **This repo has no local Node dependencies.** The agent-harness runs via
 `npx -y github:henrik-me/agent-harness#<pin> <cmd>` — where **`<pin>` = the `version`
