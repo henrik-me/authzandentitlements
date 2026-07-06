@@ -31,7 +31,7 @@ id: LRN-089
 date: 2026-07-06
 category: architectural
 source_cs: CS58
-status: open
+status: applied
 tags: [aspire, env, keycloak, jwt, e2e, regression]
 claim_area: aspire-run
 ```
