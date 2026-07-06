@@ -1,10 +1,10 @@
 # CS59 — Fix bank-web sign-out ("Missing parameters: id_token_hint")
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs59/content
 **Started:** 2026-07-06
-**Closed:** —
+**Closed:** 2026-07-06
 **Filed by:** yoga-ae-c4 on 2026-07-06 — user reported that signing out of `bank-web` shows a Keycloak error page: **"We are sorry… Missing parameters: id_token_hint"**. Root-caused + fix verified live before filing.
 **Depends on:** none (fixes a bank-web RP-initiated-logout defect; independent of the CS56/CS57/CS58 `aspire run` work)
 
