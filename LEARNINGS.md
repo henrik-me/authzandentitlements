@@ -31,7 +31,7 @@ id: LRN-091
 date: 2026-07-06
 category: operational
 source_cs: CS51
-status: open
+status: applied
 tags: [get-latest-first, harness, version-pin, startup, sequencing]
 claim_area: orchestrator-loop
 ```
@@ -42,7 +42,7 @@ claim_area: orchestrator-loop
 
 **Evidence:** This session began at `harness.config.json` = v0.17.0 (HEAD `5b0668c`) but the agent's base-instruction snapshot pinned `#v0.12.0`; the first `startup` at `#v0.12.0` failed `sync --mode=check` with `Template file not found: …/template/managed/DISPATCH-PREAMBLE.md (required for managed target "DISPATCH-PREAMBLE.md")`; re-running at `#v0.17.0` (the `harness.config.json` `version`) → 23 passed / 0 failed, no drift. The prior v0.16.0→v0.17.0 incident (PR #157 adds `DISPATCH-PREAMBLE.md`) is recorded in CS51 Background. Consumer-owned pin literals de-hardcoded to a `harness.config.json` lookup in `INSTRUCTIONS.md` (`instructions.harness`), `README.md`, and `ARCHITECTURE.md` by CS51.
 
-**Disposition:** **open** — the INSTRUCTIONS.md `instructions.harness` note + the de-hardcoding (CS51) are the consumer mitigation; upstream enforcement is tracked via agent-harness#502. Flips `open → applied` at CS51 close-out (recording the commit/PR).
+**Disposition:** **applied by CS51** — the INSTRUCTIONS.md `instructions.harness` note + the de-hardcoding of consumer-owned pin literals (content PR #209, squash-merged 2026-07-06 as `4de8b09`) are the consumer mitigation; upstream enforcement remains tracked via agent-harness#502.
 
 ### LRN-090
 

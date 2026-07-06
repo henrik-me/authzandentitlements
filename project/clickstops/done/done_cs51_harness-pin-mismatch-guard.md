@@ -1,10 +1,10 @@
 # CS51 — Get-latest-first discipline + harness pin-mismatch guard (doc note + LRN-79)
 
-**Status:** active
+**Status:** done
 **Owner:** omni-ae
 **Branch:** cs51/content
 **Started:** 2026-07-06
-**Closed:** —
+**Closed:** 2026-07-06
 **Filed by:** yoga-ae-c3 on 2026-07-05 — surfaced when this session ran `startup --pull-ff-only` as its **first action instead of getting latest first**: the command pulled the already-merged v0.17.0 pin bump (PR #157) mid-run while still invoking the v0.16.0 CLI, colliding a fresh pull with a stale-CLI `sync` and producing a cryptic `Template file not found: .../template/managed/DISPATCH-PREAMBLE.md`. Upstream enforcement tracked as henrik-me/agent-harness#502.
 **Depends on:** none
 
@@ -66,12 +66,12 @@ Codify and help enforce the **get-latest-first** discipline so the "stale harnes
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| INSTRUCTIONS.md `instructions.harness` block: get-latest-first + derive-pin note; de-hardcode `#<ver>` literals | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=0 |
-| README.md: de-hardcode pin refs → `harness.config.json` `version` lookup | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=0 |
-| ARCHITECTURE.md: de-hardcode decision-log pin ref → `harness.config.json` `version` | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=0 |
-| File LRN-091 (get-latest-first + pin-lookup) | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=1 |
-| Close-out: docs + restart state | pending | omni-ae | Update WORKBOARD + CONTEXT.md after merge so a fresh agent restarts from actual state |
-| Close-out: learnings + follow-ups | pending | omni-ae | Flip LRN-091 open→applied (record commit/PR); open follow-up CSs for any unresolved gaps |
+| INSTRUCTIONS.md `instructions.harness` block: get-latest-first + derive-pin note; de-hardcode `#<ver>` literals | done | omni-ae | agent-id=omni-ae \| role=docs \| report-status=complete \| learnings=0 |
+| README.md: de-hardcode pin refs → `harness.config.json` `version` lookup | done | omni-ae | agent-id=omni-ae \| role=docs \| report-status=complete \| learnings=0 |
+| ARCHITECTURE.md: de-hardcode decision-log pin ref → `harness.config.json` `version` | done | omni-ae | agent-id=omni-ae \| role=docs \| report-status=complete \| learnings=0 |
+| File LRN-091 (get-latest-first + pin-lookup) | done | omni-ae | agent-id=omni-ae \| role=docs \| report-status=complete \| learnings=1 |
+| Close-out: docs + restart state | done | omni-ae | WORKBOARD row removed + active→done rename (this PR); CONTEXT.md refreshed |
+| Close-out: learnings + follow-ups | done | omni-ae | LRN-091 flipped open→applied (PR #209 / `4de8b09`); no follow-up CSs needed (upstream #502 already tracked) |
 
 ## Notes / Learnings
 
@@ -90,4 +90,19 @@ Codify and help enforce the **get-latest-first** discipline so the "stale harnes
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-06T20:25:00Z
+**Outcome:** GO
+
+| Deliverable | Outcome (match \| diverged \| added \| dropped) | Notes |
+|---|---|---|
+| INSTRUCTIONS.md `instructions.harness` get-latest-first note + symptom remedy | match | Implemented in the local block, derives `<pin>` from `harness.config.json` `version`, warns against stale cached pins, and includes the template-missing symptom remedy. |
+| INSTRUCTIONS.md local command literals de-hardcoded to `#<pin>` | match | The local harness examples now use `agent-harness#<pin>` with an explicit lookup from `harness.config.json`. |
+| LEARNINGS.md entry planned as LRN-79 | diverged | Implemented as LRN-091 instead of LRN-79; acceptable because LRN-079 is already taken, the repo uses 3-digit IDs, and the deviation is documented in the CS Notes. |
+| LRN content/status/cross-linking | match | LRN-091 has `category: operational`, `source_cs: CS51`, `status: open`, relevant tags, and tracks upstream enforcement via agent-harness#502; open→applied at close-out. |
+| README.md and ARCHITECTURE.md de-hardcoding | added | User-approved scope extension; consumer-owned docs with hand-maintained pin literals. Managed/composed-core `#<ver>` literals left untouched per file-class rules. |
+| No code/schema/workflow changes | match | Merged diff (`5e0e72e..4de8b09`) touches only INSTRUCTIONS.md, README.md, ARCHITECTURE.md, LEARNINGS.md. |
+
+Test-coverage assessment: **sufficient** — docs-only CS, no test surface; `harness lint` 23/0, `sync --mode=check` no drift.
+
+Overall outcome: **GO**.
