@@ -1,9 +1,9 @@
 # CS56 — Repair `aspire run`: Keycloak HTTP scheme + internal-service endpoints
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c4
+**Branch:** cs56/content
+**Started:** 2026-07-06
 **Closed:** —
 **Filed by:** yoga-ae-c4 on 2026-07-05 — user opened `bank-web` under `aspire run` and got an OIDC discovery failure ("The response ended prematurely"). Live investigation this session traced it (plus several "Finished"/"Failed to start" resources) to the **.NET 10 GA + Aspire 13.4.6 lockstep bump (PR #190→#189, `357b08d`)**. User directive: "File a bug-fix CS to repair aspire run properly (Keycloak scheme + internal-service ports), then implement."
 **Depends on:** none
@@ -72,7 +72,23 @@ Evidence gathered live this session (HEAD `3b57392`):
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per OPERATIONS.md § Claim) | planned | — | — |
+| T1 (D1) — `AppHost.cs`: bind Keycloak fixed host port 8088 → container HTTP 8080 (restore `http://localhost:8088` authority) | pending | yoga-ae-c4 | Verify issuer stays `http://localhost:8088/realms/authz-bank` (R2) |
+| T2 (D2) — `AppHost.cs`: add `.WithHttpEndpoint()` (name `http`, dynamic port) to bank-api, audit-service, entitlements-service, governance-service, authz-pdp | pending | yoga-ae-c4 | Fixes `:5000` collision + resolves existing `.GetEndpoint("http")` refs (L143/L325) |
+| T3 (D3) — App-model smoke-test guard: every `AddProject` has an `http` endpoint + Keycloak endpoint HTTP on 8088→8080 | pending | yoga-ae-c4 | Offline/deterministic (no container start) |
+| T4 (D4) — Docs: update `docs/observability/aspire-run-500-triage.md`; sweep demo/local-stack docs | pending | yoga-ae-c4 | — |
+| T5 (D5) — `LEARNINGS.md`: file the .NET 10 / Aspire 13.4.6 endpoint-regression LRN | pending | yoga-ae-c4 | — |
+| T6 (Decision #6) — Full `aspire run` acceptance: 7 project services Running/healthy, bank-web login round-trips, no `:5000` bind error | pending | yoga-ae-c4 | Exit gate; result recorded in this file |
+| Close-out: docs + restart state | pending | yoga-ae-c4 | Update `WORKBOARD.md` + `CONTEXT.md` so a fresh agent can restart from the actual `aspire run` state |
+| Close-out: learnings + follow-ups | pending | yoga-ae-c4 | File learnings in `LEARNINGS.md`; planned follow-up CS for R5 (Bank.Web/Edge dynamic ports) if pursued |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c4 |
+| Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
 
