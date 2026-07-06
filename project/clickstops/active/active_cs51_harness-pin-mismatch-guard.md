@@ -1,9 +1,9 @@
 # CS51 — Get-latest-first discipline + harness pin-mismatch guard (doc note + LRN-79)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** omni-ae
+**Branch:** cs51/content
+**Started:** 2026-07-06
 **Closed:** —
 **Filed by:** yoga-ae-c3 on 2026-07-05 — surfaced when this session ran `startup --pull-ff-only` as its **first action instead of getting latest first**: the command pulled the already-merged v0.17.0 pin bump (PR #157) mid-run while still invoking the v0.16.0 CLI, colliding a fresh pull with a stale-CLI `sync` and producing a cryptic `Template file not found: .../template/managed/DISPATCH-PREAMBLE.md`. Upstream enforcement tracked as henrik-me/agent-harness#502.
 **Depends on:** none
@@ -66,11 +66,27 @@ Codify and help enforce the **get-latest-first** discipline so the "stale harnes
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| INSTRUCTIONS.md `instructions.harness` block: get-latest-first + derive-pin note; de-hardcode `#<ver>` literals | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=0 |
+| README.md: de-hardcode pin refs → `harness.config.json` `version` lookup | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=0 |
+| ARCHITECTURE.md: de-hardcode decision-log pin ref → `harness.config.json` `version` | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=0 |
+| File LRN-091 (get-latest-first + pin-lookup) | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=1 |
+| Close-out: docs + restart state | pending | omni-ae | Update WORKBOARD + CONTEXT.md after merge so a fresh agent restarts from actual state |
+| Close-out: learnings + follow-ups | pending | omni-ae | Flip LRN-091 open→applied (record commit/PR); open follow-up CSs for any unresolved gaps |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+**Implementation deviations from the plan (omni-ae, 2026-07-06):**
+- **LRN id:** the plan named `LRN-79`, but `LRN-079` is already taken and the repo standardised on 3-digit zero-padded ids; filed as **LRN-091** (next free id) with `category: operational` per Decision #4.
+- **Scope extension (user-approved):** in addition to the INSTRUCTIONS.md `instructions.harness` note, the same de-hardcoding is applied to `README.md` and `ARCHITECTURE.md` — consumer-owned files whose hand-maintained pin literals lag the real pin — replacing each literal with a lookup of `harness.config.json` `version`. Managed/composed-core `#<ver>` literals are **sync-rendered** from that same field (single source of truth) and are left untouched per the file-class rules; making the harness itself pin-agnostic is tracked upstream as agent-harness#502.
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | omni-ae |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
