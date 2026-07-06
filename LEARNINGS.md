@@ -24,6 +24,26 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-089
+
+```yaml
+id: LRN-089
+date: 2026-07-06
+category: architectural
+source_cs: CS58
+status: open
+tags: [aspire, env, keycloak, jwt, e2e, regression]
+claim_area: aspire-run
+```
+
+**Problem:** After the CS56 `aspire run` fix, every authenticated request to the internal services still failed: `teller1`/`manager1` saw **no accounts/transactions** (bank-web rendered its "fail-closed" empty state) and break-glass returned **HTTP 500**. CS56/CS57 did not catch it — CS57's e2e asserts only that `bank-web` serves 200, never performing an authenticated read *through* bank-api.
+
+**Finding:** Aspire injects `ASPNETCORE_ENVIRONMENT` **only from a `launchSettings.json` profile**. `bank-web` and `edge-gateway` have one (Development); the five internal *service* projects (`bank-api`, `governance-service`, `entitlements-service`, `audit-service`, `authz-pdp`) do **not**, so under `aspire run` they default to **Production**. `AuthenticationSetup`/`GatewayAuthenticationSetup` set `RequireHttpsMetadata = !environment.IsDevelopment()`, so in Production the JWT-bearer handler **rejects the HTTP dev Keycloak authority** (`http://localhost:8088/realms/authz-bank`) with `InvalidOperationException: The MetadataAddress or Authority must use HTTPS…` — a **500 on every request that reaches the auth middleware** (a present bearer is enough; even the anonymous break-glass endpoint 500s because `UseAuthentication` still authenticates the default scheme). Fix (Decision #1): in `AppHost.cs`, force `ASPNETCORE_ENVIRONMENT=Development` on the five internal services **in run mode only** (`builder.ExecutionContext.IsRunMode`), leaving the security-sensitive `RequireHttpsMetadata` gate untouched and `aspire publish` environment-neutral. **Prevention:** the e2e must exercise an authenticated read (and role-gated write + governance break-glass) *through the gateway with a real token* — a `bank-web` home-page 200 is insufficient. **Corollary (Decision #5):** an authenticated e2e under `Aspire.Hosting.Testing` needs **fixed ports** (`appHost.Configuration["DcpPublisher:RandomizePorts"] = "false"` before `BuildAsync`) so Keycloak binds its declared **8088** and the token issuer + the services' injected authority + the reachable JWKS all agree — otherwise the default port-proxy (LRN-088) puts Keycloak on a dynamic port and every authenticated call 401s.
+
+**Evidence:** `src/AuthzEntitlements.AppHost/AppHost.cs` (the run-mode `ASPNETCORE_ENVIRONMENT=Development` block on `entitlementsService`/`bankApi`/`auditService`/`authzPdp`/`governanceService`); `src/AuthzEntitlements.Bank.Api/Auth/AuthenticationSetup.cs` (`RequireHttpsMetadata = !environment.IsDevelopment()`) + `src/AuthzEntitlements.Edge.Gateway/Auth/GatewayAuthenticationSetup.cs`; `tests/AuthzEntitlements.E2E.Tests/AuthenticatedFlowE2ETests.cs` (the `teller1`/`manager1` authenticated flow with the fixed-8088 pin); the CS58 live reproduction (services logged `Hosting environment: Production`; forcing Development yielded `GET /api/accounts` 200/3, break-glass 201); LRN-088 (the port-proxy behaviour the fixed-port pin overrides).
+
+**Disposition:** **open** — fixed in-band by CS58 (`AppHost.cs`, guarded by the new authenticated e2e). Flips `open → applied` at CS58 close-out once the `RUN_ASPIRE_E2E=1` gate passes (and fails if the D1 fix is reverted — the regression proof).
+
 ### LRN-088
 
 ```yaml

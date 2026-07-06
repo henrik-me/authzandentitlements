@@ -388,4 +388,20 @@ builder.AddProject<Projects.AuthzEntitlements_Bank_Web>("bank-web")
     .WaitFor(observability)
     .WithExternalHttpEndpoints();
 
+// CS58 — Aspire injects ASPNETCORE_ENVIRONMENT only from a launchSettings.json profile. bank-web
+// and edge-gateway have one (Development); these five internal *services* do not, so under
+// `aspire run` they default to Production, where AuthenticationSetup/GatewayAuthenticationSetup set
+// RequireHttpsMetadata = !IsDevelopment() = true and the JWT-bearer handler rejects the HTTP dev
+// Keycloak authority (http://localhost:8088/realms/authz-bank) -> HTTP 500 on every authenticated
+// request (accounts/transactions reads fail-closed; governance break-glass 500). Force Development
+// in RUN mode only so the security-sensitive RequireHttpsMetadata gate is untouched and
+// `aspire publish`/deploy stays environment-neutral. See LRN-089 + AuthenticationSetup.cs.
+if (builder.ExecutionContext.IsRunMode)
+{
+    foreach (var internalService in new[] { entitlementsService, bankApi, auditService, authzPdp, governanceService })
+    {
+        internalService.WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
+    }
+}
+
 builder.Build().Run();
