@@ -1,10 +1,10 @@
 # CS57 — First e2e smoke gate: `aspire run` stack boots + basics work
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs57/content
 **Started:** 2026-07-06
-**Closed:** —
+**Closed:** 2026-07-06
 **Filed by:** yoga-ae-c4 on 2026-07-05 — user request: "create a test that needs to be run locally part of every change made before sending off to PR review, include the test in the harness startup process as well. The test needs to verify the steps with aspire run and all the necessary services. This is the start of the e2e test gate, ensuring the basics of the system works." Design approach **Option A** confirmed by the user (Aspire.Hosting.Testing `StartAsync` .NET e2e + a node `harness startup` wrapper).
 **Depends on:** none (extends the CS50 app-model smoke test + the CS56 `aspire run` acceptance checks into an automated e2e gate)
 
