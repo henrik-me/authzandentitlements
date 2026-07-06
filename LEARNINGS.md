@@ -31,7 +31,7 @@ id: LRN-087
 date: 2026-07-06
 category: operational
 source_cs: CS56
-status: open
+status: applied
 tags: [aspire, keycloak, endpoints, dotnet10, regression]
 claim_area: aspire-run
 ```
@@ -42,7 +42,7 @@ claim_area: aspire-run
 
 **Evidence:** `src/AuthzEntitlements.AppHost/AppHost.cs` (Keycloak `.WithoutHttpsCertificate()`; `.WithHttpEndpoint()` on bank-api/audit-service/entitlements-service/governance-service/authz-pdp); `tests/AuthzEntitlements.AppHost.Tests/AppHostApplicationModelSmokeTests.cs` (project-http-endpoint + Keycloak 8088→8080 HTTP + anti-flip annotation guards); `docs/observability/aspire-run-500-triage.md` § "CS56"; decompiled `Aspire.Hosting.Keycloak.AddKeycloak` + `Aspire.Hosting.ResourceBuilderExtensions.SubscribeHttpsEndpointsUpdate`/`WithoutHttpsCertificate` (13.4.6-preview.1.26319.6); PR #189 (the .NET 10 GA + Aspire 13.4.6 bump).
 
-**Disposition:** **open** — both regressions are fixed in-band by CS56 (in `AppHost.cs`, guarded by the app-model smoke test); the entry stays `open` and flips to `applied` at CS56 close-out per the harvest convention, after the orchestrator's live `aspire run` acceptance gate (all 7 project services Running/healthy, bank-web login round-trip — Decision #6) passes.
+**Disposition:** **applied** — both regressions fixed in-band by CS56 (`AppHost.cs`, guarded by the app-model smoke test; content PR #193 merged as `388a653`). The live `aspire run` acceptance gate passed (all 7 project services Running/healthy on unique ports, `http://localhost:8088` OIDC discovery HTTP 200 + `teller1` token round-trip, bank-web 200 — Decision #6). Flipped `open → applied` at CS56 close-out.
 
 ### LRN-086
 
