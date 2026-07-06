@@ -345,28 +345,33 @@ public sealed class AuthenticatedFlowE2ETests
 
     /// <summary>
     /// GETs <paramref name="url"/>. While the timeout window remains, retries on connection failure,
-    /// a per-request client timeout, or any non-200 status. Returns the first 200, or — once the
-    /// window elapses — the last non-200 response that was received. If the endpoint was never
-    /// reachable within the window (only connection/timeout failures, no response), the last such
-    /// exception propagates. The overall CTS deadline always propagates. Absorbs container/realm
-    /// readiness and JWT-handler JWKS warm-up; a persistent non-200 surfaces as an assertion failure.
+    /// a per-request client timeout, or a non-200 status. Returns the first 200; otherwise, once the
+    /// window elapses, returns the most recent non-200 response received (so the caller can assert on
+    /// it), or throws <see cref="TimeoutException"/> if the endpoint was never reachable within the
+    /// window. The overall CTS deadline always propagates. Absorbs container/realm readiness and
+    /// JWT-handler JWKS warm-up; a persistent non-200 surfaces as an assertion failure.
     /// </summary>
     private static async Task<HttpResponseMessage> GetUntilOkAsync(
         HttpClient client, string url, TimeSpan timeout, CancellationToken cancellationToken)
     {
         var deadline = DateTime.UtcNow + timeout;
+        HttpResponseMessage? lastResponse = null;
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 var response = await client.GetAsync(url, cancellationToken);
-                if (response.StatusCode == HttpStatusCode.OK || DateTime.UtcNow >= deadline)
+                if (response.StatusCode == HttpStatusCode.OK)
                 {
+                    lastResponse?.Dispose();
                     return response;
                 }
 
-                response.Dispose();
+                // Retain the most recent non-200 so it can be returned (and asserted on) if the
+                // window elapses before a 200 arrives.
+                lastResponse?.Dispose();
+                lastResponse = response;
             }
             catch (HttpRequestException) when (DateTime.UtcNow < deadline)
             {
@@ -376,6 +381,12 @@ public sealed class AuthenticatedFlowE2ETests
             {
                 // per-request client timeout (HttpClient.Timeout), not the overall CTS deadline —
                 // e.g. a slow Keycloak realm import can exceed the client timeout; retry below.
+            }
+
+            if (DateTime.UtcNow >= deadline)
+            {
+                return lastResponse ?? throw new TimeoutException(
+                    $"GET {url} did not return any response within {timeout} (endpoint never reachable).");
             }
 
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
