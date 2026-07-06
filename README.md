@@ -235,13 +235,16 @@ This repo doubles as an evaluation lab. Key outputs:
 ## Project status & process
 
 This project is built with the **[agent-harness](https://github.com/henrik-me/agent-harness)**
-process (clickstops, review gates, CI), pinned to `v0.17.0`. Contributors: follow
-[INSTRUCTIONS.md](INSTRUCTIONS.md) (Session Start), then claim the next ready clickstop from
-`project/clickstops/planned/`. Current state, the clickstop dependency map, and blockers live in
-[CONTEXT.md](CONTEXT.md).
+process (clickstops, review gates, CI), pinned to the version tracked in
+[`harness.config.json`](harness.config.json) (the `version` field — the single source of truth).
+Contributors: follow [INSTRUCTIONS.md](INSTRUCTIONS.md) (Session Start), then claim the next ready
+clickstop from `project/clickstops/planned/`. Current state, the clickstop dependency map, and
+blockers live in [CONTEXT.md](CONTEXT.md).
 
 ```sh
-npx -y github:henrik-me/agent-harness#v0.17.0 startup
+# The harness pin lives in harness.config.json (version) — look it up, don't hard-code it:
+PIN=$(node -p "require('./harness.config.json').version")
+npx -y "github:henrik-me/agent-harness#$PIN" startup
 ```
 
 ## License
