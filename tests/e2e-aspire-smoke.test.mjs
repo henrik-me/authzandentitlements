@@ -60,16 +60,24 @@ test('aspire-run stack e2e smoke gate', async (t) => {
     return;
   }
 
+  const E2E_TIMEOUT_MS = 15 * 60_000; // generous cap; the e2e itself is ~1–3 min.
   const result = spawnSync(
     'dotnet',
     ['test', 'tests/AuthzEntitlements.E2E.Tests', '-c', 'Debug'],
     {
       stdio: 'inherit',
       shell: false,
+      timeout: E2E_TIMEOUT_MS,
+      killSignal: 'SIGKILL',
       env: { ...process.env, RUN_ASPIRE_E2E: '1' },
     },
   );
 
+  // On timeout, spawnSync sets `.error` (ETIMEDOUT) and a null status — surface it so a hung
+  // e2e fails the gate instead of blocking `harness startup`/`node --test` indefinitely.
+  if (result.error) {
+    assert.fail(`dotnet test (RUN_ASPIRE_E2E=1) failed to run: ${result.error.message}`);
+  }
   assert.strictEqual(
     result.status,
     0,

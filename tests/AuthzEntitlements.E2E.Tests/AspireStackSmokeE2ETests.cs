@@ -93,7 +93,7 @@ public sealed class AspireStackSmokeE2ETests
 
         // Realm import adds ~20–40 s after the container is up, so poll (bounded ~60 s).
         using var kc = new HttpClient();
-        var discovery = await GetWithRetryAsync(kc, discoveryUrl.ToString(), TimeSpan.FromSeconds(60), cts.Token);
+        using var discovery = await GetWithRetryAsync(kc, discoveryUrl.ToString(), TimeSpan.FromSeconds(60), cts.Token);
 
         Assert.True(
             discovery.StatusCode == HttpStatusCode.OK,
@@ -141,7 +141,7 @@ public sealed class AspireStackSmokeE2ETests
         // (4) bank-web root serves HTTP 200. Resolve the explicit "http" endpoint (bank-web
         // also has an https launch profile). Allow a short readiness retry.
         using var web = app.CreateHttpClient("bank-web", "http");
-        var webResponse = await GetWithRetryAsync(web, "/", TimeSpan.FromSeconds(60), cts.Token);
+        using var webResponse = await GetWithRetryAsync(web, "/", TimeSpan.FromSeconds(60), cts.Token);
         Assert.True(
             webResponse.StatusCode == HttpStatusCode.OK,
             $"bank-web root (GET /) should return 200 but returned {(int)webResponse.StatusCode}.");
@@ -166,7 +166,7 @@ public sealed class AspireStackSmokeE2ETests
     }
 
     /// <summary>
-    /// GETs <paramref name="url"/>, retrying on connection failure or a non-2xx/401 status
+    /// GETs <paramref name="url"/>, retrying on connection failure or a non-200/401 status
     /// until <paramref name="timeout"/> elapses. Used to absorb container/realm-import
     /// readiness lag. A 401 is treated as "endpoint is up" (auth-required root pages count).
     /// </summary>
