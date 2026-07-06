@@ -300,7 +300,10 @@ public sealed class AuthenticatedFlowE2ETests
     {
         var client = app.CreateHttpClient(resource, "http");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        client.Timeout = TimeSpan.FromSeconds(100);
+        // Per-request cap (like the kc client) — kept at/below the readiness-helper windows (30–90 s)
+        // so a single hung request cannot block far past the helper's intended timeout; the helper's
+        // own deadline is the overall retry budget and the 5-minute CTS is the hard ceiling.
+        client.Timeout = TimeSpan.FromSeconds(30);
         return client;
     }
 
