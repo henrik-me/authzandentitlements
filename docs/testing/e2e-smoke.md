@@ -19,8 +19,13 @@ the stack once and asserts:
    `edge-gateway`, `audit-service`, `authz-pdp`, `governance-service`, `bank-web` (via
    `ResourceNotifications.WaitForResourceHealthyAsync`, fast-failing on an unavailable
    resource).
-2. **Keycloak OIDC discovery** — `GET http://localhost:8088/realms/authz-bank/.well-known/openid-configuration`
-   returns **200** with `issuer == http://localhost:8088/realms/authz-bank`.
+2. **Keycloak OIDC discovery** — the realm's `.well-known/openid-configuration` returns
+   **200** with a coherent http realm `issuer` (`http://…/realms/authz-bank`). The Keycloak
+   endpoint is resolved from the app model (`app.GetEndpoint("keycloak", "http")`) rather than
+   hard-coded: under `Aspire.Hosting.Testing` the fixed host port 8088 is proxied to a
+   dynamically-allocated port (unlike `aspire run`, which binds 8088 directly), and Keycloak
+   stamps the issuer from the request host — so the test asserts the issuer's **http scheme +
+   `/realms/authz-bank` path shape**, not the exact `http://localhost:8088` authority (LRN-088).
 3. **OIDC token round-trip** — a `bank-web` client + `teller1` / `Passw0rd!` password grant
    against the realm token endpoint returns a non-empty `access_token`.
 4. **`bank-web` root** — `GET /` (explicit `http` endpoint) returns **200**.
@@ -30,9 +35,10 @@ The stack is torn down deterministically by the `await using` on the built appli
 ## Prerequisites
 
 - **Docker running.**
-- **No active `aspire run` on port 8088.** Keycloak is pinned to the fixed host port 8088,
-  so the e2e cannot run alongside a live `aspire run` (both would bind 8088). The test
-  fail-fasts with a clear message if 8088 is already in use, and the node wrapper skips.
+- **No active `aspire run` on port 8088.** The e2e uses a *proxied* Keycloak endpoint (so it
+  does not itself bind 8088), but a live `aspire run` does — and running two full stacks at once
+  is wasteful/flaky. A busy 8088 is the "a live stack is already up" signal: the test fail-fasts
+  with a clear message if 8088 is already in use, and the node wrapper skips.
 - **.NET 10 SDK** and **Node ≥ 20** (for the wrapper).
 
 ## How to run

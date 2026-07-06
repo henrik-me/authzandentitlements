@@ -5,8 +5,9 @@
 // modifying the harness. It boots the real `aspire run` stack via the .NET e2e
 // (tests/AuthzEntitlements.E2E.Tests) but SKIPS green when it cannot run safely:
 //   - Docker is unavailable (`docker info` fails), or
-//   - host port 8088 is already bound (an `aspire run` is active — the fixed Keycloak
-//     port can't be double-bound).
+//   - host port 8088 is already bound — a live `aspire run` is active. (The .NET e2e uses a
+//     proxied Keycloak endpoint and does not itself bind 8088, so this is a guard against
+//     running two full stacks at once, not a hard port-binding conflict.)
 // Otherwise it runs `dotnet test` with RUN_ASPIRE_E2E=1 and asserts a green exit.
 //
 // A *skipped* run here is a convenience for Docker-less startups/CI — it does NOT satisfy

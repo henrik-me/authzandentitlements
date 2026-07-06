@@ -51,8 +51,10 @@ public sealed class AspireStackSmokeE2ETests
     [Trait("Category", "e2e")]
     public async Task Aspire_stack_boots_and_the_basics_work()
     {
-        // (0) Fail-fast if port 8088 is already bound (Decision #4b): an active `aspire run`
-        // or a stale Keycloak container holds the fixed host port, so the stack cannot start.
+        // (0) Guard against a concurrent live `aspire run` (Decision #4b). Aspire.Hosting.Testing
+        // proxies Keycloak's fixed 8088 to a dynamically-allocated port (see the OIDC section
+        // below), so this build does NOT itself need 8088 — but a live `aspire run` binds 8088,
+        // and running two full stacks at once is wasteful/flaky, so fail-fast if 8088 is in use.
         if (IsTcpPortInUse("127.0.0.1", KeycloakPort))
         {
             Assert.Fail(
@@ -175,19 +177,22 @@ public sealed class AspireStackSmokeE2ETests
         CancellationToken cancellationToken)
     {
         var deadline = DateTime.UtcNow + timeout;
-        HttpResponseMessage? last = null;
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                last = await client.GetAsync(url, cancellationToken);
-                if (last.StatusCode == HttpStatusCode.OK ||
-                    last.StatusCode == HttpStatusCode.Unauthorized ||
+                var response = await client.GetAsync(url, cancellationToken);
+                if (response.StatusCode == HttpStatusCode.OK ||
+                    response.StatusCode == HttpStatusCode.Unauthorized ||
                     DateTime.UtcNow >= deadline)
                 {
-                    return last;
+                    return response;
                 }
+
+                // Not ready yet and time remains — dispose this response before retrying so
+                // the readiness loop doesn't leak sockets/handlers.
+                response.Dispose();
             }
             catch (HttpRequestException) when (DateTime.UtcNow < deadline)
             {
