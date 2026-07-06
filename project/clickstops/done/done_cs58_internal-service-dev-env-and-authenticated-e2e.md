@@ -1,10 +1,10 @@
 # CS58 — Fix internal-service Production env (RequireHttpsMetadata 500) + authenticated teller/manager e2e scenarios
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-ae-c4
 **Branch:** cs58/content
 **Started:** 2026-07-06
-**Closed:** —
+**Closed:** 2026-07-06
 **Filed by:** yoga-ae-c4 on 2026-07-06 — user reported that after login **teller1 and manager1 see no accounts/transactions** (bank-web "No accounts are available … fail-closed") and **break-glass fails with 500**. Live reproduction (this session, on the CS56/CS57 `main`) traced both to the same root cause and confirmed the fix. User also requested the e2e gate be expanded with the teller1/manager1 authenticated scenarios that would have caught it.
 **Depends on:** none (fixes a regression exposed after CS56; extends the CS57 e2e gate)
 
@@ -95,11 +95,11 @@ Reproduced live against the CS57 `main` stack (`aspire run`), decoding real toke
 
 ## Plan-vs-implementation review
 
-**Reviewer:** yoga-ae-c4 (orchestrator) · **Date:** 2026-07-06 · **Merged content:** PR #201 (5df95ea) · **Verdict: PASS**
-
+**Reviewer:** yoga-ae-c4 (orchestrator) — independent content review of record by gpt-5.5 (rubber-duck), R1→R8
+**Date:** 2026-07-06
 **Outcome:** GO
 
-Independent content review: gpt-5.5 rubber-duck, R1→R8 (2 Needs-Fix on readiness-helper robustness, both resolved) + 3 Copilot findings addressed; all threads resolved. Full `RUN_ASPIRE_E2E=1` run passed on the final code; regression proof confirmed (fails at the accounts 500 when D1 is reverted).
+Merged content: PR #201 (`5df95ea`). Independent content review: gpt-5.5 rubber-duck, R1→R8 (2 Needs-Fix on readiness-helper robustness, both resolved) + 3 Copilot findings addressed; all threads resolved. Full `RUN_ASPIRE_E2E=1` run passed on the final code; regression proof confirmed (fails at the accounts 500 when D1 is reverted).
 
 | Plan item | Implemented? | Evidence / notes |
 |---|---|---|
