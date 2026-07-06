@@ -618,9 +618,10 @@ reading these instructions or running any harness command (per Session Start). D
 **not** use `startup`/`sync` or any `npx …agent-harness` command as the get-latest
 step — running a harness CLI is what collides a fresh pull with a stale pin. After
 `git pull`, take the harness pin from the now-current **`harness.config.json`
-`version`** (the single source of truth — every `#<ver>` doc literal is sync-rendered
-from it; never hard-code it or copy it from a cached session/doc snapshot, which can
-lag), then invoke `npx …agent-harness#<pin> …` with that value. If `startup`/`sync`
+`version`** (the single source of truth — the harness-managed docs' `#<ver>` command
+literals are sync-rendered from it; don't hard-code the pin in consumer-owned docs or
+copy it from a cached session/doc snapshot, which can lag), then invoke
+`npx …agent-harness#<pin> …` with that value. If `startup`/`sync`
 fails right after a pull with `Template file not found: …/template/managed/<X>.md (required for managed target "<X>")`,
 your CLI is **older** than the just-pulled pin — re-run at the pinned version.
 (Upstream enforcement tracked: agent-harness#502.)
