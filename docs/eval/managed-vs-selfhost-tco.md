@@ -32,7 +32,7 @@ AuthZEN-aligned PDP (`AuthzEntitlements.Authz.Pdp`, CS05) runs pluggable engines
 | `cedar` | Cedar (`MonoCloud.Cedar`) | In-process (no container) | none | Shipped (CS09) |
 | `opa` | OPA / Rego | Out-of-process container | none (policy bundle) | Shipped (CS08) |
 | `openfga` | OpenFGA (ReBAC / Zanzibar) | Out-of-process container | Postgres (`openfga` DB) | Shipped (CS07) |
-| SpiceDB, Cerbos, Keto, Topaz | expansion | Out-of-process | varies | SpiceDB + Cerbos shipped (CS26); Keto + Topaz planned (CS46) |
+| SpiceDB, Cerbos, Keto, Topaz | expansion | Out-of-process | varies | SpiceDB + Cerbos shipped (CS26); Keto + Topaz shipped (CS46) |
 
 Oso was evaluated as a sixth expansion engine but **de-scoped** — see
 [ADR 0008](../adr/0008-oso-descoped-from-expansion-engines.md).

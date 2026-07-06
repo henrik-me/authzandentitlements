@@ -8,13 +8,14 @@ observability and a tamper-evident audit log.
 
 Everything runs locally with one command (`aspire run`). The default path is deterministic and
 needs no third-party authorization engine; you opt into container-backed engines (OPA, OpenFGA,
-SpiceDB, Cerbos) when you want to compare them.
+SpiceDB, Cerbos, Keto, Topaz) when you want to compare them.
 
-> **Status:** the lab is substantially built out — 35 clickstops are merged (the four-layer stack,
-> eight PDP engines, entitlements + governance, product UI, observability, hash-chained audit, and
-> the evaluation lab). Expansion engines (Ory Keto / Oso / Topaz) are still in progress. See
-> [CONTEXT.md](CONTEXT.md) for the live clickstop state and [ARCHITECTURE.md](ARCHITECTURE.md) for
-> the design and key data flows.
+> **Status:** the lab is substantially built out — 47 clickstops are merged (the four-layer stack,
+> ten PDP engines, entitlements + governance, product UI, observability, hash-chained audit, an
+> end-to-end `aspire run` smoke gate, and the evaluation lab). Ory Keto and Topaz are now integrated
+> (CS46); Oso was de-scoped (CS47). Azure deployment and OpenMeter metering remain the main planned
+> tracks. See [CONTEXT.md](CONTEXT.md) for the live clickstop state and [ARCHITECTURE.md](ARCHITECTURE.md)
+> for the design and key data flows.
 
 ## What's inside
 
@@ -24,10 +25,10 @@ SpiceDB, Cerbos) when you want to compare them.
 1. **Coarse-grained authz** — token scope / claim / audience / tenant checks enforced at a YARP
    **edge gateway** (a cheap, stateless first gate).
 2. **Fine-grained authz (FGA)** — a unified, **AuthZEN-aligned PDP** with a pluggable engine seam.
-   Eight engines are integrated. Six answer the full fintech decision and its **22-scenario parity
-   catalog** — `reference`, `aspnet`, `casbin`, `cedar` (in-process) plus `opa`, `cerbos`
-   (container). Two are **ReBAC (Zanzibar)** engines — `openfga` and `spicedb` (container) — that
-   model access as relationship tuples and run as selectable PDP providers; OpenFGA additionally
+   Ten engines are integrated. Seven answer the full fintech decision and its **22-scenario parity
+   catalog** — `reference`, `aspnet`, `casbin`, `cedar` (in-process) plus `opa`, `cerbos`, `topaz`
+   (container). Three are **ReBAC (Zanzibar)** engines — `openfga`, `spicedb`, and `keto` (container) —
+   that model access as relationship tuples and run as selectable PDP providers; OpenFGA additionally
    exposes relationship-native reverse-index queries at `/api/authz/rebac/*`. All container engines
    are opt-in.
 3. **Entitlements** — commercial (plans / modules / seats / features / quotas via OpenFeature,
@@ -75,7 +76,7 @@ to reach the product UI.
 
 The default path requires **Docker** (for Postgres, Keycloak, and the observability container) but
 **no third-party authorization engine** — the fine-grained PDP runs the deterministic in-process
-`reference` engine. The engine containers (OPA, OpenFGA, SpiceDB, Cerbos) and Unleash are
+`reference` engine. The engine containers (OPA, OpenFGA, SpiceDB, Cerbos, Keto, Topaz) and Unleash are
 **opt-in** and stay stopped until you start them (see
 [Compare authorization engines](#compare-authorization-engines)).
 
@@ -126,8 +127,8 @@ The fine-grained PDP (`authz-pdp`) is engine-agnostic. Two ways to compare engin
   unless their container is running.
 - **Switch the active engine:** set `Pdp__Provider=<name>` on `authz-pdp` (default `reference`).
   Names: `reference`, `aspnet`, `casbin`, `cedar` (in-process, always available); `opa`, `openfga`,
-  `spicedb`, `cerbos` (start the matching container first — use the **Start** action on the
-  resource in the Aspire dashboard — then set the provider). An unknown (non-blank) name **fails
+  `spicedb`, `cerbos`, `keto`, `topaz` (start the matching container first — use the **Start** action
+  on the resource in the Aspire dashboard — then set the provider). An unknown (non-blank) name **fails
   closed**; a blank value falls back to the default (`reference`).
 
 Verify engine parity against the shared catalog (get the `authz-pdp` base URL from the dashboard):
@@ -136,8 +137,8 @@ Verify engine parity against the shared catalog (get the `authz-pdp` base URL fr
 curl -X POST http://<authz-pdp>/api/authz/scenarios/verify
 ```
 
-The six full-fintech engines must return the same decision + primary reason code across the
-22-scenario `FintechScenarioCatalog`; the ReBAC engines (`openfga`, `spicedb`) model the same
+The seven full-fintech engines must return the same decision + primary reason code across the
+22-scenario `FintechScenarioCatalog`; the ReBAC engines (`openfga`, `spicedb`, `keto`) model the same
 domain as relationship tuples and run as selectable PDP providers, with OpenFGA additionally
 exposing reverse-index queries (who-can-access / what-can-user-access) at `/api/authz/rebac/*`.
 Related PDP surfaces: `/api/authz/evaluate`, `/api/authz/whatif`,
@@ -181,8 +182,24 @@ dotnet test AuthzEntitlements.sln --no-build --no-restore
 ```
 
 Build and test need **no Docker** — the OPA adapter tests are stubbed (deterministic), and the
-OpenFGA / SpiceDB / Cerbos integration tests are env-gated, soft-skipping unless their
+OpenFGA / SpiceDB / Cerbos / Keto / Topaz integration tests are env-gated, soft-skipping unless their
 `*_TEST_*` endpoint variable is set.
+
+### End-to-end smoke gate
+
+`tests/AuthzEntitlements.E2E.Tests` boots the **real** `aspire run` stack (via `Aspire.Hosting.Testing`)
+and drives it end to end — every service reaches Healthy, Keycloak OIDC works, and an authenticated
+`teller1`/`manager1` flow reads the seeded accounts/transactions, creates an account (manager) and a
+transaction, asserts the teller create-account **403**, and exercises governance break-glass. It is
+**opt-in** (needs Docker + a free port `8088`) and skipped by default:
+
+```sh
+$env:RUN_ASPIRE_E2E = '1'; dotnet test tests/AuthzEntitlements.E2E.Tests   # PowerShell
+RUN_ASPIRE_E2E=1 dotnet test tests/AuthzEntitlements.E2E.Tests             # bash
+```
+
+Run it before opening a PR (a *skipped* run is not a pass) — see
+[docs/testing/e2e-smoke.md](docs/testing/e2e-smoke.md).
 
 ## Evaluation lab deliverables
 
@@ -204,7 +221,7 @@ This repo doubles as an evaluation lab. Key outputs:
 | System architecture + data flows | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | Coarse vs. fine boundary | [docs/architecture/coarse-vs-fine-boundary.md](docs/architecture/coarse-vs-fine-boundary.md) |
 | PDP contract + adding an engine | [docs/authz/pdp-contract.md](docs/authz/pdp-contract.md), [docs/authz/adding-an-engine-adapter.md](docs/authz/adding-an-engine-adapter.md) |
-| Engine adapters | [aspnet + casbin](docs/authz/adapters-aspnet-casbin.md), [opa](docs/authz/opa-adapter.md), [cedar](docs/authz/cedar-adapter.md), [spicedb](docs/authz/spicedb-adapter.md), [cerbos](docs/authz/cerbos-adapter.md) |
+| Engine adapters | [aspnet + casbin](docs/authz/adapters-aspnet-casbin.md), [opa](docs/authz/opa-adapter.md), [cedar](docs/authz/cedar-adapter.md), [spicedb](docs/authz/spicedb-adapter.md), [cerbos](docs/authz/cerbos-adapter.md), [keto](docs/authz/keto-adapter.md), [topaz](docs/authz/topaz-adapter.md) |
 | Explainability / policy lifecycle | [docs/authz/explainability.md](docs/authz/explainability.md), [docs/authz/policy-lifecycle.md](docs/authz/policy-lifecycle.md) |
 | Audit pipeline | [docs/authz/audit-pipeline.md](docs/authz/audit-pipeline.md) |
 | Entitlements & governance | [access-governance](docs/governance/access-governance.md), [break-glass runbook](docs/governance/break-glass-and-delegation-runbook.md) |
@@ -213,6 +230,7 @@ This repo doubles as an evaluation lab. Key outputs:
 | Observability | [docs/observability/observability-stack.md](docs/observability/observability-stack.md) |
 | Security (threat model, secrets) | [docs/security/threat-model.md](docs/security/threat-model.md) |
 | Product UI | [docs/product/bank-web.md](docs/product/bank-web.md) |
+| Testing / e2e smoke gate | [docs/testing/e2e-smoke.md](docs/testing/e2e-smoke.md) |
 
 ## Project status & process
 

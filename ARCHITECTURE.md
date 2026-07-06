@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last updated:** 2026-07-04 — reflects the shipped surface. See [CONTEXT.md](CONTEXT.md) for the live clickstop state.
+> **Last updated:** 2026-07-06 — reflects the shipped surface. See [CONTEXT.md](CONTEXT.md) for the live clickstop state.
 
 ## Overview
 
@@ -47,7 +47,7 @@ graph TD
   WEB --> GOV[Governance.Service]
   GOV -->|SoD evaluate| PDP
   PDP --> INP[in-process engines: reference / aspnet / casbin / cedar]
-  PDP -. opt-in containers .-> OUT[opa / openfga / spicedb / cerbos]
+  PDP -. opt-in containers .-> OUT[opa / openfga / spicedb / cerbos / keto / topaz]
   PDP -->|hash-chained| AUD[Audit.Service]
   WEB -->|Audit Explorer| AUD
   API --> PG[(PostgreSQL — bank / entitlements / governance / audit / openfga / unleash)]
@@ -123,7 +123,7 @@ telemetry.
   `Pdp:Provider` (default `reference`); it trims the value (a blank value falls back to the default),
   **fails closed** on a non-blank unknown provider, and rejects blank / duplicate provider *names* at
   startup.
-- **Integrated engines (8):**
+- **Integrated engines (10):**
 
   | Name | Kind | Model | Notes |
   |---|---|---|---|
@@ -134,21 +134,25 @@ telemetry.
   | `opa` | container (REST) | policy (Rego) | Out-of-process; owns the full decision |
   | `openfga` | container (HTTP / REST) | ReBAC (Zanzibar) | Relationship tuples + reverse index; own ReBAC catalog |
   | `spicedb` | container (gRPC) | ReBAC (Zanzibar) | OpenFGA head-to-head; own ReBAC catalog |
+  | `keto` | container (HTTP / REST) | ReBAC (Zanzibar) | Ory Keto; dual-port read/write over the shared ReBAC graph; own ReBAC catalog |
   | `cerbos` | container (gRPC) | policy (YAML / CEL) | OPA head-to-head; owns the full decision |
+  | `topaz` | container (gRPC) | policy (Rego) | Aserto Topaz; runs the **same** Rego as `opa` inside Topaz's bundle engine (OPA-inside-Topaz head-to-head); owns the full decision |
 
 - **Parity:** the RBAC-family adapters (`aspnet` / `casbin`) supply only the engine-owned role gate
   via `IEngineRoleAuthorizer`; the shared `FintechRuleEvaluator` owns the ordered fintech pipeline,
-  so the **six full-fintech engines** (`reference`, `aspnet`, `casbin`, `cedar`, `opa`, `cerbos`)
-  answer the 22-scenario `FintechScenarioCatalog` identically (`ScenarioCatalogRunner` compares
-  decision + primary reason code). The two **ReBAC engines** (`openfga`, `spicedb`) model the same
-  domain as relationship tuples and are validated against a separate ReBAC scenario catalog rather
-  than the RBAC fintech catalog; OpenFGA additionally exposes the reverse-index `/api/authz/rebac/*`
-  surface (SpiceDB runs as a forward-check PDP provider). Container engines **fail closed**
-  when their backend is unreachable.
+  so the **seven full-fintech engines** (`reference`, `aspnet`, `casbin`, `cedar`, `opa`, `cerbos`,
+  `topaz`) answer the 22-scenario `FintechScenarioCatalog` identically (`ScenarioCatalogRunner`
+  compares decision + primary reason code; `topaz` runs the same Rego as `opa` inside Topaz's bundle
+  engine). The three **ReBAC engines** (`openfga`, `spicedb`, `keto`) model the same domain as
+  relationship tuples and are validated against a separate ReBAC scenario catalog rather than the
+  RBAC fintech catalog; OpenFGA additionally exposes the reverse-index `/api/authz/rebac/*` surface
+  (SpiceDB and Keto run as forward-check PDP providers). Container engines **fail closed** when their
+  backend is unreachable.
 - **Extra PDP surfaces:** explainability on every decision; shadow / dual-run; what-if
   (non-enforcing); golden-decision snapshot + policy-version drift detection; AuthZEN Access
   Evaluation conformance; the OpenFGA ReBAC reverse-index (`/api/authz/rebac/*`); and Playground fan-out.
-- **Planned expansion:** Ory Keto, Oso, Topaz / Aserto (CS46 / CS47).
+- **Planned expansion:** none pending — the engine set is complete. Ory Keto + Topaz / Aserto were
+  integrated in CS46; Oso was de-scoped (CS47, ADR-0008 — no pinnable in-process .NET path).
 
 ## Key data flows
 
@@ -269,6 +273,20 @@ anonymous **Editor** kiosk (login form + HTTP basic auth disabled, so no interac
 provisioned dashboards (Service Health, Request Rates, PDP Performance, Compliance) under
 `infra/observability/`.
 
+## Testing
+
+The default `dotnet test AuthzEntitlements.sln` runs the full suite with **no Docker** — the in-process
+engines run the 22-scenario parity offline, OPA is stubbed deterministically, and the other container
+engines (OpenFGA / SpiceDB / Cerbos / Keto / Topaz) soft-skip unless their `*_TEST_*` endpoint is set.
+A separate **end-to-end smoke gate** (`tests/AuthzEntitlements.E2E.Tests`, opt-in via `RUN_ASPIRE_E2E=1`,
+needs Docker) boots the real `aspire run` stack with `Aspire.Hosting.Testing` and asserts the runtime
+basics the offline suites structurally cannot — every service reaches Healthy, Keycloak OIDC + a token
+round-trip work, `bank-web` serves 200, and an **authenticated** `teller1`/`manager1` flow drives
+tenant-scoped reads, role-gated writes (a teller's create-account is denied), and governance break-glass
+through the live gateway (pinning Keycloak to its declared port so the token issuer / JWKS / authority
+align). It is the mandatory local pre-PR gate for `aspire run` regressions — see
+[docs/testing/e2e-smoke.md](docs/testing/e2e-smoke.md).
+
 ## Security posture
 
 - **Token binding:** issuer / audience / signature / lifetime validation, `MapInboundClaims=false`,
@@ -332,14 +350,14 @@ and [docs/eval/market-survey.md](docs/eval/market-survey.md).
 
 ## Status & roadmap
 
-The core system is shipped — 35 clickstops are merged: foundations, AuthN + coarse edge, the unified
-PDP + eight engine adapters, commercial + governance entitlements, observability + hash-chained
-audit, the Blazor product + Playground + Audit Explorer, the evaluation-lab documentation, and the
-CI / review-gate hardening. Live clickstop status is in [CONTEXT.md](CONTEXT.md); the remaining
-direction:
+The core system is shipped — 47 clickstops are merged: foundations, AuthN + coarse edge, the unified
+PDP + ten engine adapters, commercial + governance entitlements, observability + hash-chained
+audit, the Blazor product + Playground + Audit Explorer, the evaluation-lab documentation, an
+end-to-end `aspire run` smoke gate, and the CI / review-gate hardening. Live clickstop status is in
+[CONTEXT.md](CONTEXT.md); the remaining direction:
 
-- **Expansion engines** — SpiceDB + Cerbos are integrated (CS26); Ory Keto / Oso / Topaz are
-  planned (CS46 / CS47).
+- **Expansion engines** — complete: SpiceDB + Cerbos (CS26) and Ory Keto + Topaz (CS46) are
+  integrated; Oso was de-scoped (CS47, ADR-0008).
 - **Azure + metering (planned)** — Azure Container Apps deployment via `azd` (CS27), full OpenMeter
   metering locally (CS43), and OpenMeter on Azure (CS44).
 
