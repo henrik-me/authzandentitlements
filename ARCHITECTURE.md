@@ -282,10 +282,10 @@ A separate **end-to-end smoke gate** (`tests/AuthzEntitlements.E2E.Tests`, opt-i
 needs Docker) boots the real `aspire run` stack with `Aspire.Hosting.Testing` and asserts the runtime
 basics the offline suites structurally cannot — every service reaches Healthy, Keycloak OIDC + a token
 round-trip work, `bank-web` serves 200, and an **authenticated** `teller1`/`manager1` flow drives
-tenant-scoped reads, role-gated writes (a teller's create-account is denied), and governance break-glass
-through the live gateway (pinning Keycloak to its declared port so the token issuer / JWKS / authority
-align). It is the mandatory local pre-PR gate for `aspire run` regressions — see
-[docs/testing/e2e-smoke.md](docs/testing/e2e-smoke.md).
+tenant-scoped reads and role-gated writes (a teller's create-account is denied) through the live edge
+gateway, plus governance break-glass called directly on the governance service (pinning Keycloak to
+its declared port so the token issuer / JWKS / authority align). It is the mandatory local pre-PR gate
+for `aspire run` regressions — see [docs/testing/e2e-smoke.md](docs/testing/e2e-smoke.md).
 
 ## Security posture
 
