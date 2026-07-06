@@ -1,9 +1,9 @@
 # CS59 — Fix bank-web sign-out ("Missing parameters: id_token_hint")
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c4
+**Branch:** cs59/content
+**Started:** 2026-07-06
 **Closed:** —
 **Filed by:** yoga-ae-c4 on 2026-07-06 — user reported that signing out of `bank-web` shows a Keycloak error page: **"We are sorry… Missing parameters: id_token_hint"**. Root-caused + fix verified live before filing.
 **Depends on:** none (fixes a bank-web RP-initiated-logout defect; independent of the CS56/CS57/CS58 `aspire run` work)
@@ -64,7 +64,21 @@ Reproduced live against the running stack (`aspire run`, Keycloak on `8088`), dr
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per OPERATIONS.md § Claim) | planned | — | — |
+| D1 — `Program.cs` `/logout` guard (no id_token → cookie sign-out + LocalRedirect("/")) | planned | yoga-ae-c4 / impl sub-agent | Decision #1 |
+| D2 — `LEARNINGS.md` LRN (handler sources id_token_hint from GetTokenAsync; guard the inactive-session path) | planned | yoga-ae-c4 | D2 |
+| D3 — docs (bank-web/auth doc) if a logout flow is documented | planned | impl sub-agent | D3 (skip if none) |
+| Validate — reproduce (unauth → 400) + confirm fix (unauth → home; auth → id_token_hint) live | done | yoga-ae-c4 | verified this session; re-confirm on content build |
+| Review — GPT-5.5 content review + Copilot (A5 ordering) | planned | yoga-ae-c4 | independent reviewer model |
+| Close-out — PVI gate, active→done, WORKBOARD/CONTEXT, LRN applied | planned | yoga-ae-c4 | — |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c4 |
+| Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
 
