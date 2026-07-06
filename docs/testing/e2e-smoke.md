@@ -127,7 +127,8 @@ The gate is designed to stay out of the fast/Docker-free loops:
 > **A *skipped* wrapper run does NOT satisfy the mandatory pre-PR gate.** The pre-PR gate
 > requires Docker up, port 8088 free, and the e2e **actually running green**. A skip is a
 > convenience for startup/CI — it is not a pass. Before opening a PR you must see the e2e
-> run (not skip) and pass all four checks.
+> run (not skip) and pass — both the CS57 smoke basics **and** the CS58 authenticated
+> `teller1`/`manager1` flow (`AuthenticatedFlowE2ETests`).
 
 ## Roadmap
 
