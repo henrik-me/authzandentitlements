@@ -1,9 +1,9 @@
 # CS58 — Fix internal-service Production env (RequireHttpsMetadata 500) + authenticated teller/manager e2e scenarios
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-ae-c4
+**Branch:** cs58/content
+**Started:** 2026-07-06
 **Closed:** —
 **Filed by:** yoga-ae-c4 on 2026-07-06 — user reported that after login **teller1 and manager1 see no accounts/transactions** (bank-web "No accounts are available … fail-closed") and **break-glass fails with 500**. Live reproduction (this session, on the CS56/CS57 `main`) traced both to the same root cause and confirmed the fix. User also requested the e2e gate be expanded with the teller1/manager1 authenticated scenarios that would have caught it.
 **Depends on:** none (fixes a regression exposed after CS56; extends the CS57 e2e gate)
@@ -72,7 +72,22 @@ Reproduced live against the CS57 `main` stack (`aspire run`), decoding real toke
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per OPERATIONS.md § Claim) | planned | — | — |
+| D1 — `AppHost.cs`: force `ASPNETCORE_ENVIRONMENT=Development` on the 5 internal services in run mode | planned | yoga-ae-c4 / impl sub-agent | Decision #1; run-mode guard |
+| D2 — authenticated teller1/manager1 e2e (fixed-port boot; see/create accounts+transactions; break-glass) | planned | impl sub-agent | Decisions #3/#4/#5/#6 |
+| D3 — `docs/testing/e2e-smoke.md`: add authenticated scenarios + role contract | planned | impl sub-agent | D3 |
+| D4 — `LEARNINGS.md`: profile-less → Production → RequireHttpsMetadata 500 LRN | planned | yoga-ae-c4 | D4 |
+| Validate — `RUN_ASPIRE_E2E=1` e2e passes; **fails if D1 reverted** (regression proof) | planned | yoga-ae-c4 | tear down live `aspire-verify` first (frees 8088) |
+| Review — GPT-5.5 content review + Copilot (A5 ordering) | planned | yoga-ae-c4 | independent reviewer model |
+| Close-out — PVI gate, active→done, WORKBOARD/CONTEXT, LRN applied | planned | yoga-ae-c4 | — |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-ae-c4 |
+| Reviewer agent | rubber-duck |
 
 ## Notes / Learnings
 
