@@ -121,6 +121,62 @@ request-path isolated, so the extra gate does not prevent any 500, and (b) a wro
 probe would itself risk destabilizing the default `aspire run` path. Recorded here as a
 deliberate, low-value-vs-risk deferral.
 
+## CS56 — `aspire run` broken by the .NET 10 GA + Aspire 13.4.6 bump (2026-07-06)
+
+> **Scope:** a *distinct* `aspire run` breakage from the LRN-014 empty-body 500 above. Filed
+> and fixed in **CS56** after the .NET 10 GA + Aspire 13.4.6 lockstep bump (PR #189). Two
+> independent regressions rode that bump; both are now fixed in
+> [`AppHost.cs`](../../src/AuthzEntitlements.AppHost/AppHost.cs) and guarded by the AppHost
+> app-model smoke test. See [LEARNINGS.md](../../LEARNINGS.md) `### LRN-087`.
+
+### Symptom
+
+Opening `bank-web` under `aspire run` failed OIDC discovery with *"The response ended
+prematurely"*, and the Aspire dashboard showed several project resources **Finished** or
+**Failed to start** — none of which happened on the pre-bump toolchain.
+
+### Root cause 1 — Keycloak's fixed 8088 endpoint flipped to HTTPS
+
+`Aspire.Hosting.Keycloak` was bumped `13.1.0-preview` → `13.4.6-preview.1.26319.6`. The
+integration declares the fixed host endpoint as **HTTP on 8088 → container 8080**, but in run
+mode it also subscribes to a `BeforeStart` HTTPS-endpoint update that, **when a developer
+certificate is available**, rewrites that same `http` endpoint to `UriScheme = "https"` /
+`TargetPort = 8443`. So host `8088` bound the container's **HTTPS (8443)** listener:
+`curl http://localhost:8088/realms/authz-bank/.well-known/openid-configuration` returned an
+empty reply while the `https://…` form returned `200`. Because every service uses a stable
+`http://localhost:8088/realms/authz-bank` OIDC authority (the dev realm is `sslRequired: none`),
+the login round-trip 500'd.
+
+**Fix:** call `.WithoutHttpsCertificate()` on the Keycloak resource. It records an
+`HttpsCertificateAnnotation` with `UseDeveloperCertificate = false`, which gates the run-mode
+HTTPS-endpoint update off, so the fixed 8088 endpoint stays **HTTP → container 8080** and the
+`http://localhost:8088` issuer is unchanged (no `KC_HOSTNAME`/issuer drift).
+
+### Root cause 2 — endpoint-less project services collided on Kestrel `:5000`
+
+Under Aspire 13.4.6, an `AddProject` resource that declares **no** HTTP endpoint (no
+`launchSettings.json`, no `WithHttpEndpoint()`) is no longer assigned an endpoint or
+`ASPNETCORE_URLS`, so it falls back to Kestrel's default `http://127.0.0.1:5000`. The five
+internal services (`bank-api`, `audit-service`, `entitlements-service`, `governance-service`,
+`authz-pdp`) all fell back to `:5000`, collided (`address already in use`), and either exited
+(**Finished**) or left the existing `.GetEndpoint("http")` references — `edge-gateway` →
+`bank-api`, `authz-pdp` → `audit-service` — unresolved (**Failed to start**).
+
+**Fix:** add an explicit `.WithHttpEndpoint()` (endpoint name `http`, Aspire-assigned dynamic
+port) to each of the five internal services, so every service binds a unique port and the
+`.GetEndpoint("http")` references resolve.
+
+### Regression guard
+
+The AppHost app-model smoke test
+([`AppHostApplicationModelSmokeTests`](../../tests/AuthzEntitlements.AppHost.Tests/AppHostApplicationModelSmokeTests.cs))
+adds two Docker-free (`BuildAsync`, never `StartAsync`) assertions: every `AddProject` resource
+exposes an `http`-scheme endpoint named `http`; and the Keycloak resource keeps its `http`
+endpoint on host 8088 → container 8080 **and** carries the `HttpsCertificateAnnotation`
+(`UseDeveloperCertificate = false`) that suppresses the run-mode HTTPS flip. (The flip fires
+only at `BeforeStart`, never during `BuildAsync`, so asserting that anti-flip annotation is what
+mechanically catches removal of the fix.)
+
 ## References
 
 - [LEARNINGS.md](../../LEARNINGS.md) — `### LRN-014` (problem, evidence, CS12 update).
