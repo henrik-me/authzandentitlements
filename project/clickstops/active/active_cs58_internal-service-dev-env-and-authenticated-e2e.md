@@ -72,13 +72,13 @@ Reproduced live against the CS57 `main` stack (`aspire run`), decoding real toke
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| D1 — `AppHost.cs`: force `ASPNETCORE_ENVIRONMENT=Development` on the 5 internal services in run mode | planned | yoga-ae-c4 / impl sub-agent | Decision #1; run-mode guard |
-| D2 — authenticated teller1/manager1 e2e (fixed-port boot; see/create accounts+transactions; break-glass) | planned | impl sub-agent | Decisions #3/#4/#5/#6 |
-| D3 — `docs/testing/e2e-smoke.md`: add authenticated scenarios + role contract | planned | impl sub-agent | D3 |
-| D4 — `LEARNINGS.md`: profile-less → Production → RequireHttpsMetadata 500 LRN | planned | yoga-ae-c4 | D4 |
-| Validate — `RUN_ASPIRE_E2E=1` e2e passes; **fails if D1 reverted** (regression proof) | planned | yoga-ae-c4 | tear down live `aspire-verify` first (frees 8088) |
-| Review — GPT-5.5 content review + Copilot (A5 ordering) | planned | yoga-ae-c4 | independent reviewer model |
-| Close-out — PVI gate, active→done, WORKBOARD/CONTEXT, LRN applied | planned | yoga-ae-c4 | — |
+| D1 — `AppHost.cs`: force `ASPNETCORE_ENVIRONMENT=Development` on the 5 internal services in run mode | done | yoga-ae-c4 / impl sub-agent | Decision #1; merged in #201 |
+| D2 — authenticated teller1/manager1 e2e (fixed-port boot; see/create accounts+transactions; break-glass) | done | impl sub-agent | Decisions #3/#4/#5/#6; merged in #201 |
+| D3 — `docs/testing/e2e-smoke.md`: add authenticated scenarios + role contract | done | impl sub-agent | D3; merged in #201 |
+| D4 — `LEARNINGS.md`: profile-less → Production → RequireHttpsMetadata 500 LRN | done | yoga-ae-c4 | LRN-089 on main |
+| Validate — `RUN_ASPIRE_E2E=1` e2e passes; **fails if D1 reverted** (regression proof) | done | yoga-ae-c4 | both verified live this session |
+| Review — GPT-5.5 content review + Copilot (A5 ordering) | done | yoga-ae-c4 | R1–R8 Go; 3 Copilot findings + 2 Needs-Fix resolved |
+| Close-out — PVI gate, active→done, WORKBOARD/CONTEXT, LRN applied | done | yoga-ae-c4 | this PR |
 
 ## Model audit
 
@@ -91,6 +91,28 @@ Reproduced live against the CS57 `main` stack (`aspire run`), decoding real toke
 
 ## Notes / Learnings
 
+- **2026-07-06 — Closed.** Fix + authenticated e2e merged in PR #201 (squash `5df95ea`). Root cause + fix validated live (teller1/manager1 see 3 accounts + 3 transactions; manager create-account 201; teller create-account 403; both create-transaction 201; both break-glass 201) and the e2e fails at the accounts 500 when D1 is reverted (regression proof). Filed **LRN-089** (profile-less Aspire projects default to Production under `aspire run` → `RequireHttpsMetadata=true` rejects the HTTP dev Keycloak authority → 500; force Development in run mode; the e2e must exercise an authenticated read through the gateway). Fixed-port issuer alignment via `DcpPublisher:RandomizePorts=false` empirically bound Keycloak to 8088.
+
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** yoga-ae-c4 (orchestrator) · **Date:** 2026-07-06 · **Merged content:** PR #201 (5df95ea) · **Verdict: PASS**
+
+**Outcome:** GO
+
+Independent content review: gpt-5.5 rubber-duck, R1→R8 (2 Needs-Fix on readiness-helper robustness, both resolved) + 3 Copilot findings addressed; all threads resolved. Full `RUN_ASPIRE_E2E=1` run passed on the final code; regression proof confirmed (fails at the accounts 500 when D1 is reverted).
+
+| Plan item | Implemented? | Evidence / notes |
+|---|---|---|
+| Decision #1 — run-mode `ASPNETCORE_ENVIRONMENT=Development` on the 5 internal services | ✅ | `AppHost.cs` `if (builder.ExecutionContext.IsRunMode) { … WithEnvironment(…) }` before `Build().Run()` |
+| Decision #2 — rejected weakening `RequireHttpsMetadata` / per-service launchSettings | ✅ | Auth setups untouched (reviewer verified); no launchSettings added |
+| Decision #3 — authenticated teller1/manager1 scenarios incl. break-glass with bearer | ✅ | `AuthenticatedFlowE2ETests`; break-glass POSTed **with** the bearer |
+| Decision #4 — teller create-account = 403 asserted | ✅ | Scenario (5): `teller1 POST /api/accounts` → 403 |
+| Decision #5 — fixed-port issuer alignment (`DcpPublisher:RandomizePorts=false`) | ✅ | Empirically bound Keycloak to 8088 (inline assertion passed); no fallback needed |
+| Decision #6 — repeatable assertions (seeded-present + count ≥ 3, not exact) | ✅ | Asserts CONTOSO-CHK/SAV/LON-0001 present + ≥3; unique per-run numbers; FABRIKAM isolated |
+| D1 — `AppHost.cs` fix | ✅ | merged |
+| D2 — e2e expansion (+ `E2ECollectionBehavior` no-parallel) | ✅ | merged |
+| D3 — `docs/testing/e2e-smoke.md` | ✅ | scenarios + 403 contract + fixed-port note |
+| D4 — `LEARNINGS.md` LRN-089 | ✅ | on main |
+| Exit — e2e passes; **fails if D1 reverted**; build 0/0; default test skips e2e; lint 0 | ✅ | all verified this session |
+
+**Deviation (recorded per the hash-immutability rule; hashed sections unchanged):** break-glass is invoked **directly on `governance-service`**, not through the edge-gateway. The gateway proxies only the bank-api paths (`/api/accounts`, `/api/transactions`); it has no `/api/governance/*` route, so bank-web's `GovernanceClient` calls governance directly. This supersedes Decision #3's "(through the gateway)" parenthetical for the break-glass call; the intent (bearer-forwarded break-glass exercising the `RequireHttpsMetadata` path) is fully met.
