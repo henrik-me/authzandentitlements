@@ -71,10 +71,12 @@ speculative and risk destabilizing the default `aspire run` path.
    `governance-service`, `bank-web`). There is **no missing `WaitFor`** to add.
 2. **Exporter resilience (defense in depth).** Even without the `WaitFor`, an unready
    collector cannot 500 a request (verified above). The two mitigations are independent.
-3. **Isolation seam preserved.** ServiceDefaults gates `UseOtlpExporter()` on
-   `OTEL_EXPORTER_OTLP_ENDPOINT` being non-empty, so the LRN-014 debugging technique —
-   run a service standalone **without** the OTLP env to separate service logic from the
-   AppHost OTLP layer — remains available (see [runbook](#isolation-runbook)).
+3. **Isolation seam preserved.** ServiceDefaults registers each OTLP exporter only when its
+   endpoint env var is non-empty — post-CS60 that is a per-signal `AddOtlpExporter()` for the
+   Aspire dashboard (gated on `OTEL_EXPORTER_OTLP_ENDPOINT`) and a second for the lgtm collector
+   (gated on `LGTM_OTLP_ENDPOINT`) — so the LRN-014 debugging technique — run a service
+   standalone **without** those OTLP env vars to separate service logic from the AppHost OTLP
+   layer — remains available (see [runbook](#isolation-runbook)).
 
 ## Remaining verification
 
@@ -111,10 +113,12 @@ If a service misbehaves under `aspire run` and an OTLP interaction is suspected,
 from the AppHost OTLP layer by running it standalone **without** the OTLP env:
 
 ```powershell
-# Bank.Api standalone: no OTEL_EXPORTER_OTLP_ENDPOINT -> ServiceDefaults leaves the OTLP
-# exporter OFF, so any remaining 500 is service logic, not the telemetry layer.
+# Bank.Api standalone: with neither OTEL_EXPORTER_OTLP_ENDPOINT nor LGTM_OTLP_ENDPOINT set,
+# ServiceDefaults leaves BOTH OTLP export legs OFF, so any remaining 500 is service logic,
+# not the telemetry layer.
 cd src/AuthzEntitlements.Bank.Api
 $env:OTEL_EXPORTER_OTLP_ENDPOINT = $null
+$env:LGTM_OTLP_ENDPOINT = $null
 dotnet run
 # curl http://localhost:<port>/alive   # expect 200
 ```
@@ -191,8 +195,10 @@ mechanically catches removal of the fix.)
 - [observability stack](./observability-stack.md) — the CS12 collector + per-service OTLP
   wiring; the "Known issue — LRN-014" pointer.
 - [`AppHost.cs`](../../src/AuthzEntitlements.AppHost/AppHost.cs) — the `observability`
-  container, the `otlpEndpoint` expression, and the per-service
-  `OTEL_EXPORTER_OTLP_ENDPOINT` + `WaitFor(observability)` wiring.
+  container, the `lgtmOtlpEndpoint` expression, and the per-service
+  `LGTM_OTLP_ENDPOINT` + `WaitFor(observability)` wiring (post-CS60 dual-export; the Aspire
+  dashboard endpoint `OTEL_EXPORTER_OTLP_ENDPOINT` is no longer overridden).
 - [`ServiceDefaults/Extensions.cs`](../../src/AuthzEntitlements.ServiceDefaults/Extensions.cs) —
-  `AddOpenTelemetryExporters`, which gates `UseOtlpExporter()` on
-  `OTEL_EXPORTER_OTLP_ENDPOINT`.
+  `AddOpenTelemetryExporters`, which registers two per-signal `AddOtlpExporter()`s (the Aspire
+  dashboard via `OTEL_EXPORTER_OTLP_ENDPOINT`, the lgtm collector via `LGTM_OTLP_ENDPOINT`),
+  each gated on its endpoint being non-empty.
