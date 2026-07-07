@@ -83,15 +83,15 @@ Related wiring facts: OTLP export is gated on `OTEL_EXPORTER_OTLP_ENDPOINT` (`Se
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Task 1 — clean single-collector `aspire run` reproduction; confirm root cause (injected endpoint, collector series, Grafana↔collector mapping, dashboard-verification path) | pending | omni-ae | agent-id=omni-ae \| role=impl \| report-status=pending \| learnings=0 — gates Decisions 2-3 (Decision 1) |
-| AppHost collector determinism (fixed OTLP/Grafana ports and/or persistent-lifetime reconsideration) | pending | omni-ae | agent-id=omni-ae \| role=impl \| report-status=pending \| learnings=0 — Decision 2; behind user-approval gate |
-| Dual-export to the Aspire dashboard (AppHost + ServiceDefaults second exporter / collector fan-out) | pending | omni-ae | agent-id=omni-ae \| role=impl \| report-status=pending \| learnings=0 — Decision 3; behind user-approval gate |
-| e2e telemetry-arrival assertion (extend `RUN_ASPIRE_E2E`; collector series present after traffic) | pending | omni-ae | agent-id=omni-ae \| role=test \| report-status=pending \| learnings=0 — Decision 4 |
-| Stale-collector cleanup + runbook (remove/ignore pre-CS60 duplicate `otel-lgtm` containers) | pending | omni-ae | agent-id=omni-ae \| role=impl \| report-status=pending \| learnings=0 |
-| Docs update (`observability-stack.md`: dual-export, fixed ports, verification) + LRN-014 follow-up close | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=0 |
-| File learning (delivery proven working; persistent+dynamic-port split-brain; missing arrival guard) | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=1 |
+| Task 1 — clean single-collector `aspire run` reproduction; confirm root cause (injected endpoint, collector series, Grafana↔collector mapping, dashboard-verification path) | done | omni-ae | agent-id=omni-ae \| role=impl \| report-status=complete \| learnings=1 — delivery works; causes = split-brain + no-traffic + no dual-export (see Notes) |
+| AppHost collector determinism (drop `ContainerLifetime.Persistent` → single per-run collector; volume persists history) | done | omni-ae | agent-id=omni-ae \| role=impl \| report-status=complete \| learnings=0 — Decision 2 (user-away autonomy: recommended option) |
+| Dual-export to the Aspire dashboard (AppHost `LGTM_OTLP_ENDPOINT` + ServiceDefaults second per-signal OTLP exporter) | done | omni-ae | agent-id=omni-ae \| role=impl \| report-status=complete \| learnings=0 — Decision 3; **verified live** (7 dashboard-OTLP connections + collector series) |
+| e2e telemetry-arrival assertion (`TelemetryArrivalE2ETests`, `RUN_ASPIRE_E2E=1`; asserts `http_server_*` in the collector) + internal `prometheus` endpoint | done | omni-ae | agent-id=omni-ae \| role=test \| report-status=complete \| learnings=0 — Decision 4; passes live (1m5s) |
+| Stale-collector cleanup + runbook (remove pre-CS60 duplicate `otel-lgtm` containers) | done | cs60-docs-learning | agent-id=cs60-docs-learning \| role=docs \| report-status=complete \| learnings=0 — in observability-stack.md |
+| Docs update (`observability-stack.md`: dual-export, single collector, verification) + LRN-014 follow-up close | done | cs60-docs-learning | agent-id=cs60-docs-learning \| role=docs \| report-status=complete \| learnings=0 |
+| File learning LRN-092 (delivery works; split-brain + no-traffic + no dual-export + missing arrival guard) | done | cs60-docs-learning | agent-id=cs60-docs-learning \| role=docs \| report-status=complete \| learnings=1 |
 | Close-out: docs + restart state | pending | omni-ae | Update WORKBOARD + CONTEXT.md after merge so a fresh agent restarts from actual state |
-| Close-out: learnings + follow-ups | pending | omni-ae | Flip the new learning open→applied (record commit/PR); open follow-up CSs for any unresolved gaps |
+| Close-out: learnings + follow-ups | pending | omni-ae | Flip LRN-092 open→applied (record commit/PR); open follow-up CSs for any unresolved gaps |
 
 ## Notes / Learnings
 
@@ -108,13 +108,23 @@ Booted a clean stack (`dotnet run` AppHost) after **removing all leftover `otel-
 
 _Decisions 2 (collector determinism) and 3 (dual-export mechanism) sit behind a user-approval gate — see the recommended design surfaced at Task-1 close._
 
+### Implementation decisions (omni-ae, 2026-07-07)
+
+The maintainer approved starting implementation ("go go go") but was then unavailable at the Decision-2/3 gate; per the autonomy directive I proceeded with the **recommended** design (surfaced at Task-1 close), clearly flagged for review:
+
+- **Decision 2 (collector determinism):** removed `.WithLifetime(ContainerLifetime.Persistent)` from the `observability` container so exactly ONE collector exists per `aspire run` (auto-removed on shutdown) — permanently kills the split-brain. Kept the named `authz-observability-data` `/data` volume, so cross-run history still survives (reverses only the container lifetime, not the volume). This reverses a CS12 design choice (persistent container); documented in `AppHost.cs` + `observability-stack.md` and trivially revertible.
+- **Decision 3 (dual-export):** the AppHost no longer overrides `OTEL_EXPORTER_OTLP_ENDPOINT` (Aspire keeps it → dashboard) and injects the lgtm collector as `LGTM_OTLP_ENDPOINT`; `ServiceDefaults.AddOpenTelemetryExporters` registers a second per-signal `AddOtlpExporter()` for it. `UseOtlpExporter()` was replaced with explicit per-signal exporters because it cannot be combined with `AddOtlpExporter()`.
+- **Added surface:** an internal `prometheus` (9090) tcp endpoint on the observability container (still internal — `WithExternalHttpEndpoints()` marks only Grafana external) so the e2e guard/operators can query PromQL directly.
+
+**Live verification (clean slate each time):** single collector; all 7 services delivered (`http_server_request_duration_seconds_count` 0 idle → 357–427 after traffic); after dual-export, 7 established service connections to the Aspire dashboard OTLP endpoint (21036); `dotnet build` 0/0; full default `dotnet test` green; `RUN_ASPIRE_E2E=1 TelemetryArrivalE2ETests` **passes** (1m5s). Fail-closed confirmed empirically: the asserted metric is 0/absent on an idle stack, so the `> 0` assertion fails when telemetry has not arrived.
+
 ## Model audit
 
 | Field | Value |
 |---|---|
 | Implementer models | claude-opus-4.8 |
 | Reviewer model | gpt-5.5 |
-| Implementer agent | omni-ae |
+| Implementer agent | omni-ae, cs60-docs-learning |
 | Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
