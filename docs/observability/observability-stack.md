@@ -200,9 +200,13 @@ gated on its env var and stays off when empty.
 
 For an automated guard, the opt-in `RUN_ASPIRE_E2E=1` telemetry-arrival test
 ([`TelemetryArrivalE2ETests`](../../tests/AuthzEntitlements.E2E.Tests/TelemetryArrivalE2ETests.cs))
-boots the stack, drives `/alive` traffic to **every** project service, and asserts a **non-zero
-`http_server_request_duration_seconds_count` `job` series for each service** (CS61) — the exact
-metric the dashboards query — so per-service telemetry delivery cannot silently regress.
+boots the stack, drives `/alive` traffic to **every** project service, and asserts that each
+service's `http_server_request_duration_seconds_count` `job` series receives a **new sample this
+run** — it compares `max by (job)(timestamp(...))` against a pre-traffic baseline and requires the
+latest-sample timestamp to advance (CS61). Comparing sample timestamps (not counter values) is
+robust to the persistent volume's stale series: a per-process counter reset or a stale series aging
+out of Prometheus's lookback cannot masquerade as this-run delivery. It is the exact metric the
+dashboards query, so per-service telemetry delivery cannot silently regress.
 
 ## Persistence (verified)
 

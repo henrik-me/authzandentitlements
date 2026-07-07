@@ -17,13 +17,13 @@ namespace AuthzEntitlements.E2E.Tests;
 ///
 /// This test boots the real <c>aspire run</c> stack, drives inbound HTTP traffic to <em>every</em>
 /// instrumented project service (so each emits <c>http.server.request.duration</c>), and then
-/// asserts that the <c>grafana/otel-lgtm</c> collector's Prometheus holds a non-zero
+/// asserts that the <c>grafana/otel-lgtm</c> collector's Prometheus receives a fresh
 /// <c>http_server_request_duration_seconds_count</c> <c>job</c> series <em>for each service</em>
 /// (CS61 — the maintainer's per-service guard) — the exact metric the CS12 Service Health /
 /// Request Rates dashboards query. It reaches Prometheus via the internal <c>prometheus</c>
 /// endpoint the AppHost exposes on the observability container (CS60), so the assertion mirrors
 /// what a dashboard sees. It polls (bounded) for per-service arrival and fails closed if any
-/// service is absent or unchanged from its pre-traffic baseline.
+/// service's latest-sample timestamp does not advance past its pre-traffic baseline.
 ///
 /// The Aspire-dashboard leg of the CS60 dual-export has no guaranteed programmatic read path, so
 /// it stays a documented manual check (see docs/observability/observability-stack.md); this
@@ -76,13 +76,18 @@ public sealed class TelemetryArrivalE2ETests
 
         // Capture a per-service baseline BEFORE driving traffic. The collector uses a persistent
         // /data volume, so on a dev/self-hosted machine a service may already carry a stale
-        // http_server counter series from a previous run. We therefore require each service's series
-        // to CHANGE from its pre-traffic baseline during this run. A "change" (not a strict increase)
-        // is the correct, reset-aware signal: each run starts fresh service processes whose counters
-        // begin at 0, so a new export overwrites a stale-high value with a LOWER one (a counter
-        // reset). Requiring change — not `> baseline` — proves this run delivered without failing
-        // spuriously on that reset. In fresh CI the baselines are simply absent, so any sample counts.
-        var baseline = await QueryJobCountsAsync(
+        // http_server series from a previous run. We therefore require each service's latest SAMPLE
+        // TIMESTAMP to advance past its pre-traffic baseline during this run — i.e. a genuinely new
+        // sample was ingested for that job. Timestamps (not counter values) are the robust signal:
+        //  * value-change is unsafe — `sum by (job)` can change merely because a stale series ages
+        //    out of Prometheus's 5m lookback mid-poll, so a broken service could falsely "deliver";
+        //  * a strict value-increase is unsafe — a fresh process resets its counter, so a new export
+        //    can be numerically LOWER than a stale-high baseline.
+        // `max by (job)(timestamp(metric))` gives each job's newest sample time; it only moves
+        // forward when a NEW sample arrives, and aging-out makes it stay flat or DECREASE (handled by
+        // the directional `> baseline` compare below). In fresh CI baselines are absent, so any first
+        // sample counts.
+        var baseline = await QueryJobSampleTimestampsAsync(
             prom, "http_server_request_duration_seconds_count", cts.Token);
 
         // Drive inbound HTTP to EVERY instrumented service so ASP.NET Core server instrumentation
@@ -119,26 +124,23 @@ public sealed class TelemetryArrivalE2ETests
         }
 
         // Poll until EVERY project service's http_server_request_duration_seconds_count `job` series
-        // has CHANGED from its pre-traffic baseline — i.e. telemetry was pushed to the collector for
-        // EACH service during THIS run (the maintainer's per-service guard), not merely in aggregate
-        // and not merely stale series. "Changed" (rather than strictly increased) is reset-aware: a
-        // fresh service process resets its counter to 0, so a new export replaces a stale-high value
-        // with a lower one — still proof of this run's delivery. A series absent from the baseline but
-        // present now is also delivery. A service that never pushes stays exactly at its baseline (or
-        // absent) and is flagged. OTLP batch export + Prometheus ingest lag is up to ~60s; poll
-        // (bounded) so we don't fail on transient lag, and fail closed if any service is unchanged at
-        // the deadline.
+        // has a NEWER sample than its pre-traffic baseline — i.e. telemetry was pushed to the
+        // collector for EACH service during THIS run (the maintainer's per-service guard), not merely
+        // in aggregate and not merely stale series. A service that never pushes keeps a flat/aging
+        // (older-or-equal) max timestamp and is flagged. OTLP batch export + Prometheus ingest lag is
+        // up to ~60s; poll (bounded) so we don't fail on transient lag, and fail closed if any
+        // service has not produced a newer sample at the deadline.
         var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(2);
-        Dictionary<string, double> jobCounts = new(StringComparer.Ordinal);
+        Dictionary<string, double> jobStamps = new(StringComparer.Ordinal);
         string[] missing = ProjectServices;
 
         while (DateTime.UtcNow < deadline)
         {
             cts.Token.ThrowIfCancellationRequested();
 
-            jobCounts = await QueryJobCountsAsync(
+            jobStamps = await QueryJobSampleTimestampsAsync(
                 prom, "http_server_request_duration_seconds_count", cts.Token);
-            missing = ProjectServices.Where(s => !ServiceDelivered(s, baseline, jobCounts)).ToArray();
+            missing = ProjectServices.Where(s => !ServiceDelivered(s, baseline, jobStamps)).ToArray();
 
             if (missing.Length == 0)
             {
@@ -149,25 +151,27 @@ public sealed class TelemetryArrivalE2ETests
         }
 
         _output.WriteLine(
-            "per-service http_server_request_duration_seconds_count (baseline → final): " +
+            "per-service http_server latest-sample unix ts (baseline → final): " +
             string.Join(", ", ProjectServices.Select(s =>
-                $"{s}={baseline.GetValueOrDefault(s, 0)}→{jobCounts.GetValueOrDefault(s, 0)}")));
+                $"{s}={baseline.GetValueOrDefault(s, 0):0}→{jobStamps.GetValueOrDefault(s, 0):0}")));
 
-        // Every instrumented service/app must have pushed NEW server telemetry to the collector.
+        // Every instrumented service/app must have pushed a NEW server-telemetry sample this run.
         Assert.True(
             missing.Length == 0,
-            "These services did not deliver server telemetry (their http_server_request_duration_" +
-            "seconds_count series was unchanged from its pre-traffic baseline) to the " +
+            "These services did not push a newer http_server_request_duration_seconds_count sample " +
+            "(their latest-sample timestamp did not advance past its pre-traffic baseline) to the " +
             $"grafana/otel-lgtm collector during this run: [{string.Join(", ", missing)}]. Seen jobs: " +
-            $"[{string.Join(", ", jobCounts.Keys)}].");
+            $"[{string.Join(", ", jobStamps.Keys)}].");
     }
 
     /// <summary>
     /// A service "delivered" telemetry this run when its <c>job</c> series is present now AND either
-    /// it was absent from the pre-traffic baseline (brand-new series) or its sample count changed
-    /// from the baseline. Change — not strict increase — is required because a fresh service process
-    /// resets its counter, so a new export can be numerically LOWER than a stale-high baseline while
-    /// still proving this run pushed telemetry.
+    /// it was absent from the pre-traffic baseline (brand-new series) or its latest-sample timestamp
+    /// is strictly NEWER than the baseline. The compare is directional (newer, not merely different):
+    /// a fresh export always yields a strictly greater sample timestamp, whereas stale series aging
+    /// out of Prometheus's lookback can make the per-job max timestamp stay flat or DECREASE — which
+    /// must NOT count as delivery. Comparing timestamps (not counter values) is immune both to
+    /// per-process counter resets and to stale series aging out of the aggregate.
     /// </summary>
     private static bool ServiceDelivered(
         string service,
@@ -180,26 +184,26 @@ public sealed class TelemetryArrivalE2ETests
         }
 
         // Absent from baseline → any present sample is this run's delivery.
-        // Present in baseline → require the count to have moved by at least one sample.
-        return !baseline.TryGetValue(service, out var was) || Math.Abs(now - was) >= 1.0;
+        // Present in baseline → require a strictly newer sample (>= 1s later; export interval ≫ 1s).
+        return !baseline.TryGetValue(service, out var was) || now - was >= 1.0;
     }
 
     /// <summary>
-    /// Runs <c>sum by (job) (&lt;metric&gt;)</c> and returns each <c>job</c> → sample count. Used to
-    /// verify per-service delivery: every project service's count must change from its pre-traffic
-    /// baseline (see <see cref="ServiceDelivered"/>).
+    /// Runs <c>max by (job) (timestamp(&lt;metric&gt;))</c> and returns each <c>job</c> → its newest
+    /// sample's unix-seconds timestamp. Used to verify per-service delivery: every project service's
+    /// latest sample must be newer than its pre-traffic baseline (see <see cref="ServiceDelivered"/>).
     /// </summary>
-    private static async Task<Dictionary<string, double>> QueryJobCountsAsync(
+    private static async Task<Dictionary<string, double>> QueryJobSampleTimestampsAsync(
         HttpClient prom, string metric, CancellationToken ct)
     {
-        var counts = new Dictionary<string, double>(StringComparer.Ordinal);
+        var stamps = new Dictionary<string, double>(StringComparer.Ordinal);
         try
         {
-            var query = Uri.EscapeDataString($"sum by (job) ({metric})");
+            var query = Uri.EscapeDataString($"max by (job) (timestamp({metric}))");
             using var response = await prom.GetAsync($"/api/v1/query?query={query}", ct);
             if (response.StatusCode != HttpStatusCode.OK)
             {
-                return counts;
+                return stamps;
             }
 
             using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
@@ -208,9 +212,9 @@ public sealed class TelemetryArrivalE2ETests
                 var job = series.GetProperty("metric").GetProperty("job").GetString();
                 var value = series.GetProperty("value")[1].GetString();
                 if (job is not null &&
-                    double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var count))
+                    double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var ts))
                 {
-                    counts[job] = count;
+                    stamps[job] = ts;
                 }
             }
         }
@@ -219,6 +223,6 @@ public sealed class TelemetryArrivalE2ETests
             // return whatever was parsed before the failure — the caller polls + fails closed
         }
 
-        return counts;
+        return stamps;
     }
 }
