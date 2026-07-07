@@ -1,10 +1,10 @@
 # CS61 — Per-service telemetry e2e + verified persistent telemetry disk
 
-**Status:** active
+**Status:** done
 **Owner:** omni-ae
 **Branch:** cs61/content
 **Started:** 2026-07-07
-**Closed:** —
+**Closed:** 2026-07-07
 **Filed by:** omni-ae on 2026-07-06 — maintainer follow-up to CS60: (1) the telemetry-arrival e2e must verify telemetry is pushed for **each** service/app, not just an aggregate; (2) ensure the telemetry disk is persistent. A live two-run reproduction (this session) confirmed all 7 services deliver and that the `/data` volume persists telemetry across container recreation.
 **Depends on:** none (CS60 shipped the dual-export + single-collector wiring this hardens)
 
@@ -96,4 +96,22 @@ CS60 fixed empty-Grafana/empty-dashboard by dropping `ContainerLifetime.Persiste
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-07T07:25:12Z
+**Outcome:** GO
+
+| Deliverable | Outcome | Notes |
+|---|---|---|
+| E2E: drive `/alive` to all 7 services and assert success | match | `TelemetryArrivalE2ETests` enumerates all 7 services, waits for health, sends `/alive`, and fails if no successful response per service. |
+| E2E: poll per-service Prometheus delivery | diverged — justified | Plan specified `sum by (job)(..._count) > 0`; shipped uses `max by (job)(timestamp(...))` with a fail-closed pre-traffic baseline and requires timestamp advancement. Better satisfies the intent by proving this-run delivery and avoiding stale persistent-volume false passes, counter resets, and lookback-aging artifacts (driven by the content-PR review; recorded in Notes). |
+| AppHost smoke test: named writable `/data` volume | match | `AppHost_observability_declares_persistent_data_volume` asserts `ContainerMountAnnotation` at `/data`, `Source == authz-observability-data`, `Type == Volume`, writable. |
+| Docs: persistence verified + per-service e2e guard | match | `observability-stack.md` documents volume-based persistence, two-run proof, no persistent container lifetime, hard-kill orphan behavior, and the timestamp-based per-service e2e. |
+| Optional learning LRN-093 | filed | Plan marked optional; PvI reviewer judged it warranted. Filed LRN-093 (timestamp-vs-value delivery signal + fail-closed baseline + cross-run persistence/orphan-on-hard-kill). |
+| Exit: opt-in e2e passes + fails closed on missing service/failed `/alive` | match (justified divergence) | Live clean-slate + retained-volume passes; fails closed on missing/non-advancing samples and failed `/alive`. Timestamp advancement is stronger than a non-zero count. |
+| Exit: AppHost Docker-free test passes | match | AppHost.Tests 6/6; builds the app model without `StartAsync`. |
+| Exit: build/test/lint/LF-no-BOM | match | `dotnet build` 0/0, default tests green, AppHost.Tests 6/6, `harness lint` 23/0, LF/no-BOM. |
+| Exit: docs updated; no OTLP wiring/lifetime change | match | Docs updated; `AppHost.cs` keeps the named `/data` volume, does not restore `ContainerLifetime.Persistent` or alter OTLP wiring. |
+
+Test-coverage assessment: **sufficient** — the retained-volume e2e specifically exercises the stale-data failure mode, and the AppHost smoke test mechanically guards the persistent-disk invariant.
+
+Overall outcome: **GO**.

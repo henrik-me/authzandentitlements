@@ -24,6 +24,26 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-093
+
+```yaml
+id: LRN-093
+date: 2026-07-07
+category: operational
+source_cs: CS61
+status: open
+tags: [observability, telemetry, e2e, prometheus, persistence, aspire]
+claim_area: observability
+```
+
+**Problem:** Verifying that OTLP telemetry is "pushed for each service" against a collector whose Prometheus uses a **persistent `/data` volume** is deceptively easy to get wrong. Naive per-service checks give **false passes** on retained volumes: `count > 0` passes on last-run's **stale** series without proving this-run delivery; a value **increase/change** check is also unsafe — each run starts fresh service **processes whose counters reset** (a new export can be numerically *lower* than a stale-high baseline), and a `sum by (job)` value can change merely because a **stale series ages out** of Prometheus's ~5m lookback mid-poll, so a *broken* service could still "pass".
+
+**Finding:** The robust per-service arrival signal is to compare **sample timestamps**, not values: query `max by (job)(timestamp(<metric>))`, capture a **pre-traffic baseline**, then require each service's latest-sample timestamp to **strictly advance** (`now > was`). This is immune to counter resets (timestamps only move forward on a new sample) and to aging-out (an aging max stays flat or *decreases* → correctly rejected). Two further correctness points: (a) the baseline read must **fail closed** — distinguish a *successful-but-empty* vector from a *failed/unready* read (return `null`, poll until a read succeeds), else a failed baseline read lets a stale series slip in via the "absent-from-baseline ⇒ delivery" path; (b) use a **strict `>`** (timestamps are fractional seconds — an epsilon like `>= 1.0` wrongly rejects a genuinely-newer sub-second sample). Persistence itself is provided by the **named `authz-observability-data` volume at `/data`** (holds prometheus/loki/tempo/grafana/pyroscope), independent of container lifetime — a Docker-free AppHost app-model smoke test asserting the named, writable `/data` `ContainerMountAnnotation` guards it mechanically.
+
+**Evidence:** `tests/AuthzEntitlements.E2E.Tests/TelemetryArrivalE2ETests.cs` drives `/alive` to all 7 services and polls the timestamp-advance check; verified live twice back-to-back on a **retained** volume (baseline non-zero from the prior run, all 7 services' final timestamps ~70s newer) and on a clean slate. `AppHost_observability_declares_persistent_data_volume` in `AppHostApplicationModelSmokeTests.cs` guards the `/data` mount (AppHost.Tests 6/6). Operational aside: a **hard kill** of the AppHost orphans the run-scoped collector container (leaves it running) instead of removing it; graceful Ctrl+C removes it — the named volume persists either way. The count→change→timestamp evolution was driven by two GPT-5.5 Blocks on content PR #217 before the final Go.
+
+**Disposition:** **applied by CS61** — the timestamp-based per-service e2e + fail-closed baseline + persistence smoke-test guard shipped in content PR #217 (squash-merged 2026-07-07). Reusable rule: to prove per-service telemetry arrival against a persistent collector, assert **sample-timestamp advancement over a fail-closed baseline**, never a raw count or value change.
+
 ### LRN-092
 
 ```yaml
