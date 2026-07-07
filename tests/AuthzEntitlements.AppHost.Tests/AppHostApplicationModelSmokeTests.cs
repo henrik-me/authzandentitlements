@@ -149,4 +149,41 @@ public class AppHostApplicationModelSmokeTests
         Assert.Null(antiFlip!.Certificate);
 #pragma warning restore ASPIRECERTIFICATES001
     }
+
+    /// <summary>
+    /// CS61 — regression guard for the persistent telemetry disk. CS60 dropped
+    /// <c>ContainerLifetime.Persistent</c> on the observability container (to end the collector
+    /// split-brain) but kept the named <c>authz-observability-data</c> volume mounted at
+    /// <c>/data</c> — which is what actually persists the otel-lgtm Prometheus/Loki/Tempo stores
+    /// across container recreation (verified live: telemetry from one run survived into a fresh
+    /// container reusing the volume). This asserts that named, writable <c>/data</c> volume mount is
+    /// still declared, so a future edit cannot silently drop or swap the persistent telemetry disk.
+    /// </summary>
+    [Fact]
+    public async Task AppHost_observability_declares_persistent_data_volume()
+    {
+        var appHost = await DistributedApplicationTestingBuilder
+            .CreateAsync<Projects.AuthzEntitlements_AppHost>();
+
+        await using var app = await appHost.BuildAsync();
+
+        var observability = Assert.Single(
+            appHost.Resources,
+            r => string.Equals(r.Name, "observability", StringComparison.OrdinalIgnoreCase));
+
+        var dataMount = observability.Annotations
+            .OfType<ContainerMountAnnotation>()
+            .FirstOrDefault(m => m.Target == "/data");
+
+        Assert.True(
+            dataMount is not null,
+            "The observability container must mount a volume at /data — it is the persistent telemetry " +
+            "disk (Prometheus/Loki/Tempo) that survives container recreation now that CS60 dropped " +
+            "ContainerLifetime.Persistent.");
+        Assert.Equal(ContainerMountType.Volume, dataMount!.Type);
+        Assert.Equal("authz-observability-data", dataMount.Source);
+        Assert.False(
+            dataMount.IsReadOnly,
+            "The /data telemetry volume must be writable so the collector can persist telemetry.");
+    }
 }
