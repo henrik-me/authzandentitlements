@@ -1,16 +1,19 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-// CS12 — Persistent observability stack. `grafana/otel-lgtm` bundles the OpenTelemetry
-// Collector + Prometheus (metrics) + Tempo (traces) + Loki (logs) + Grafana into a single
-// container: the standard Aspire persistent-observability backend, going beyond the
-// ephemeral dev-time Aspire dashboard. The instrumented services fan their OTLP telemetry
-// here (ServiceDefaults already gates its OTLP exporter on OTEL_EXPORTER_OTLP_ENDPOINT), the
-// bundled collector routes each signal to its backend, and Grafana visualizes them with the
-// baseline dashboards provisioned from infra/observability. A persistent container lifetime and
-// a /data volume let collected telemetry survive `aspire run` restarts. The tag is pinned for
-// determinism; this is a dev-loop backend (not a production deployment).
+// CS12/CS60 — observability stack. `grafana/otel-lgtm` bundles the OpenTelemetry Collector +
+// Prometheus (metrics) + Tempo (traces) + Loki (logs) + Grafana into a single container. Services
+// **dual-export** their OTLP telemetry (CS60) to BOTH the Aspire dashboard (Aspire's auto-injected
+// OTEL_EXPORTER_OTLP_ENDPOINT) AND this collector (via the AppHost-injected LGTM_OTLP_ENDPOINT
+// below); ServiceDefaults wires the second exporter. The bundled collector routes each signal to
+// its backend and Grafana visualizes them with the baseline dashboards from infra/observability;
+// a /data volume preserves collected telemetry across runs.
+//
+// CS60 dropped `ContainerLifetime.Persistent`: exactly ONE collector now exists per `aspire run`
+// (auto-removed on shutdown). Persistent + dynamic-port containers were accumulating across runs
+// (different config hashes, surviving shutdown) and causing collector/Grafana split-brain — an
+// operator could open a stale instance's empty Grafana while services exported to another. The
+// named /data volume still persists history. The tag is pinned for determinism; dev-loop backend.
 var observability = builder.AddContainer("observability", "grafana/otel-lgtm", "0.28.0")
-    .WithLifetime(ContainerLifetime.Persistent)
     .WithVolume("authz-observability-data", "/data")
     .WithBindMount(
         "../../infra/observability/grafana/dashboards",
@@ -29,17 +32,23 @@ var observability = builder.AddContainer("observability", "grafana/otel-lgtm", "
     .WithEnvironment("GF_AUTH_DISABLE_LOGIN_FORM", "true")
     .WithEnvironment("GF_AUTH_BASIC_ENABLED", "false")
     .WithHttpEndpoint(targetPort: 3000, name: "grafana")
-    // OTLP ingest stays internal: model 4317/4318 as tcp (not http) endpoints so
-    // WithExternalHttpEndpoints() marks ONLY the Grafana UI external — the OTLP ports are
-    // reachable by the host-run services but not exposed off-box (no telemetry-injection surface).
+    // OTLP ingest + Prometheus stay internal: model 4317/4318 (OTLP) and 9090 (Prometheus
+    // read API) as tcp (not http) endpoints so WithExternalHttpEndpoints() marks ONLY the
+    // Grafana UI external — these ports are reachable by the host-run services / the e2e test
+    // but not exposed off-box (no telemetry-injection surface). The prometheus endpoint (CS60)
+    // lets the e2e telemetry-arrival guard query the collector directly, and is a convenience
+    // for operators who want PromQL without opening Grafana.
     .WithEndpoint(targetPort: 4317, name: "otlp-grpc")
     .WithEndpoint(targetPort: 4318, name: "otlp-http")
+    .WithEndpoint(targetPort: 9090, name: "prometheus")
     .WithExternalHttpEndpoints();
 
-// The OTLP/gRPC endpoint every instrumented service exports to. The endpoint is a tcp resource
+// The lgtm collector's OTLP/gRPC endpoint — the CS60 dual-export target, injected into services
+// as LGTM_OTLP_ENDPOINT (NOT OTEL_EXPORTER_OTLP_ENDPOINT: that stays Aspire's auto-injected
+// dashboard endpoint, so telemetry reaches the dashboard too). The endpoint is a tcp resource
 // (kept internal), so build the http:// exporter URL the .NET OTLP exporter expects explicitly.
 var otlpGrpc = observability.GetEndpoint("otlp-grpc");
-var otlpEndpoint = ReferenceExpression.Create(
+var lgtmOtlpEndpoint = ReferenceExpression.Create(
     $"http://{otlpGrpc.Property(EndpointProperty.Host)}:{otlpGrpc.Property(EndpointProperty.Port)}");
 
 var postgres = builder.AddPostgres("postgres")
@@ -129,7 +138,7 @@ var entitlementsService = builder.AddProject<Projects.AuthzEntitlements_Entitlem
     .WithEnvironment("Entitlements__FeatureProvider", "InMemory")
     .WithEnvironment("Entitlements__Unleash__Url", unleash.GetEndpoint("http"))
     .WithEnvironment("Entitlements__Unleash__ApiToken", "*:development.unleash-insecure-client-token")
-    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WithEnvironment("LGTM_OTLP_ENDPOINT", lgtmOtlpEndpoint)
     .WaitFor(observability);
 
 var bankApi = builder.AddProject<Projects.AuthzEntitlements_Bank_Api>("bank-api")
@@ -143,7 +152,7 @@ var bankApi = builder.AddProject<Projects.AuthzEntitlements_Bank_Api>("bank-api"
     .WithReference(entitlementsService)
     .WithEnvironment("Keycloak__Authority", keycloakAuthority)
     .WithEnvironment("Keycloak__Audience", "bank-api")
-    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WithEnvironment("LGTM_OTLP_ENDPOINT", lgtmOtlpEndpoint)
     .WaitFor(observability);
 
 // CS04 — coarse-grained edge gateway (YARP). Fronts Bank.Api and enforces coarse
@@ -160,7 +169,7 @@ var edgeGateway = builder.AddProject<Projects.AuthzEntitlements_Edge_Gateway>("e
     .WithEnvironment(
         "ReverseProxy__Clusters__bank-api__Destinations__bank-api__Address",
         bankApi.GetEndpoint("http"))
-    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WithEnvironment("LGTM_OTLP_ENDPOINT", lgtmOtlpEndpoint)
     .WaitFor(observability)
     .WithExternalHttpEndpoints();
 
@@ -300,7 +309,7 @@ var auditService = builder.AddProject<Projects.AuthzEntitlements_Audit_Service>(
     .WithHttpEndpoint()
     .WithReference(auditDb)
     .WaitFor(auditDb)
-    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WithEnvironment("LGTM_OTLP_ENDPOINT", lgtmOtlpEndpoint)
     .WaitFor(observability);
 
 // CS05 — unified AuthZEN-aligned fine-grained PDP. A standalone in-process reference host
@@ -334,7 +343,7 @@ var authzPdp = builder.AddProject<Projects.AuthzEntitlements_Authz_Pdp>("authz-p
     // keeps the deterministic reference provider off Topaz's critical path. Topaz serves the authorizer
     // over TLS, so this is an https:// endpoint (the adapter connects in insecure mode).
     .WithEnvironment("Pdp__Topaz__Endpoint", topaz.GetEndpoint("grpc"))
-    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WithEnvironment("LGTM_OTLP_ENDPOINT", lgtmOtlpEndpoint)
     // CS08 — OPA coordinates for the config-gated `opa` provider. Injected unconditionally (like the
     // Unleash coordinates) so Pdp__Provider=opa works without further wiring; no WaitFor(opa) keeps
     // the deterministic reference provider off OPA's critical path.
@@ -370,7 +379,7 @@ var governanceService = builder.AddProject<Projects.AuthzEntitlements_Governance
     .WaitFor(keycloak)
     .WithEnvironment("Keycloak__Authority", keycloakAuthority)
     .WithEnvironment("Keycloak__Audience", "bank-api")
-    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WithEnvironment("LGTM_OTLP_ENDPOINT", lgtmOtlpEndpoint)
     .WaitFor(observability);
 
 // CS14 — Bank.Web calls edge-gateway (coarse), entitlements, governance, and authz-pdp via service discovery.
@@ -384,7 +393,7 @@ builder.AddProject<Projects.AuthzEntitlements_Bank_Web>("bank-web")
     .WithReference(auditService)
     .WithEnvironment("Keycloak__Authority", keycloakAuthority)
     .WithEnvironment("Keycloak__ClientSecret", "bank-web-secret")
-    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", otlpEndpoint)
+    .WithEnvironment("LGTM_OTLP_ENDPOINT", lgtmOtlpEndpoint)
     .WaitFor(observability)
     .WithExternalHttpEndpoints();
 

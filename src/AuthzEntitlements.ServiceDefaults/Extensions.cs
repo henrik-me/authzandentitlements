@@ -5,6 +5,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
@@ -80,11 +81,60 @@ public static class Extensions
 
     private static TBuilder AddOpenTelemetryExporters<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
-        var useOtlpExporter = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+        // Primary OTLP target: the Aspire dashboard. Aspire auto-injects OTEL_EXPORTER_OTLP_ENDPOINT
+        // (+ OTEL_EXPORTER_OTLP_HEADERS) into every project, so a config-free AddOtlpExporter() reads
+        // them and telemetry shows in the dashboard's Structured logs / Traces / Metrics tabs.
+        var hasDashboard = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
 
-        if (useOtlpExporter)
+        // CS60 dual-export: also export to the persistent grafana/otel-lgtm collector, injected by the
+        // AppHost as LGTM_OTLP_ENDPOINT. The .NET OTLP exporter targets a single endpoint per exporter,
+        // so the second collector is a second, explicitly-configured OTLP exporter per signal. Note:
+        // UseOtlpExporter() is NOT used — it cannot be combined with signal-specific AddOtlpExporter().
+        var lgtmEndpoint = builder.Configuration["LGTM_OTLP_ENDPOINT"];
+        // Parse defensively: a malformed LGTM_OTLP_ENDPOINT (e.g. missing scheme) simply disables
+        // the lgtm export leg rather than throwing UriFormatException and crashing service startup.
+        var lgtmUri = Uri.TryCreate(lgtmEndpoint, UriKind.Absolute, out var parsedLgtmUri) ? parsedLgtmUri : null;
+
+        if (hasDashboard || lgtmUri is not null)
         {
-            builder.Services.AddOpenTelemetry().UseOtlpExporter();
+            builder.Services.AddOpenTelemetry()
+                .WithMetrics(metrics =>
+                {
+                    if (hasDashboard)
+                    {
+                        metrics.AddOtlpExporter();
+                    }
+
+                    if (lgtmUri is not null)
+                    {
+                        metrics.AddOtlpExporter((exporter, _) => exporter.Endpoint = lgtmUri);
+                    }
+                })
+                .WithTracing(tracing =>
+                {
+                    if (hasDashboard)
+                    {
+                        tracing.AddOtlpExporter();
+                    }
+
+                    if (lgtmUri is not null)
+                    {
+                        tracing.AddOtlpExporter(exporter => exporter.Endpoint = lgtmUri);
+                    }
+                });
+
+            builder.Logging.AddOpenTelemetry(logging =>
+            {
+                if (hasDashboard)
+                {
+                    logging.AddOtlpExporter();
+                }
+
+                if (lgtmUri is not null)
+                {
+                    logging.AddOtlpExporter(exporter => exporter.Endpoint = lgtmUri);
+                }
+            });
         }
 
         // Uncomment the following lines to enable the Azure Monitor exporter (requires the Azure.Monitor.OpenTelemetry.AspNetCore package)

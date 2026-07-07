@@ -4,7 +4,7 @@
 > (OTel Collector + Prometheus + Loki + Tempo + Grafana) that receives OpenTelemetry
 > from the instrumented services. See [ARCHITECTURE.md](../../ARCHITECTURE.md) phase 4
 > (Observability + audit) and the CS12 plan
-> (`../../project/clickstops/active/active_cs12_observability-stack.md`).
+> (`../../project/clickstops/done/done_cs12_observability-stack.md`).
 
 The .NET Aspire dashboard already shows metrics, logs, and traces, but only for the
 lifetime of a single `aspire run`: its telemetry store is in-memory and ephemeral. This
@@ -17,10 +17,13 @@ architecture (see [ARCHITECTURE.md](../../ARCHITECTURE.md)); the tamper-evident 
 
 ## Topology
 
-The instrumented services export OpenTelemetry over OTLP to a collector, which fans each
-signal out to its store; Grafana reads all three stores for visualization. Every component
-below runs inside a **single** container image, `grafana/otel-lgtm` (see
-[Why `grafana/otel-lgtm`](#why-grafanaotel-lgtm-the-bundle)).
+The instrumented services **dual-export** (CS60) OpenTelemetry over OTLP to two targets at
+once: the **Aspire dashboard's** in-memory OTLP receiver (a live view for the lifetime of a
+single `aspire run`) and the persistent **lgtm collector**, which fans each signal out to its
+store so Grafana can visualize it across sessions. Exactly **one** collector runs per
+`aspire run` — CS60 dropped the persistent lifetime (see
+[Why `grafana/otel-lgtm`](#why-grafanaotel-lgtm-the-bundle)) — and all of its components run
+inside a **single** container image, `grafana/otel-lgtm`.
 
 ```mermaid
 graph LR
@@ -30,6 +33,7 @@ graph LR
     A3[edge-gateway]
     A4[bank-web]
   end
+  DASH[Aspire dashboard - in-memory OTLP]
   subgraph LGTM[observability container - grafana/otel-lgtm]
     COL[OTel Collector]
     COL --> PROM[Prometheus - metrics]
@@ -43,11 +47,19 @@ graph LR
   A2 -->|OTLP| COL
   A3 -->|OTLP| COL
   A4 -->|OTLP| COL
+  A1 -.OTLP.-> DASH
+  A2 -.OTLP.-> DASH
+  A3 -.OTLP.-> DASH
+  A4 -.OTLP.-> DASH
 ```
 
 - **Instrumented services** — `bank-api`, `entitlements-service`, `edge-gateway`, and
-  `bank-web` export traces, metrics, and logs via the shared ServiceDefaults OTel wiring.
-- **OTel Collector** — the single OTLP ingest point (gRPC `4317` / HTTP `4318`).
+  `bank-web` (plus `audit-service`, `authz-pdp`, `governance-service` — 7 in all) export
+  traces, metrics, and logs via the shared ServiceDefaults OTel wiring, to **both** targets.
+- **Aspire dashboard** — the in-memory OTLP receiver Aspire auto-wires via
+  `OTEL_EXPORTER_OTLP_ENDPOINT`; ephemeral, for the lifetime of one `aspire run`.
+- **OTel Collector** — the single per-run OTLP ingest point (gRPC `4317` / HTTP `4318`),
+  driven by the AppHost-injected `LGTM_OTLP_ENDPOINT`.
 - **Prometheus / Loki / Tempo** — the metrics / logs / traces stores.
 - **Grafana** — dashboards and the Explore views over all three stores.
 
@@ -66,17 +78,29 @@ durable across runs:
 
 - **Pinned tag `0.28.0`** — a fixed tag (not `latest`) for reproducible runs, matching the
   repo's version-pinning convention.
-- **Persistent lifetime + `/data` volume** — the container uses a persistent lifetime and a
-  `/data` volume, so collected telemetry survives `aspire run` restarts instead of being
-  discarded with the process.
+- **Single per-run collector + persistent `/data` volume** — CS60 **dropped**
+  `ContainerLifetime.Persistent`, so exactly **one** collector exists per `aspire run` and is
+  auto-removed on shutdown. (Persistent + dynamic-port containers were accumulating across
+  runs and checkouts, causing collector/Grafana split-brain — see
+  [Stale-collector cleanup](#stale-collector-cleanup).) The named `authz-observability-data`
+  `/data` volume still persists collected telemetry across runs, so history survives even
+  though the container itself does not.
 
 ## Endpoints
 
 | Signal / UI | Container port | Aspire endpoint name |
 |---|---|---|
 | Grafana UI | `3000` | `grafana` (external) |
-| OTLP gRPC | `4317` | `otlp-grpc` |
-| OTLP HTTP | `4318` | `otlp-http` |
+| OTLP gRPC | `4317` | `otlp-grpc` (internal) |
+| OTLP HTTP | `4318` | `otlp-http` (internal) |
+| Prometheus read API | `9090` | `prometheus` (internal) |
+
+Only the Grafana UI is exposed off-box: `WithExternalHttpEndpoints()` marks just the `grafana`
+endpoint external, while the OTLP-ingest and Prometheus ports are modelled as internal `tcp`
+endpoints — reachable by the host-run services and the e2e guard, but not a
+telemetry-injection surface. The `prometheus` (9090) read API (CS60) lets the
+telemetry-arrival e2e guard query the collector directly and lets operators run PromQL without
+opening Grafana.
 
 Open Grafana by clicking the `observability` resource's `grafana` endpoint in the Aspire
 dashboard. Grafana **anonymous access is enabled** (`GF_AUTH_ANONYMOUS_ENABLED=true`, with
@@ -96,22 +120,30 @@ builder.AddContainer("observability", "grafana/otel-lgtm", "0.28.0")
 ```
 
 (see [`AppHost.cs`](../../src/AuthzEntitlements.AppHost/AppHost.cs)). Each instrumented
-service then gets its `OTEL_EXPORTER_OTLP_ENDPOINT` set to the container's `otlp-grpc`
-endpoint and a `WaitFor(observability)` so it starts only once the collector is ready.
+service gets a `WaitFor(observability)` so it starts only once the collector is ready, plus a
+`LGTM_OTLP_ENDPOINT` env var pointing at the container's `otlp-grpc` endpoint. Crucially the
+AppHost **no longer overrides** `OTEL_EXPORTER_OTLP_ENDPOINT` (CS60): Aspire keeps that
+pointed at its **own dashboard** OTLP receiver, so telemetry keeps reaching the dashboard, and
+the lgtm collector is wired as a *second*, separate target via `LGTM_OTLP_ENDPOINT`.
 
-No ServiceDefaults code change is needed. `ConfigureOpenTelemetry` and
-`AddOpenTelemetryExporters` in
-[`Extensions.cs`](../../src/AuthzEntitlements.ServiceDefaults/Extensions.cs) already call
-`UseOtlpExporter()` **only when** `OTEL_EXPORTER_OTLP_ENDPOINT` is non-empty. Injecting that
-env var from the AppHost is therefore all it takes for the existing wiring to **fan out** to
-the persistent collector.
+`ConfigureOpenTelemetry` / `AddOpenTelemetryExporters` in
+[`Extensions.cs`](../../src/AuthzEntitlements.ServiceDefaults/Extensions.cs) implement the
+**dual-export** (CS60). For each signal — metrics, traces, and logs — they register **two**
+OTLP exporters: a config-free `AddOtlpExporter()` that reads Aspire's auto-injected
+`OTEL_EXPORTER_OTLP_ENDPOINT` (+ `OTEL_EXPORTER_OTLP_HEADERS`) → the **Aspire dashboard**, and
+a second `AddOtlpExporter()` explicitly pointed at `LGTM_OTLP_ENDPOINT` → the **lgtm
+collector**. (`UseOtlpExporter()` — the old single-target helper — is **not** used, because it
+cannot be combined with the per-signal `AddOtlpExporter()` the second target requires.) Each
+leg is independent and gated on its env var, so if either is empty that leg simply stays off.
 
-With this in place the **home of telemetry moves to Grafana** — the phase-4 goal of going
-"beyond the dev-time Aspire dashboard". The Aspire dashboard still shows resource state and
-console logs, so it remains the place to watch orchestration health; the rich metrics, logs,
-and traces now persist in the Grafana stack. Simultaneously exporting to **both** the Aspire
-dashboard and the lgtm collector (dual-export) is a possible future enhancement and is **not**
-implemented here.
+The result is that operational telemetry now lands in **both** places at once (CS60): the
+**Aspire dashboard's** Structured logs / Traces / Metrics tabs give a reliable live view for
+the lifetime of a single `aspire run`, and the persistent **Grafana** stack gives dashboards
+and cross-session history. Because the dashboard always receives telemetry, a developer keeps a
+working view even if the persistent Grafana they open is not the instance receiving data — the
+split-brain that made the pre-CS60 empty-Grafana confusion possible. Earlier revisions of this
+doc described the "home of telemetry" *moving* to Grafana with dual-export as a mere "future
+enhancement"; that is now superseded — **dual-export is implemented here**.
 
 ## Baseline dashboards
 
@@ -146,18 +178,55 @@ label, which is how the panels group and filter by service.
 ## Run and verify
 
 1. Run the AppHost with `aspire run` from `src/AuthzEntitlements.AppHost`.
-2. Open the Aspire dashboard, then open the `observability` resource's `grafana` endpoint.
-3. Drive some traffic through the edge gateway / `bank-api` — a couple of authenticated
-   requests, using the same CS03/CS04 sign-in-then-call flow the lab uses elsewhere (see the
+2. **Drive some traffic first.** The dashboards are entirely `http_server_*`-based (RED:
+   rate / errors / duration), so an **idle** stack shows empty panels *by design* — they only
+   populate once inbound requests have been served. Send a handful of authenticated and
+   rejected calls through the edge gateway / `bank-api` using the CS03/CS04 sign-in-then-call
+   flow (see the
    [coarse-vs-fine boundary](../architecture/coarse-vs-fine-boundary.md) doc for the request
-   path). Any handful of successful and rejected calls is enough to populate the panels.
-4. In Grafana, confirm the **Service Health** and **Request Rates** dashboards show data.
-5. Use **Explore → Tempo** to confirm traces are arriving, and **Explore → Loki** to confirm
-   logs are arriving.
+   path); any mix of successful and rejected calls is enough.
+3. **Verify in Grafana.** Open the `observability` resource's `grafana` endpoint and confirm
+   the **Service Health** and **Request Rates** dashboards show data; use **Explore → Tempo**
+   for traces and **Explore → Loki** for logs.
+4. **Verify in the Aspire dashboard (dual-export).** The same telemetry also lands in the
+   Aspire dashboard's **Structured logs**, **Traces**, and **Metrics** tabs — not just console
+   logs — because services export to the dashboard too (CS60). This stays a reliable view even
+   when the persistent Grafana stack is not up.
 
-If a dashboard is empty, generate more traffic and confirm the service actually received an
-injected `OTEL_EXPORTER_OTLP_ENDPOINT` (otherwise ServiceDefaults leaves the OTLP exporter
-off by design).
+If a dashboard is empty, first drive **more** traffic (idle → empty is expected). If it is
+still empty after real traffic, confirm the service received an injected `LGTM_OTLP_ENDPOINT`
+(the collector leg) and/or `OTEL_EXPORTER_OTLP_ENDPOINT` (the dashboard leg) — each leg is
+gated on its env var and stays off when empty.
+
+For an automated guard, the opt-in `RUN_ASPIRE_E2E=1` telemetry-arrival test
+([`TelemetryArrivalE2ETests`](../../tests/AuthzEntitlements.E2E.Tests/TelemetryArrivalE2ETests.cs))
+boots the stack, drives traffic, and asserts `http_server_request_duration_seconds_count > 0`
+in the collector's Prometheus — the exact metric the dashboards query — so telemetry delivery
+cannot silently regress.
+
+## Stale-collector cleanup
+
+Before CS60 the `observability` container used `ContainerLifetime.Persistent` with dynamic
+host ports, so `otel-lgtm` containers could **accumulate** across runs and checkouts
+(different config hashes, surviving shutdown). A developer could then open a **stale**
+instance's Grafana — empty, because the *current* run exported to a different instance
+(collector/Grafana split-brain). CS60 fixes the wiring going forward (one collector per run,
+auto-removed on shutdown), but a machine that ran the pre-CS60 stack may still carry leftover
+containers. Remove them so the machine converges to a single collector:
+
+```powershell
+# remove any leftover/duplicate otel-lgtm containers (running or stopped)
+$ids = docker ps -aq --filter "ancestor=grafana/otel-lgtm:0.28.0"
+if ($ids) { docker rm -f $ids }
+
+# optional — also drop the persistent volume for a fully clean slate (loses history).
+# ignore a "no such volume" error if it is already gone.
+docker volume rm authz-observability-data
+```
+
+Keep the named `authz-observability-data` volume in normal use — it is how telemetry history
+persists across runs. Drop it only for a completely fresh collector: a persistent `/data`
+volume can surface **stale series** from earlier runs.
 
 ## Config file map
 
@@ -192,7 +261,11 @@ Aspire-injected OTLP env). **CS32 triaged this** — see
 **request-path isolated** (an unreachable collector cannot 500 a request), all OTLP-exporting
 services already declare `WaitFor(observability)` (7/7), and the most-likely root cause is an
 early release-candidate environmental interaction now mitigated by the current toolchain plus
-the CS12 real collector. A full clean `aspire run` remains the outstanding confirmation step.
+the CS12 real collector. The full clean `aspire run` telemetry-arrival confirmation that
+LRN-014 left outstanding is now **closed** by the CS60 e2e guard
+([`TelemetryArrivalE2ETests`](../../tests/AuthzEntitlements.E2E.Tests/TelemetryArrivalE2ETests.cs),
+opt-in `RUN_ASPIRE_E2E=1`), which boots the full stack, drives traffic, and asserts telemetry
+arrives in the collector's Prometheus.
 
 ## References
 
@@ -206,5 +279,5 @@ the CS12 real collector. A full clean `aspire run` remains the outstanding confi
   events vs. OTel telemetry.
 - [aspire-run-500-triage.md](./aspire-run-500-triage.md) — the CS32 LRN-014 triage:
   root-cause analysis, offline evidence, mitigation state, and the full-run confirmation runbook.
-- [CS12 plan](../../project/clickstops/active/active_cs12_observability-stack.md) — deliverables,
+- [CS12 plan](../../project/clickstops/done/done_cs12_observability-stack.md) — deliverables,
   exit criteria, and design decisions D1–D5.
