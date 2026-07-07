@@ -32,19 +32,49 @@ public sealed class SessionExpiredNoticeTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Your session has expired", html);
         Assert.Contains("Sign in again", html);
+        // In Development the raw server-supplied WWW-Authenticate detail is surfaced for debugging.
+        Assert.Contains("Server detail", html);
+        Assert.Contains("The token expired at", html);
         // The generic "not authorized (fail-closed)" copy must NOT be shown for an expiry.
         Assert.DoesNotContain("No accounts are available", html);
     }
 
-    private sealed class SessionExpiredFactory : WebApplicationFactory<Program>
+    [Fact]
+    public async Task Server_error_detail_is_hidden_outside_development()
+    {
+        using var factory = new SessionExpiredFactory("Production");
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/accounts");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        // The user-facing expiry notice still renders...
+        Assert.Contains("Your session has expired", html);
+        // ...but the raw server-supplied WWW-Authenticate error_description must NOT leak in Production.
+        Assert.DoesNotContain("Server detail", html);
+        Assert.DoesNotContain("The token expired at", html);
+    }
+
+    private sealed class SessionExpiredFactory(string environment = "Development") : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseSetting("Keycloak:Authority", "http://localhost:5/realms/authz-bank-test");
-            builder.UseEnvironment("Development");
+            builder.UseEnvironment(environment);
 
             builder.ConfigureTestServices(services =>
             {
+                // The OIDC handler is a request handler, so it is initialized on every request even
+                // though "Test" is the default scheme. Outside Development the app sets
+                // RequireHttpsMetadata=true, which rejects the unreachable http:// test authority at
+                // PostConfigure time; relax it for the in-memory test host (no metadata is ever
+                // fetched — "Test" performs authentication). ConfigureAll runs in the configure
+                // phase after the app's per-scheme delegate and before the framework's validating
+                // PostConfigure, so the override actually takes effect.
+                services.ConfigureAll<Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions>(
+                    o => o.RequireHttpsMetadata = false);
+
                 // Authenticate every request as a signed-in user so [Authorize] pages render.
                 services.AddAuthentication(options =>
                 {
