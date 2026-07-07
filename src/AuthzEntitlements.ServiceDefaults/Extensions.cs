@@ -91,7 +91,9 @@ public static class Extensions
         // so the second collector is a second, explicitly-configured OTLP exporter per signal. Note:
         // UseOtlpExporter() is NOT used — it cannot be combined with signal-specific AddOtlpExporter().
         var lgtmEndpoint = builder.Configuration["LGTM_OTLP_ENDPOINT"];
-        var lgtmUri = !string.IsNullOrWhiteSpace(lgtmEndpoint) ? new Uri(lgtmEndpoint) : null;
+        // Parse defensively: a malformed LGTM_OTLP_ENDPOINT (e.g. missing scheme) simply disables
+        // the lgtm export leg rather than throwing UriFormatException and crashing service startup.
+        var lgtmUri = Uri.TryCreate(lgtmEndpoint, UriKind.Absolute, out var parsedLgtmUri) ? parsedLgtmUri : null;
 
         if (hasDashboard || lgtmUri is not null)
         {

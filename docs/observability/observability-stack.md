@@ -216,9 +216,11 @@ containers. Remove them so the machine converges to a single collector:
 
 ```powershell
 # remove any leftover/duplicate otel-lgtm containers (running or stopped)
-docker rm -f $(docker ps -aq --filter "ancestor=grafana/otel-lgtm:0.28.0")
+$ids = docker ps -aq --filter "ancestor=grafana/otel-lgtm:0.28.0"
+if ($ids) { docker rm -f $ids }
 
-# optional — also drop the persistent volume for a fully clean slate (loses history)
+# optional — also drop the persistent volume for a fully clean slate (loses history).
+# ignore a "no such volume" error if it is already gone.
 docker volume rm authz-observability-data
 ```
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using Aspire.Hosting;
@@ -152,7 +153,7 @@ public sealed class TelemetryArrivalE2ETests
             }
 
             var value = result[0].GetProperty("value")[1].GetString();
-            return double.TryParse(value, out var parsed) ? parsed : 0;
+            return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0;
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException)
         {
