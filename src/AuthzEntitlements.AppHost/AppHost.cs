@@ -32,11 +32,15 @@ var observability = builder.AddContainer("observability", "grafana/otel-lgtm", "
     .WithEnvironment("GF_AUTH_DISABLE_LOGIN_FORM", "true")
     .WithEnvironment("GF_AUTH_BASIC_ENABLED", "false")
     .WithHttpEndpoint(targetPort: 3000, name: "grafana")
-    // OTLP ingest stays internal: model 4317/4318 as tcp (not http) endpoints so
-    // WithExternalHttpEndpoints() marks ONLY the Grafana UI external — the OTLP ports are
-    // reachable by the host-run services but not exposed off-box (no telemetry-injection surface).
+    // OTLP ingest + Prometheus stay internal: model 4317/4318 (OTLP) and 9090 (Prometheus
+    // read API) as tcp (not http) endpoints so WithExternalHttpEndpoints() marks ONLY the
+    // Grafana UI external — these ports are reachable by the host-run services / the e2e test
+    // but not exposed off-box (no telemetry-injection surface). The prometheus endpoint (CS60)
+    // lets the e2e telemetry-arrival guard query the collector directly, and is a convenience
+    // for operators who want PromQL without opening Grafana.
     .WithEndpoint(targetPort: 4317, name: "otlp-grpc")
     .WithEndpoint(targetPort: 4318, name: "otlp-http")
+    .WithEndpoint(targetPort: 9090, name: "prometheus")
     .WithExternalHttpEndpoints();
 
 // The lgtm collector's OTLP/gRPC endpoint — the CS60 dual-export target, injected into services
