@@ -87,8 +87,31 @@ public sealed class TelemetryArrivalE2ETests
         // forward when a NEW sample arrives, and aging-out makes it stay flat or DECREASE (handled by
         // the directional `> baseline` compare below). In fresh CI baselines are absent, so any first
         // sample counts.
-        var baseline = await QueryJobSampleTimestampsAsync(
-            prom, "http_server_request_duration_seconds_count", cts.Token);
+        //
+        // The baseline MUST come from a SUCCESSFUL read: a query that fails (Prometheus/TSDB not yet
+        // queryable, connection refused, bad JSON) returns null, distinct from a successful-but-empty
+        // vector. If we accepted a failed read as an empty baseline, a pre-existing stale series that
+        // only became visible AFTER traffic would pass via the "absent from baseline" path without a
+        // newer sample — a broken service falsely "delivering". So we poll until the read succeeds and
+        // fail closed if the read API never becomes queryable.
+        var baselineDeadline = DateTime.UtcNow + TimeSpan.FromMinutes(1);
+        Dictionary<string, double>? baseline = null;
+        while (DateTime.UtcNow < baselineDeadline)
+        {
+            baseline = await QueryJobSampleTimestampsAsync(
+                prom, "http_server_request_duration_seconds_count", cts.Token);
+            if (baseline is not null)
+            {
+                break;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(2), cts.Token);
+        }
+
+        Assert.True(
+            baseline is not null,
+            "Could not establish a pre-traffic baseline: the observability collector's Prometheus read " +
+            "API never returned a successful response within 1 minute.");
 
         // Drive inbound HTTP to EVERY instrumented service so ASP.NET Core server instrumentation
         // records http.server.request.duration for each. /alive is unauthenticated, 200, and
@@ -129,7 +152,9 @@ public sealed class TelemetryArrivalE2ETests
         // in aggregate and not merely stale series. A service that never pushes keeps a flat/aging
         // (older-or-equal) max timestamp and is flagged. OTLP batch export + Prometheus ingest lag is
         // up to ~60s; poll (bounded) so we don't fail on transient lag, and fail closed if any
-        // service has not produced a newer sample at the deadline.
+        // service has not produced a newer sample at the deadline. A transient read failure (null)
+        // is skipped, not treated as "no series" — it must not clear the still-missing set.
+        var baselineStamps = baseline!;
         var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(2);
         Dictionary<string, double> jobStamps = new(StringComparer.Ordinal);
         string[] missing = ProjectServices;
@@ -138,9 +163,16 @@ public sealed class TelemetryArrivalE2ETests
         {
             cts.Token.ThrowIfCancellationRequested();
 
-            jobStamps = await QueryJobSampleTimestampsAsync(
+            var current = await QueryJobSampleTimestampsAsync(
                 prom, "http_server_request_duration_seconds_count", cts.Token);
-            missing = ProjectServices.Where(s => !ServiceDelivered(s, baseline, jobStamps)).ToArray();
+            if (current is null)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);
+                continue;
+            }
+
+            jobStamps = current;
+            missing = ProjectServices.Where(s => !ServiceDelivered(s, baselineStamps, jobStamps)).ToArray();
 
             if (missing.Length == 0)
             {
@@ -153,7 +185,7 @@ public sealed class TelemetryArrivalE2ETests
         _output.WriteLine(
             "per-service http_server latest-sample unix ts (baseline → final): " +
             string.Join(", ", ProjectServices.Select(s =>
-                $"{s}={baseline.GetValueOrDefault(s, 0):0}→{jobStamps.GetValueOrDefault(s, 0):0}")));
+                $"{s}={baselineStamps.GetValueOrDefault(s, 0):0}→{jobStamps.GetValueOrDefault(s, 0):0}")));
 
         // Every instrumented service/app must have pushed a NEW server-telemetry sample this run.
         Assert.True(
@@ -190,39 +222,57 @@ public sealed class TelemetryArrivalE2ETests
 
     /// <summary>
     /// Runs <c>max by (job) (timestamp(&lt;metric&gt;))</c> and returns each <c>job</c> → its newest
-    /// sample's unix-seconds timestamp. Used to verify per-service delivery: every project service's
-    /// latest sample must be newer than its pre-traffic baseline (see <see cref="ServiceDelivered"/>).
+    /// sample's unix-seconds timestamp, or <c>null</c> if the read FAILED (non-200, connection error,
+    /// or a response that is not a Prometheus <c>status:success</c> vector) — which is distinct from a
+    /// successful-but-empty result (an empty dictionary). Callers must NOT treat a failed read as
+    /// "no series": the baseline retries until it succeeds and the poll skips failed reads, so a stale
+    /// series can never slip in via the "absent from baseline" path.
     /// </summary>
-    private static async Task<Dictionary<string, double>> QueryJobSampleTimestampsAsync(
+    private static async Task<Dictionary<string, double>?> QueryJobSampleTimestampsAsync(
         HttpClient prom, string metric, CancellationToken ct)
     {
-        var stamps = new Dictionary<string, double>(StringComparer.Ordinal);
         try
         {
             var query = Uri.EscapeDataString($"max by (job) (timestamp({metric}))");
             using var response = await prom.GetAsync($"/api/v1/query?query={query}", ct);
             if (response.StatusCode != HttpStatusCode.OK)
             {
-                return stamps;
+                return null;
             }
 
             using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-            foreach (var series in json.RootElement.GetProperty("data").GetProperty("result").EnumerateArray())
+            var root = json.RootElement;
+            if (!root.TryGetProperty("status", out var status) ||
+                status.GetString() != "success" ||
+                !root.TryGetProperty("data", out var data) ||
+                !data.TryGetProperty("result", out var result) ||
+                result.ValueKind != JsonValueKind.Array)
             {
-                var job = series.GetProperty("metric").GetProperty("job").GetString();
-                var value = series.GetProperty("value")[1].GetString();
-                if (job is not null &&
-                    double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var ts))
+                return null;
+            }
+
+            var stamps = new Dictionary<string, double>(StringComparer.Ordinal);
+            foreach (var series in result.EnumerateArray())
+            {
+                if (series.TryGetProperty("metric", out var labels) &&
+                    labels.TryGetProperty("job", out var jobEl) &&
+                    jobEl.GetString() is { } job &&
+                    series.TryGetProperty("value", out var value) &&
+                    value.ValueKind == JsonValueKind.Array &&
+                    value.GetArrayLength() >= 2 &&
+                    double.TryParse(
+                        value[1].GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var ts))
                 {
                     stamps[job] = ts;
                 }
             }
+
+            return stamps;
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException)
         {
-            // return whatever was parsed before the failure — the caller polls + fails closed
+            // failed read — signal null so the caller retries and never mistakes it for "no series"
+            return null;
         }
-
-        return stamps;
     }
 }
