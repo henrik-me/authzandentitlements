@@ -1,10 +1,10 @@
 # CS61 — Per-service telemetry e2e + verified persistent telemetry disk
 
-**Status:** active
+**Status:** done
 **Owner:** omni-ae
 **Branch:** cs61/content
 **Started:** 2026-07-07
-**Closed:** —
+**Closed:** 2026-07-07
 **Filed by:** omni-ae on 2026-07-06 — maintainer follow-up to CS60: (1) the telemetry-arrival e2e must verify telemetry is pushed for **each** service/app, not just an aggregate; (2) ensure the telemetry disk is persistent. A live two-run reproduction (this session) confirmed all 7 services deliver and that the `/data` volume persists telemetry across container recreation.
 **Depends on:** none (CS60 shipped the dual-export + single-collector wiring this hardens)
 

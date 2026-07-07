@@ -29,7 +29,7 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 ```yaml
 id: LRN-093
 date: 2026-07-07
-category: testing
+category: operational
 source_cs: CS61
 status: open
 tags: [observability, telemetry, e2e, prometheus, persistence, aspire]
