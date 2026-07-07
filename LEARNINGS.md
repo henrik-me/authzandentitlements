@@ -42,7 +42,7 @@ claim_area: observability
 
 **Evidence:** A clean single-collector reproduction (CS60 Task 1): all **7** services appeared as Prometheus `job` values (`audit-service, authz-pdp, bank-api, bank-web, edge-gateway, entitlements-service, governance-service`); `sum(http_server_request_duration_seconds_count)` was **0 while idle** and **357–427 after driving ~420 inbound requests** — exactly the metric the CS12 dashboards query; after dual-export the Aspire proxy (DCP) held **7 established connections** (one per service) to the dashboard OTLP endpoint; and a clean slate converged to a **single** collector container. Implemented in `src/AuthzEntitlements.AppHost/AppHost.cs`, `src/AuthzEntitlements.ServiceDefaults/Extensions.cs`, and `tests/AuthzEntitlements.E2E.Tests/TelemetryArrivalE2ETests.cs`.
 
-**Disposition:** **open** — implemented by CS60; flips `open → applied` at CS60 close-out (record the commit/PR).
+**Disposition:** **applied by CS60** — the single per-run collector + dual-export + e2e arrival guard shipped in content PR #213 (squash-merged 2026-07-07 as `fda5819`). The debugging notes (curl-not-wget; stale `/data` series) and split-brain root cause are captured above.
 
 ### LRN-091
 
