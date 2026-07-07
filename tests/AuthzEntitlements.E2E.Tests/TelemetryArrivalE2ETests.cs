@@ -216,8 +216,11 @@ public sealed class TelemetryArrivalE2ETests
         }
 
         // Absent from baseline → any present sample is this run's delivery.
-        // Present in baseline → require a strictly newer sample (>= 1s later; export interval ≫ 1s).
-        return !baseline.TryGetValue(service, out var was) || now - was >= 1.0;
+        // Present in baseline → require a strictly newer sample timestamp. A strict `>` is correct
+        // for timestamps (unlike counter values, which needed an epsilon): each Prometheus sample has
+        // an exact time, so a new export yields a strictly greater timestamp, an unchanged (broken)
+        // series stays equal, and a max that decreases because a series aged out is correctly rejected.
+        return !baseline.TryGetValue(service, out var was) || now > was;
     }
 
     /// <summary>
