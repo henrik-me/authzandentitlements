@@ -95,7 +95,18 @@ Related wiring facts: OTLP export is gated on `OTEL_EXPORTER_OTLP_ENDPOINT` (`Se
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+### Task 1 — clean single-collector reproduction (omni-ae, 2026-07-07)
+
+Booted a clean stack (`dotnet run` AppHost) after **removing all leftover `otel-lgtm` containers AND the `authz-observability-data` volume**, so exactly one fresh collector existed. Findings (queried the collector's Prometheus via `curl` inside the container — note: the image has **`curl`, not `wget`**; an earlier probe using `wget` produced false "empty" results):
+
+1. **OTLP delivery works.** All 7 services delivered telemetry — Prometheus `job` values = `audit-service, authz-pdp, bank-api, bank-web, edge-gateway, entitlements-service, governance-service` (+ `otelcol-contrib`). DCP (Aspire proxy, port 55035) held 7 established connections (one per service) to the OTLP endpoint. The dynamic proxied-endpoint resolution is **fine**.
+2. **Metric names are correct.** After driving ~420 inbound requests, `sum(http_server_request_duration_seconds_count)` = **427**, and the full `http_server_*` / `aspnetcore_*` / `kestrel_*` families appeared — exactly the names the CS12 dashboards query.
+3. **The dashboards are 100% `http_server_*`-based**, so on an **idle/low-traffic** stack they are empty; before traffic the collector held only `http_client_*` (outbound) + `dns_*` — no `http_server_*`.
+4. **Single clean run is coherent.** With one collector, its Grafana (resource `grafana` endpoint) and its Prometheus are the same instance, so it renders the data.
+
+**Root-cause conclusion.** Empty Grafana is **not** a delivery bug or a metric-name mismatch. The user-facing emptiness is explained by two real robustness issues (both to fix): **(a) `ContainerLifetime.Persistent` + dynamic ports cause `otel-lgtm` containers to accumulate/collide across runs/checkouts** (observed 2 leftover, different config hashes, surviving shutdown) — a developer can open a **stale/different** collector's Grafana than the one receiving telemetry (split-brain); and **(b) the RED dashboards need inbound traffic** to show anything. Plus the pre-existing by-design gap: telemetry is routed only to `otel-lgtm`, so the **Aspire dashboard shows only console logs** (dual-export not implemented). This confirms the CS60 fix direction (single deterministic collector + dual-export + an e2e guard that drives traffic and asserts `http_server_*` arrival + stale-container cleanup).
+
+_Decisions 2 (collector determinism) and 3 (dual-export mechanism) sit behind a user-approval gate — see the recommended design surfaced at Task-1 close._
 
 ## Model audit
 
