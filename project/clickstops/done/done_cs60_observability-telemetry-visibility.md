@@ -1,10 +1,10 @@
 # CS60 — Observability telemetry visibility: fix empty Grafana + dual-export to the Aspire dashboard
 
-**Status:** active
+**Status:** done
 **Owner:** omni-ae
 **Branch:** cs60/content
 **Started:** 2026-07-07
-**Closed:** —
+**Closed:** 2026-07-07
 **Filed by:** omni-ae on 2026-07-06 — surfaced by the maintainer: the Aspire dashboard shows only console logs (no structured logs / traces / metrics) AND the Grafana dashboards are also empty. A live `aspire run` reproduction (this session) proved OTLP delivery works but the persistent-collector wiring is unstable and unverified.
 **Depends on:** none
 
@@ -90,8 +90,8 @@ Related wiring facts: OTLP export is gated on `OTEL_EXPORTER_OTLP_ENDPOINT` (`Se
 | Stale-collector cleanup + runbook (remove pre-CS60 duplicate `otel-lgtm` containers) | done | cs60-docs-learning | agent-id=cs60-docs-learning \| role=docs \| report-status=complete \| learnings=0 — in observability-stack.md |
 | Docs update (`observability-stack.md`: dual-export, single collector, verification) + LRN-014 follow-up close | done | cs60-docs-learning | agent-id=cs60-docs-learning \| role=docs \| report-status=complete \| learnings=0 |
 | File learning LRN-092 (delivery works; split-brain + no-traffic + no dual-export + missing arrival guard) | done | cs60-docs-learning | agent-id=cs60-docs-learning \| role=docs \| report-status=complete \| learnings=1 |
-| Close-out: docs + restart state | pending | omni-ae | Update WORKBOARD + CONTEXT.md after merge so a fresh agent restarts from actual state |
-| Close-out: learnings + follow-ups | pending | omni-ae | Flip LRN-092 open→applied (record commit/PR); open follow-up CSs for any unresolved gaps |
+| Close-out: docs + restart state | done | omni-ae | CONTEXT.md refreshed + WORKBOARD row removed (this close-out); docs shipped in content PR #213 |
+| Close-out: learnings + follow-ups | done | omni-ae | LRN-092 flipped open→applied (content PR #213 / `fda5819`); no follow-up CSs needed |
 
 ## Notes / Learnings
 
@@ -129,4 +129,21 @@ The maintainer approved starting implementation ("go go go") but was then unavai
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-07T05:35:00Z
+**Outcome:** GO
+
+| Deliverable | Outcome | Notes |
+|---|---|---|
+| Task-1 reproduction note | match | CS Notes record the clean single-collector findings: OTLP delivery works, metric names correct, dashboards need traffic, split-brain + no dual-export caused the visibility failure. |
+| `AppHost.cs` (collector determinism) | diverged | Plan allowed fixed ports and/or lifetime reconsideration; shipped choice = drop `ContainerLifetime.Persistent` (keep `/data` volume). Acceptable — directly removes stale-container split-brain; documented in Notes, code, and docs (autonomous decision at the user-away gate). |
+| `ServiceDefaults/Extensions.cs` (dual-export) | match | Two per-signal exporters (dashboard via `OTEL_EXPORTER_OTLP_ENDPOINT` + lgtm via `LGTM_OTLP_ENDPOINT`); primary gate preserved. |
+| e2e guard | diverged | Collector-arrival asserted (`http_server_request_duration_seconds_count > 0`); dashboard visibility stays a documented manual check — acceptable per Decision 4 / the plan-review amendment (no supported programmatic dashboard read path). |
+| Internal `prometheus` (9090) endpoint | added | Internal-only, documented; supports the e2e/operator PromQL checks. |
+| Stale-collector cleanup + runbook | match | `observability-stack.md` documents removal of pre-CS60 duplicate `otel-lgtm` containers + optional volume cleanup. |
+| Docs | match | `observability-stack.md` + `aspire-run-500-triage.md` describe the shipped dual-export topology, single per-run collector, verification, and LRN-014 closure. |
+| Learning LRN-092 | match | Records the confirmed causes, implementation choices, and prevention guard. |
+
+Test-coverage assessment: **sufficient**.
+
+Overall outcome: **GO**.
