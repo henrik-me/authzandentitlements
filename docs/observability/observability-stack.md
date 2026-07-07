@@ -200,9 +200,26 @@ gated on its env var and stays off when empty.
 
 For an automated guard, the opt-in `RUN_ASPIRE_E2E=1` telemetry-arrival test
 ([`TelemetryArrivalE2ETests`](../../tests/AuthzEntitlements.E2E.Tests/TelemetryArrivalE2ETests.cs))
-boots the stack, drives traffic, and asserts `http_server_request_duration_seconds_count > 0`
-in the collector's Prometheus — the exact metric the dashboards query — so telemetry delivery
-cannot silently regress.
+boots the stack, drives `/alive` traffic to **every** project service, and asserts a **non-zero
+`http_server_request_duration_seconds_count` `job` series for each service** (CS61) — the exact
+metric the dashboards query — so per-service telemetry delivery cannot silently regress.
+
+## Persistence (verified)
+
+The telemetry disk is the named **`authz-observability-data`** volume mounted at **`/data`**, which
+holds every store (`prometheus/`, `loki/`, `tempo/`, `grafana/`, `pyroscope/`). Dropping
+`ContainerLifetime.Persistent` (CS60) does **not** lose history: the **volume** — not the container
+lifetime — is what persists telemetry. Verified with a two-run test (CS61): run A drove traffic to
+`sum(http_server_request_duration_seconds_count)` = 287; the AppHost was stopped and the container
+**removed**; run B booted a **fresh** container reusing the volume and reported the same **287
+before any new traffic** — so telemetry survives container recreation. A Docker-free app-model smoke
+test ([`AppHostApplicationModelSmokeTests`](../../tests/AuthzEntitlements.AppHost.Tests/AppHostApplicationModelSmokeTests.cs))
+asserts the named, writable `/data` volume mount so it cannot be silently dropped or swapped.
+
+> **Note.** A *hard kill* of the AppHost orphans the run-scoped collector (leaves it running)
+> instead of removing it; normal Ctrl+C removal is assumed, and the
+> [Stale-collector cleanup](#stale-collector-cleanup) covers any orphans. The telemetry data is
+> unaffected — it lives in the volume.
 
 ## Stale-collector cleanup
 

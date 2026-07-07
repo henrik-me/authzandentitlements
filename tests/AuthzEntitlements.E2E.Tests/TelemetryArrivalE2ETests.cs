@@ -15,13 +15,15 @@ namespace AuthzEntitlements.E2E.Tests;
 /// in the observability backend — which is exactly why the empty-Grafana regression stayed
 /// invisible (see LRN-092 and the CS32/LRN-014 "full-run confirmation" follow-up).
 ///
-/// This test boots the real <c>aspire run</c> stack, drives a burst of inbound HTTP traffic
-/// (so the ASP.NET Core server instrumentation emits <c>http.server.request.duration</c>), and
-/// then asserts that the <c>grafana/otel-lgtm</c> collector's Prometheus holds
-/// <c>http_server_request_duration_seconds_count &gt; 0</c> — the exact metric the CS12 Service
-/// Health / Request Rates dashboards query. It reaches Prometheus via the internal
-/// <c>prometheus</c> endpoint the AppHost exposes on the observability container (CS60), so the
-/// assertion mirrors what a dashboard sees.
+/// This test boots the real <c>aspire run</c> stack, drives inbound HTTP traffic to <em>every</em>
+/// instrumented project service (so each emits <c>http.server.request.duration</c>), and then
+/// asserts that the <c>grafana/otel-lgtm</c> collector's Prometheus holds a non-zero
+/// <c>http_server_request_duration_seconds_count</c> <c>job</c> series <em>for each service</em>
+/// (CS61 — the maintainer's per-service guard) — the exact metric the CS12 Service Health /
+/// Request Rates dashboards query. It reaches Prometheus via the internal <c>prometheus</c>
+/// endpoint the AppHost exposes on the observability container (CS60), so the assertion mirrors
+/// what a dashboard sees. It polls (bounded) for per-service arrival and fails closed if any
+/// service is absent or zero.
 ///
 /// The Aspire-dashboard leg of the CS60 dual-export has no guaranteed programmatic read path, so
 /// it stays a documented manual check (see docs/observability/observability-stack.md); this
@@ -35,8 +37,17 @@ public sealed class TelemetryArrivalE2ETests
 
     public TelemetryArrivalE2ETests(ITestOutputHelper output) => _output = output;
 
-    /// <summary>Services whose HTTP endpoints we drive to generate http.server metrics.</summary>
-    private static readonly string[] TrafficTargets = ["bank-web", "edge-gateway"];
+    /// <summary>Every instrumented project service/app — each MUST push server telemetry to the collector.</summary>
+    private static readonly string[] ProjectServices =
+    [
+        "bank-api",
+        "edge-gateway",
+        "entitlements-service",
+        "governance-service",
+        "audit-service",
+        "authz-pdp",
+        "bank-web",
+    ];
 
     [AspireStackE2EFact]
     [Trait("Category", "e2e")]
@@ -61,48 +72,61 @@ public sealed class TelemetryArrivalE2ETests
         var promBase = new UriBuilder("http", promRef.Host, promRef.Port).Uri;
         _output.WriteLine($"prometheus endpoint: {promBase}");
 
-        // Drive inbound HTTP so ASP.NET Core server instrumentation records http.server.request.duration.
-        // /alive is unauthenticated, always 200, and instrumented (the ServiceDefaults trace filter
-        // excludes it from tracing only, not metrics).
-        foreach (var target in TrafficTargets)
+        // Drive inbound HTTP to EVERY instrumented service so ASP.NET Core server instrumentation
+        // records http.server.request.duration for each. /alive is unauthenticated, 200, and
+        // instrumented (the ServiceDefaults trace filter excludes it from tracing only, not metrics).
+        // We assert each /alive actually succeeds so a broken target fails here rather than silently
+        // producing only error telemetry.
+        foreach (var service in ProjectServices)
         {
             await app.ResourceNotifications.WaitForResourceHealthyAsync(
-                target,
+                service,
                 WaitBehavior.StopOnResourceUnavailable,
                 cts.Token);
 
-            using var client = app.CreateHttpClient(target, "http");
-            for (var i = 0; i < 40; i++)
+            using var client = app.CreateHttpClient(service, "http");
+            var anySuccess = false;
+            for (var i = 0; i < 15; i++)
             {
                 try
                 {
                     using var response = await client.GetAsync("/alive", cts.Token);
-                    _ = response.StatusCode; // any served status counts as an inbound request
+                    anySuccess |= response.IsSuccessStatusCode;
                 }
                 catch (HttpRequestException)
                 {
                     // transient readiness blip — keep driving traffic
                 }
             }
+
+            Assert.True(
+                anySuccess,
+                $"Service '{service}' did not serve a successful GET /alive — cannot verify its telemetry " +
+                "when its own endpoint is broken.");
         }
 
         using var prom = new HttpClient { BaseAddress = promBase };
 
-        // Poll for the metric to arrive (OTLP batch export + Prometheus scrape/ingest lag is a few
-        // seconds; allow a generous bound). A *skipped* export or a broken pipeline leaves this 0.
+        // Poll until EVERY project service has a non-zero http_server_request_duration_seconds_count
+        // `job` series in the collector — i.e. telemetry is pushed to the collector for EACH service
+        // (the maintainer's per-service guard), not merely in aggregate. OTLP batch export + Prometheus
+        // ingest lag is a few seconds; poll (bounded) so we don't fail on transient lag, and fail closed
+        // if any service is still absent/zero at the deadline.
         var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(2);
-        double serverRequestCount = 0;
-        string[] jobs = [];
+        Dictionary<string, double> jobCounts = new(StringComparer.Ordinal);
+        string[] missing = ProjectServices;
 
         while (DateTime.UtcNow < deadline)
         {
             cts.Token.ThrowIfCancellationRequested();
 
-            serverRequestCount = await QueryScalarAsync(
-                prom, "sum(http_server_request_duration_seconds_count)", cts.Token);
-            jobs = await QueryLabelValuesAsync(prom, "job", cts.Token);
+            jobCounts = await QueryJobCountsAsync(
+                prom, "http_server_request_duration_seconds_count", cts.Token);
+            missing = ProjectServices
+                .Where(s => !(jobCounts.TryGetValue(s, out var count) && count > 0))
+                .ToArray();
 
-            if (serverRequestCount > 0)
+            if (missing.Length == 0)
             {
                 break;
             }
@@ -110,77 +134,52 @@ public sealed class TelemetryArrivalE2ETests
             await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);
         }
 
-        _output.WriteLine($"http_server_request_duration_seconds_count = {serverRequestCount}");
-        _output.WriteLine($"collector jobs = [{string.Join(", ", jobs)}]");
+        _output.WriteLine(
+            "per-service http_server_request_duration_seconds_count: " +
+            string.Join(", ", jobCounts.Select(kv => $"{kv.Key}={kv.Value}")));
 
-        // (1) The exact metric the CS12 dashboards query must be present and non-zero — proving
-        //     server-side telemetry travelled service → OTLP → collector → Prometheus.
+        // Every instrumented service/app must have pushed server telemetry to the collector.
         Assert.True(
-            serverRequestCount > 0,
-            "http_server_request_duration_seconds_count must be > 0 after driving traffic — telemetry " +
-            "did not reach the grafana/otel-lgtm collector, so the CS12 dashboards would be empty.");
-
-        // (2) Multiple services must be delivering (not just the one we hammered), confirming the
-        //     shared ServiceDefaults OTLP wiring works across the stack.
-        var serviceJobs = jobs.Where(j =>
-            j.Contains("bank", StringComparison.Ordinal) ||
-            j.Contains("gateway", StringComparison.Ordinal) ||
-            j.Contains("service", StringComparison.Ordinal) ||
-            j.Contains("pdp", StringComparison.Ordinal)).ToArray();
-
-        Assert.True(
-            serviceJobs.Length >= 2,
-            $"Expected telemetry from at least 2 project services in the collector, saw jobs: [{string.Join(", ", jobs)}].");
+            missing.Length == 0,
+            "These services did not deliver a non-zero http_server_request_duration_seconds_count to the " +
+            $"grafana/otel-lgtm collector: [{string.Join(", ", missing)}]. Seen jobs: " +
+            $"[{string.Join(", ", jobCounts.Keys)}].");
     }
 
-    /// <summary>Runs an instant PromQL query and returns the first scalar/vector sample value, or 0.</summary>
-    private static async Task<double> QueryScalarAsync(HttpClient prom, string query, CancellationToken ct)
+    /// <summary>
+    /// Runs <c>sum by (job) (&lt;metric&gt;)</c> and returns each <c>job</c> → sample count. Used to
+    /// verify per-service delivery: every project service must appear with a positive count.
+    /// </summary>
+    private static async Task<Dictionary<string, double>> QueryJobCountsAsync(
+        HttpClient prom, string metric, CancellationToken ct)
     {
+        var counts = new Dictionary<string, double>(StringComparer.Ordinal);
         try
         {
-            using var response = await prom.GetAsync(
-                $"/api/v1/query?query={Uri.EscapeDataString(query)}", ct);
+            var query = Uri.EscapeDataString($"sum by (job) ({metric})");
+            using var response = await prom.GetAsync($"/api/v1/query?query={query}", ct);
             if (response.StatusCode != HttpStatusCode.OK)
             {
-                return 0;
+                return counts;
             }
 
             using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-            var result = json.RootElement.GetProperty("data").GetProperty("result");
-            if (result.GetArrayLength() == 0)
+            foreach (var series in json.RootElement.GetProperty("data").GetProperty("result").EnumerateArray())
             {
-                return 0;
+                var job = series.GetProperty("metric").GetProperty("job").GetString();
+                var value = series.GetProperty("value")[1].GetString();
+                if (job is not null &&
+                    double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var count))
+                {
+                    counts[job] = count;
+                }
             }
-
-            var value = result[0].GetProperty("value")[1].GetString();
-            return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0;
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException)
         {
-            return 0;
+            // return whatever was parsed before the failure — the caller polls + fails closed
         }
-    }
 
-    /// <summary>Returns the distinct values of a Prometheus label (e.g. <c>job</c>), or empty.</summary>
-    private static async Task<string[]> QueryLabelValuesAsync(HttpClient prom, string label, CancellationToken ct)
-    {
-        try
-        {
-            using var response = await prom.GetAsync($"/api/v1/label/{label}/values", ct);
-            if (response.StatusCode != HttpStatusCode.OK)
-            {
-                return [];
-            }
-
-            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-            return json.RootElement.GetProperty("data")
-                .EnumerateArray()
-                .Select(e => e.GetString() ?? string.Empty)
-                .ToArray();
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException)
-        {
-            return [];
-        }
+        return counts;
     }
 }

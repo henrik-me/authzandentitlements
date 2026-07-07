@@ -70,15 +70,19 @@ CS60 fixed empty-Grafana/empty-dashboard by dropping `ContainerLifetime.Persiste
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Strengthen `TelemetryArrivalE2ETests` — drive `/alive` (assert success) to all 7 services; poll until every service has a non-zero `http_server` job series | pending | omni-ae | agent-id=omni-ae \| role=test \| report-status=pending \| learnings=0 — Decision 1 |
-| Add AppHost app-model smoke test asserting the named `authz-observability-data` volume mounted writable at `/data` (Type Volume) | pending | omni-ae | agent-id=omni-ae \| role=test \| report-status=pending \| learnings=0 — Decision 3 |
-| Docs — `observability-stack.md` "Persistence (verified)" note (volume survives container recreation; per-service e2e guard) | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=0 — Decision 4 |
+| Strengthen `TelemetryArrivalE2ETests` — drive `/alive` (assert success) to all 7 services; poll until every service has a non-zero `http_server` job series | done | omni-ae | agent-id=omni-ae \| role=test \| report-status=complete \| learnings=0 — Decision 1; **passes live** (1m7s, clean slate) |
+| Add AppHost app-model smoke test asserting the named `authz-observability-data` volume mounted writable at `/data` (Type Volume) | done | omni-ae | agent-id=omni-ae \| role=test \| report-status=complete \| learnings=0 — Decision 3; AppHost.Tests 5→6, Docker-free |
+| Docs — `observability-stack.md` "Persistence (verified)" note (volume survives container recreation; per-service e2e guard) | done | omni-ae | agent-id=omni-ae \| role=docs \| report-status=complete \| learnings=0 — Decision 4 |
 | Close-out: docs + restart state | pending | omni-ae | Update WORKBOARD + CONTEXT.md after merge so a fresh agent restarts from actual state |
 | Close-out: learnings + follow-ups | pending | omni-ae | File/disposition any learnings; open follow-up CSs for unresolved gaps |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+### Implementation + verification (omni-ae, 2026-07-07)
+
+- **Per-service e2e:** `TelemetryArrivalE2ETests` now drives `/alive` to all 7 project services (asserting each `/alive` succeeds) and polls `sum by (job)(http_server_request_duration_seconds_count)` until **every** service has a non-zero `job` series (replacing the old aggregate `> 0` + `>= 2`). Verified live on a **clean slate** (volume wiped): passes in 1m7s with all 7 services present.
+- **Persistence — verified, not changed.** A two-run live test proved the named `authz-observability-data` volume at `/data` persists telemetry across container recreation (run A count 287 → survived into a fresh run-B container before new traffic). So dropping `ContainerLifetime.Persistent` (CS60) did **not** break persistence — the volume does the persisting. **Decision (autonomous, user-away):** keep volume-based persistence; do **not** restore the persistent container lifetime (that would reintroduce the CS60 split-brain). Guarded by a Docker-free app-model smoke test asserting the named, writable `/data` volume mount (AppHost.Tests 5→6).
+- `dotnet build` 0/0; full default `dotnet test` green (AppHost.Tests 6/6); `harness lint` 23/0.
 
 ## Model audit
 
