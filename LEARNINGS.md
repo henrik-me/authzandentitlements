@@ -24,6 +24,26 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-092
+
+```yaml
+id: LRN-092
+date: 2026-07-07
+category: tooling
+source_cs: CS60
+status: open
+tags: [observability, otlp, grafana, aspire, dual-export, telemetry]
+claim_area: observability
+```
+
+**Problem:** The Aspire dashboard showed only console logs (no structured logs / traces / metrics) **and** the CS12 Grafana dashboards were empty; the tempting misdiagnosis is "OTLP telemetry export is broken," which would rewire a working delivery path instead of fixing the real causes.
+
+**Finding:** OTLP delivery actually **works**; four causes combined to hide the telemetry. (a) `ContainerLifetime.Persistent` + dynamic host ports let `otel-lgtm` containers accumulate and collide across runs and checkouts, so an operator could open a **stale** instance's empty Grafana while services exported to a different one (collector/Grafana **split-brain**). (b) The CS12 dashboards are 100% `http_server_*` (RED) metrics, so an **idle** stack shows empty panels by design — they need driven inbound traffic. (c) Telemetry was routed **only** to the lgtm collector (the AppHost overrode `OTEL_EXPORTER_OTLP_ENDPOINT`), leaving the Aspire dashboard console-only — no dual-export. (d) **No e2e ever asserted telemetry arrival**, so the regression stayed invisible. CS60 fixes all four: a **single per-run collector** (dropped persistent lifetime; the named `/data` volume still persists history), **dual-export** to both the Aspire dashboard (`OTEL_EXPORTER_OTLP_ENDPOINT`) and the collector (`LGTM_OTLP_ENDPOINT` + a second per-signal ServiceDefaults OTLP exporter, since `UseOtlpExporter()` cannot be combined with `AddOtlpExporter()`), an **e2e telemetry-arrival guard**, and a **stale-container cleanup** runbook. Debugging note: query otel-lgtm's Prometheus with **`curl`** (the image ships `curl`, not `wget` — a `wget` probe returns false-empty results), and remember a persistent `/data` volume can surface **stale series** from prior runs.
+
+**Evidence:** A clean single-collector reproduction (CS60 Task 1): all **7** services appeared as Prometheus `job` values (`audit-service, authz-pdp, bank-api, bank-web, edge-gateway, entitlements-service, governance-service`); `sum(http_server_request_duration_seconds_count)` was **0 while idle** and **357–427 after driving ~420 inbound requests** — exactly the metric the CS12 dashboards query; after dual-export the Aspire proxy (DCP) held **7 established connections** (one per service) to the dashboard OTLP endpoint; and a clean slate converged to a **single** collector container. Implemented in `src/AuthzEntitlements.AppHost/AppHost.cs`, `src/AuthzEntitlements.ServiceDefaults/Extensions.cs`, and `tests/AuthzEntitlements.E2E.Tests/TelemetryArrivalE2ETests.cs`.
+
+**Disposition:** **open** — implemented by CS60; flips `open → applied` at CS60 close-out (record the commit/PR).
+
 ### LRN-091
 
 ```yaml

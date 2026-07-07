@@ -86,6 +86,14 @@ the fixed host port `8088`, and Keycloak/Postgres dev containers were already up
 CS32 constraint is to **not destabilize the default `aspire run` path**. The full-run
 confirmation is a low-risk follow-up for the orchestrator/human on a clean machine.
 
+**Update (CS60):** the telemetry-arrival half of this confirmation — that telemetry actually
+reaches the collector under a full `aspire run` — is now covered by an automated guard,
+[`TelemetryArrivalE2ETests`](../../tests/AuthzEntitlements.E2E.Tests/TelemetryArrivalE2ETests.cs)
+(opt-in `RUN_ASPIRE_E2E=1`), which boots the full stack, drives inbound traffic, and asserts
+`http_server_request_duration_seconds_count > 0` in the `grafana/otel-lgtm` collector's
+Prometheus. The `Bank.Api` `/alive` `200` + gateway-start check remains the manual runbook
+below.
+
 ### Full-run runbook
 
 ```powershell
