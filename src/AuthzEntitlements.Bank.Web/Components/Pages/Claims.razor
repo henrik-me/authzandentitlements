@@ -37,6 +37,8 @@
     </Authorized>
 </AuthorizeView>
 
+<AuthFlowDiagram Flow="DataFlowDiagrams.Claims" />
+
 @code {
     private static string First(ClaimsPrincipal user, string type) =>
         user.FindFirst(type)?.Value ?? "(none)";

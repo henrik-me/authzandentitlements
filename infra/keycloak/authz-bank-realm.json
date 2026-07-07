@@ -280,6 +280,30 @@
       ]
     },
     {
+      "clientId": "bank-shortlived",
+      "name": "Bank short-lived token client (e2e expired-token tests)",
+      "description": "Confidential password-grant client whose access tokens live 1 second, so tests can obtain a token that expires almost immediately and verify the 401 invalid_token / WWW-Authenticate handling. Not used by any application.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "bank-shortlived-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "access.token.lifespan": "1"
+      },
+      "defaultClientScopes": [
+        "bank-claims",
+        "bank.read"
+      ],
+      "optionalClientScopes": []
+    },
+    {
       "clientId": "bank-api",
       "name": "Bank API (resource server, bearer-only)",
       "enabled": true,

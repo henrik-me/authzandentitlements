@@ -192,4 +192,15 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
   </ItemGroup>
 
+  <!--
+    CS60: Microsoft.AspNetCore.Mvc.Testing backs the Docker-free WebApplicationFactory
+    integration test that renders the Bank.Web static-SSR forms in-process and asserts a
+    single antiforgery token per EditForm (regression guard for the duplicate
+    <AntiforgeryToken /> bug — EditForm auto-emits the token). Pinned to the installed
+    .NET 10 GA runtime line (10.0.9), matching the other Microsoft.AspNetCore.* pins.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.9" />
+  </ItemGroup>
+
 </Project>

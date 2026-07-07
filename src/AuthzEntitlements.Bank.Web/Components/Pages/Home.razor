@@ -16,7 +16,7 @@
         before routing to the domain API.</li>
     <li><strong>Fine PDP</strong> — Bank.Api enforces maker-checker, segregation of
         duties, and tenant scoping on each resource.</li>
-    <li><strong>Entitlements</strong> — commercial plan / feature gates decide what the
+    <li><strong>Licensing</strong> — commercial plan / feature gates decide what the
         tenant is licensed to do.</li>
 </ol>
 
@@ -40,7 +40,9 @@
     <li><a href="accounts">Accounts</a> — read vertical slice (AuthN → coarse → read).</li>
     <li><a href="transactions/new">New Transaction</a> — maker create flow.</li>
     <li><a href="approvals">Approvals</a> — maker-checker decisions.</li>
-    <li><a href="entitlements">Entitlements</a> — plan / feature-gate UX.</li>
+    <li><a href="licensing">Licensing</a> — plan / feature-gate UX.</li>
     <li><a href="access-requests">Access Requests</a> — JIT access flow.</li>
     <li><a href="agent-access">Agent Access</a> — on-behalf-of delegation (human vs agent, side by side).</li>
 </ul>
+
+<AuthFlowDiagram Flow="DataFlowDiagrams.Home" />

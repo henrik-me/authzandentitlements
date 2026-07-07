@@ -1,4 +1,4 @@
-@page "/entitlements"
+@page "/licensing"
 @attribute [Authorize]
 @using AuthzEntitlements.Bank.Web.ViewModels
 @inject IEntitlementsClient EntitlementsApi
@@ -11,13 +11,13 @@
    DISABLED gate with a clear reason — the LOCAL service catalog is the source of truth, never
    a client-side default. The embedded <EntitlementChecker> is the one interactive island. *@
 
-<PageTitle>Entitlements</PageTitle>
+<PageTitle>Licensing</PageTitle>
 
-<h1>Entitlements</h1>
+<h1>Licensing</h1>
 
-<p class="hint">This is the <strong>commercial entitlement</strong> layer — what the tenant's
+<p class="hint">This is the <strong>commercial licensing</strong> layer — what the tenant's
     subscription plan licenses, distinct from the coarse gateway and the fine maker-checker
-    authorization. Feature gates below are evaluated by <strong>Entitlements.Service</strong>
+    authorization. Feature gates below are evaluated by the <strong>licensing service</strong>
     against your tenant's plan tier; the service is the source of truth and the UI
     <strong>fails closed</strong> (treats unavailable/unknown as gated). Cross-link:
     <code>high-value-transactions</code> gates large transfers on the
@@ -27,7 +27,7 @@
 
 @if (_tenant is null)
 {
-    <p class="notice" role="alert">No tenant is present on your identity, so entitlements
+    <p class="notice" role="alert">No tenant is present on your identity, so licensing
         cannot be resolved. Failing closed: every feature is treated as gated.</p>
 }
 else
@@ -35,7 +35,7 @@ else
     <h2>Plan summary</h2>
     @if (_plan is null)
     {
-        <p class="notice" role="alert">The entitlements service is unavailable or has no
+        <p class="notice" role="alert">The licensing service is unavailable or has no
             subscription for tenant <strong>@_tenant</strong>. Failing closed: features are
             treated as gated.</p>
     }
@@ -80,9 +80,11 @@ else
 <p class="hint">The widget below is a <strong>Blazor Interactive Server</strong> island: it
     re-checks a feature over a live circuit without reloading the page. It reads the tenant
     from the cascaded authentication state (an interactive circuit has no HttpContext), which
-    is safe because the entitlements service is anonymous.</p>
+    is safe because the licensing service is anonymous.</p>
 
 <EntitlementChecker />
+
+<AuthFlowDiagram Flow="DataFlowDiagrams.Licensing" />
 
 @code {
     private string? _tenant;

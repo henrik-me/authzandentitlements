@@ -3,6 +3,7 @@
 @using AuthzEntitlements.Bank.Web.ViewModels
 @inject IGovernanceClient Governance
 @inject ICurrentUser CurrentUser
+@inject AuthChallengeState AuthChallenge
 
 @* Static SSR (no @rendermode): each form re-runs the component server-side on POST, keeping
    the pattern consistent with the other write pages. The Governance.Service is anonymous
@@ -33,7 +34,12 @@ else
 {
     <p class="hint">Signed in as governance principal <code>@_principal</code>.</p>
 
-    @if (_hasOutcome)
+    @if (AuthChallenge.Current?.IsInvalidToken == true)
+    {
+        <SessionExpiredNotice />
+    }
+
+    @if (_hasOutcome && AuthChallenge.Current?.IsInvalidToken != true)
     {
         <div class="notice" role="@(_outcomeSuccess ? "status" : "alert")">
             <p><strong>@_resultTitle — @AccessRequestsModel.RequestOutcomeLabel(_outcomeStatus).</strong></p>
@@ -77,8 +83,9 @@ else
         </table>
 
         <h2>Request access</h2>
+        @* EditForm with a FormName auto-emits the antiforgery token in static SSR; do NOT add an
+           explicit <AntiforgeryToken /> — a duplicate hidden field breaks the POST antiforgery check. *@
         <EditForm Model="RequestForm" FormName="request" OnValidSubmit="RequestAsync" method="post">
-            <AntiforgeryToken />
             <p>
                 <label>Package<br />
                     <InputSelect @bind-Value="RequestForm.AccessPackageCode">
@@ -157,7 +164,6 @@ else
         {
             <div class="decide">
                 <EditForm Model="ApproveForm" FormName="approve-req" OnValidSubmit="ApproveAsync" method="post">
-                    <AntiforgeryToken />
                     <h3>Approve</h3>
                     <p>
                         <label>Request<br />
@@ -174,7 +180,6 @@ else
                 </EditForm>
 
                 <EditForm Model="RejectForm" FormName="reject-req" OnValidSubmit="RejectAsync" method="post">
-                    <AntiforgeryToken />
                     <h3>Reject</h3>
                     <p>
                         <label>Request<br />
@@ -198,6 +203,8 @@ else
         }
     }
 }
+
+<AuthFlowDiagram Flow="DataFlowDiagrams.AccessRequests" />
 
 @code {
     // BL0008 forbids a property initializer on a [SupplyParameterFromForm] property under

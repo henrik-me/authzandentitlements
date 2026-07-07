@@ -33,7 +33,7 @@ public interface IBankApiClient
         Guid id, DecideRequest req, CancellationToken ct = default);
 }
 
-public sealed class BankApiClient(HttpClient http) : IBankApiClient
+public sealed class BankApiClient(HttpClient http, AuthChallengeState authChallenge) : IBankApiClient
 {
     public Task<IReadOnlyList<AccountDto>> GetAccountsAsync(CancellationToken ct = default) =>
         GetListAsync<AccountDto>("/api/accounts", ct);
@@ -71,6 +71,7 @@ public sealed class BankApiClient(HttpClient http) : IBankApiClient
             using var response = await http.GetAsync(uri, ct);
             if (!response.IsSuccessStatusCode)
             {
+                authChallenge.Capture(response);
                 return [];
             }
 
@@ -101,6 +102,7 @@ public sealed class BankApiClient(HttpClient http) : IBankApiClient
             using var response = await http.GetAsync(uri, ct);
             if (!response.IsSuccessStatusCode)
             {
+                authChallenge.Capture(response);
                 return null;
             }
 
@@ -139,9 +141,9 @@ public sealed class BankApiClient(HttpClient http) : IBankApiClient
             }
 
             var error = await response.Content.ReadAsStringAsync(ct);
-            return ApiResult<TransactionDto>.Failure(status, string.IsNullOrWhiteSpace(error)
-                ? response.ReasonPhrase ?? "The request was denied."
-                : error);
+            var challenge = authChallenge.Capture(response);
+            return ApiResult<TransactionDto>.Failure(
+                status, AuthChallengeState.DescribeFailure(challenge, error, response.ReasonPhrase));
         }
         catch (HttpRequestException ex)
         {

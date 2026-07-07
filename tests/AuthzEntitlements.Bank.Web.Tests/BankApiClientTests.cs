@@ -29,7 +29,7 @@ public class BankApiClientTests
         ]
         """;
         var handler = new StubHttpMessageHandler(HttpStatusCode.OK, json);
-        var client = new BankApiClient(Client(handler));
+        var client = new BankApiClient(Client(handler), new AuthChallengeState());
 
         var accounts = await client.GetAccountsAsync();
 
@@ -46,7 +46,7 @@ public class BankApiClientTests
     public async Task GetAccountsAsync_fails_closed_to_empty_on_forbidden()
     {
         var handler = new StubHttpMessageHandler(HttpStatusCode.Forbidden, "");
-        var client = new BankApiClient(Client(handler));
+        var client = new BankApiClient(Client(handler), new AuthChallengeState());
 
         var accounts = await client.GetAccountsAsync();
 
@@ -70,7 +70,7 @@ public class BankApiClientTests
         }
         """;
         var handler = new StubHttpMessageHandler(HttpStatusCode.OK, json);
-        var client = new BankApiClient(Client(handler));
+        var client = new BankApiClient(Client(handler), new AuthChallengeState());
         var id = new Guid("50000000-0000-0000-0000-000000000002");
 
         var account = await client.GetAccountAsync(id);
@@ -100,7 +100,7 @@ public class BankApiClientTests
         }
         """;
         var handler = new StubHttpMessageHandler(HttpStatusCode.Created, json);
-        var client = new BankApiClient(Client(handler));
+        var client = new BankApiClient(Client(handler), new AuthChallengeState());
         var req = new CreateTransactionRequest(
             new Guid("50000000-0000-0000-0000-000000000001"),
             TransactionType.Debit,
@@ -128,7 +128,7 @@ public class BankApiClientTests
     public async Task CreateTransactionAsync_captures_forbidden_as_failure()
     {
         var handler = new StubHttpMessageHandler(HttpStatusCode.Forbidden, "coarse deny");
-        var client = new BankApiClient(Client(handler));
+        var client = new BankApiClient(Client(handler), new AuthChallengeState());
         var req = new CreateTransactionRequest(
             Guid.NewGuid(), TransactionType.Credit, 10m, Guid.NewGuid(), null);
 
@@ -168,7 +168,7 @@ public class BankApiClientTests
         }
         """;
         var handler = new StubHttpMessageHandler(HttpStatusCode.OK, json);
-        var client = new BankApiClient(Client(handler));
+        var client = new BankApiClient(Client(handler), new AuthChallengeState());
         var id = new Guid("60000000-0000-0000-0000-000000000002");
         var checker = new Guid("40000000-0000-0000-0000-000000000002");
 
@@ -186,7 +186,7 @@ public class BankApiClientTests
     public async Task RejectTransactionAsync_maps_conflict_as_failure()
     {
         var handler = new StubHttpMessageHandler(HttpStatusCode.Conflict, "already decided");
-        var client = new BankApiClient(Client(handler));
+        var client = new BankApiClient(Client(handler), new AuthChallengeState());
         var id = new Guid("60000000-0000-0000-0000-000000000002");
 
         var result = await client.RejectTransactionAsync(id, new DecideRequest(Guid.NewGuid(), null));
@@ -203,7 +203,7 @@ public class BankApiClientTests
         // A 2xx whose body is not the expected JSON (e.g. an HTML error page) must fail
         // closed to an empty list, not surface an unhandled JsonException.
         var handler = new StubHttpMessageHandler(HttpStatusCode.OK, "<html>not json</html>");
-        var client = new BankApiClient(Client(handler));
+        var client = new BankApiClient(Client(handler), new AuthChallengeState());
 
         var accounts = await client.GetAccountsAsync();
 
@@ -214,7 +214,7 @@ public class BankApiClientTests
     public async Task CreateTransactionAsync_maps_malformed_success_body_as_failure()
     {
         var handler = new StubHttpMessageHandler(HttpStatusCode.OK, "<html>not json</html>");
-        var client = new BankApiClient(Client(handler));
+        var client = new BankApiClient(Client(handler), new AuthChallengeState());
 
         var result = await client.CreateTransactionAsync(
             new CreateTransactionRequest(Guid.NewGuid(), TransactionType.Debit, 100m, Guid.NewGuid(), null));

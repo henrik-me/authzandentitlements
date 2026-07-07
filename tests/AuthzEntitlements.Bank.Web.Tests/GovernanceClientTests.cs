@@ -26,7 +26,7 @@ public class GovernanceClientTests
         ]
         """;
         var handler = new StubHttpMessageHandler(HttpStatusCode.OK, json);
-        var client = new GovernanceClient(Client(handler));
+        var client = new GovernanceClient(Client(handler), new AuthChallengeState());
 
         var packages = await client.GetAccessPackagesAsync();
 
@@ -56,7 +56,7 @@ public class GovernanceClientTests
         }
         """;
         var handler = new StubHttpMessageHandler(HttpStatusCode.Created, json);
-        var client = new GovernanceClient(Client(handler));
+        var client = new GovernanceClient(Client(handler), new AuthChallengeState());
         var body = new CreateAccessRequestBody("user-teller1", "pkg-approver", "cover", 60);
 
         var result = await client.CreateRequestAsync(body);
@@ -73,7 +73,7 @@ public class GovernanceClientTests
     public async Task ApproveRequestAsync_maps_sod_conflict_as_failure()
     {
         var handler = new StubHttpMessageHandler(HttpStatusCode.Conflict, "SoD conflict");
-        var client = new GovernanceClient(Client(handler));
+        var client = new GovernanceClient(Client(handler), new AuthChallengeState());
         var id = new Guid("aaaaaaaa-0000-0000-0000-000000000001");
 
         var result = await client.ApproveRequestAsync(id, new ApproveRequestBody("user-manager1"));
@@ -97,7 +97,7 @@ public class GovernanceClientTests
         }
         """;
         var handler = new StubHttpMessageHandler(HttpStatusCode.OK, json);
-        var client = new GovernanceClient(Client(handler));
+        var client = new GovernanceClient(Client(handler), new AuthChallengeState());
 
         var access = await client.GetPrincipalAccessAsync("user-teller1");
 

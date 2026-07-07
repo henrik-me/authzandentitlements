@@ -96,6 +96,10 @@ builder.Services.AddRazorComponents()
 // Scoped identity + OIDC-identity-to-Bank.Api-user resolver used by the product pages.
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
+// Scoped, per-request capture of the most recent downstream 401 WWW-Authenticate challenge, so
+// pages can distinguish an expired/invalid token (sign in again) from a plain authorization deny.
+builder.Services.AddScoped<AuthChallengeState>();
+
 // Attaches the signed-in user's bearer token to Bank.Api calls (bank client only).
 builder.Services.AddTransient<AccessTokenHandler>();
 
@@ -172,3 +176,8 @@ app.MapGet("/logout", async (HttpContext httpContext) =>
 app.MapDefaultEndpoints();
 
 app.Run();
+
+// Exposes the implicitly-generated top-level Program class to the test project so
+// WebApplicationFactory<Program> can boot the real Bank.Web app in-process (CS60 antiforgery
+// integration test). Test-visibility only — no behavioural change.
+public partial class Program;
