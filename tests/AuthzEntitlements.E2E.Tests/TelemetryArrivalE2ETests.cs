@@ -23,7 +23,7 @@ namespace AuthzEntitlements.E2E.Tests;
 /// Request Rates dashboards query. It reaches Prometheus via the internal <c>prometheus</c>
 /// endpoint the AppHost exposes on the observability container (CS60), so the assertion mirrors
 /// what a dashboard sees. It polls (bounded) for per-service arrival and fails closed if any
-/// service is absent or zero.
+/// service is absent or unchanged from its pre-traffic baseline.
 ///
 /// The Aspire-dashboard leg of the CS60 dual-export has no guaranteed programmatic read path, so
 /// it stays a documented manual check (see docs/observability/observability-stack.md); this
@@ -72,6 +72,19 @@ public sealed class TelemetryArrivalE2ETests
         var promBase = new UriBuilder("http", promRef.Host, promRef.Port).Uri;
         _output.WriteLine($"prometheus endpoint: {promBase}");
 
+        using var prom = new HttpClient { BaseAddress = promBase };
+
+        // Capture a per-service baseline BEFORE driving traffic. The collector uses a persistent
+        // /data volume, so on a dev/self-hosted machine a service may already carry a stale
+        // http_server counter series from a previous run. We therefore require each service's series
+        // to CHANGE from its pre-traffic baseline during this run. A "change" (not a strict increase)
+        // is the correct, reset-aware signal: each run starts fresh service processes whose counters
+        // begin at 0, so a new export overwrites a stale-high value with a LOWER one (a counter
+        // reset). Requiring change — not `> baseline` — proves this run delivered without failing
+        // spuriously on that reset. In fresh CI the baselines are simply absent, so any sample counts.
+        var baseline = await QueryJobCountsAsync(
+            prom, "http_server_request_duration_seconds_count", cts.Token);
+
         // Drive inbound HTTP to EVERY instrumented service so ASP.NET Core server instrumentation
         // records http.server.request.duration for each. /alive is unauthenticated, 200, and
         // instrumented (the ServiceDefaults trace filter excludes it from tracing only, not metrics).
@@ -105,13 +118,16 @@ public sealed class TelemetryArrivalE2ETests
                 "when its own endpoint is broken.");
         }
 
-        using var prom = new HttpClient { BaseAddress = promBase };
-
-        // Poll until EVERY project service has a non-zero http_server_request_duration_seconds_count
-        // `job` series in the collector — i.e. telemetry is pushed to the collector for EACH service
-        // (the maintainer's per-service guard), not merely in aggregate. OTLP batch export + Prometheus
-        // ingest lag is a few seconds; poll (bounded) so we don't fail on transient lag, and fail closed
-        // if any service is still absent/zero at the deadline.
+        // Poll until EVERY project service's http_server_request_duration_seconds_count `job` series
+        // has CHANGED from its pre-traffic baseline — i.e. telemetry was pushed to the collector for
+        // EACH service during THIS run (the maintainer's per-service guard), not merely in aggregate
+        // and not merely stale series. "Changed" (rather than strictly increased) is reset-aware: a
+        // fresh service process resets its counter to 0, so a new export replaces a stale-high value
+        // with a lower one — still proof of this run's delivery. A series absent from the baseline but
+        // present now is also delivery. A service that never pushes stays exactly at its baseline (or
+        // absent) and is flagged. OTLP batch export + Prometheus ingest lag is up to ~60s; poll
+        // (bounded) so we don't fail on transient lag, and fail closed if any service is unchanged at
+        // the deadline.
         var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(2);
         Dictionary<string, double> jobCounts = new(StringComparer.Ordinal);
         string[] missing = ProjectServices;
@@ -122,9 +138,7 @@ public sealed class TelemetryArrivalE2ETests
 
             jobCounts = await QueryJobCountsAsync(
                 prom, "http_server_request_duration_seconds_count", cts.Token);
-            missing = ProjectServices
-                .Where(s => !(jobCounts.TryGetValue(s, out var count) && count > 0))
-                .ToArray();
+            missing = ProjectServices.Where(s => !ServiceDelivered(s, baseline, jobCounts)).ToArray();
 
             if (missing.Length == 0)
             {
@@ -135,20 +149,45 @@ public sealed class TelemetryArrivalE2ETests
         }
 
         _output.WriteLine(
-            "per-service http_server_request_duration_seconds_count: " +
-            string.Join(", ", jobCounts.Select(kv => $"{kv.Key}={kv.Value}")));
+            "per-service http_server_request_duration_seconds_count (baseline → final): " +
+            string.Join(", ", ProjectServices.Select(s =>
+                $"{s}={baseline.GetValueOrDefault(s, 0)}→{jobCounts.GetValueOrDefault(s, 0)}")));
 
-        // Every instrumented service/app must have pushed server telemetry to the collector.
+        // Every instrumented service/app must have pushed NEW server telemetry to the collector.
         Assert.True(
             missing.Length == 0,
-            "These services did not deliver a non-zero http_server_request_duration_seconds_count to the " +
-            $"grafana/otel-lgtm collector: [{string.Join(", ", missing)}]. Seen jobs: " +
+            "These services did not deliver server telemetry (their http_server_request_duration_" +
+            "seconds_count series was unchanged from its pre-traffic baseline) to the " +
+            $"grafana/otel-lgtm collector during this run: [{string.Join(", ", missing)}]. Seen jobs: " +
             $"[{string.Join(", ", jobCounts.Keys)}].");
     }
 
     /// <summary>
+    /// A service "delivered" telemetry this run when its <c>job</c> series is present now AND either
+    /// it was absent from the pre-traffic baseline (brand-new series) or its sample count changed
+    /// from the baseline. Change — not strict increase — is required because a fresh service process
+    /// resets its counter, so a new export can be numerically LOWER than a stale-high baseline while
+    /// still proving this run pushed telemetry.
+    /// </summary>
+    private static bool ServiceDelivered(
+        string service,
+        IReadOnlyDictionary<string, double> baseline,
+        IReadOnlyDictionary<string, double> current)
+    {
+        if (!current.TryGetValue(service, out var now))
+        {
+            return false;
+        }
+
+        // Absent from baseline → any present sample is this run's delivery.
+        // Present in baseline → require the count to have moved by at least one sample.
+        return !baseline.TryGetValue(service, out var was) || Math.Abs(now - was) >= 1.0;
+    }
+
+    /// <summary>
     /// Runs <c>sum by (job) (&lt;metric&gt;)</c> and returns each <c>job</c> → sample count. Used to
-    /// verify per-service delivery: every project service must appear with a positive count.
+    /// verify per-service delivery: every project service's count must change from its pre-traffic
+    /// baseline (see <see cref="ServiceDelivered"/>).
     /// </summary>
     private static async Task<Dictionary<string, double>> QueryJobCountsAsync(
         HttpClient prom, string metric, CancellationToken ct)
