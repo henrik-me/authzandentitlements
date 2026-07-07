@@ -1,9 +1,9 @@
 # CS61 — Per-service telemetry e2e + verified persistent telemetry disk
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** omni-ae
+**Branch:** cs61/content
+**Started:** 2026-07-07
 **Closed:** —
 **Filed by:** omni-ae on 2026-07-06 — maintainer follow-up to CS60: (1) the telemetry-arrival e2e must verify telemetry is pushed for **each** service/app, not just an aggregate; (2) ensure the telemetry disk is persistent. A live two-run reproduction (this session) confirmed all 7 services deliver and that the `/data` volume persists telemetry across container recreation.
 **Depends on:** none (CS60 shipped the dual-export + single-collector wiring this hardens)
@@ -70,11 +70,24 @@ CS60 fixed empty-Grafana/empty-dashboard by dropping `ContainerLifetime.Persiste
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Strengthen `TelemetryArrivalE2ETests` — drive `/alive` (assert success) to all 7 services; poll until every service has a non-zero `http_server` job series | pending | omni-ae | agent-id=omni-ae \| role=test \| report-status=pending \| learnings=0 — Decision 1 |
+| Add AppHost app-model smoke test asserting the named `authz-observability-data` volume mounted writable at `/data` (Type Volume) | pending | omni-ae | agent-id=omni-ae \| role=test \| report-status=pending \| learnings=0 — Decision 3 |
+| Docs — `observability-stack.md` "Persistence (verified)" note (volume survives container recreation; per-service e2e guard) | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=0 — Decision 4 |
+| Close-out: docs + restart state | pending | omni-ae | Update WORKBOARD + CONTEXT.md after merge so a fresh agent restarts from actual state |
+| Close-out: learnings + follow-ups | pending | omni-ae | File/disposition any learnings; open follow-up CSs for unresolved gaps |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | omni-ae |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
