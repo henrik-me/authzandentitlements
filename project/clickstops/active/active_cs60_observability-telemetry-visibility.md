@@ -1,9 +1,9 @@
 # CS60 — Observability telemetry visibility: fix empty Grafana + dual-export to the Aspire dashboard
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** omni-ae
+**Branch:** cs60/content
+**Started:** 2026-07-07
 **Closed:** —
 **Filed by:** omni-ae on 2026-07-06 — surfaced by the maintainer: the Aspire dashboard shows only console logs (no structured logs / traces / metrics) AND the Grafana dashboards are also empty. A live `aspire run` reproduction (this session) proved OTLP delivery works but the persistent-collector wiring is unstable and unverified.
 **Depends on:** none
@@ -83,11 +83,28 @@ Related wiring facts: OTLP export is gated on `OTEL_EXPORTER_OTLP_ENDPOINT` (`Se
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Task 1 — clean single-collector `aspire run` reproduction; confirm root cause (injected endpoint, collector series, Grafana↔collector mapping, dashboard-verification path) | pending | omni-ae | agent-id=omni-ae \| role=impl \| report-status=pending \| learnings=0 — gates Decisions 2-3 (Decision 1) |
+| AppHost collector determinism (fixed OTLP/Grafana ports and/or persistent-lifetime reconsideration) | pending | omni-ae | agent-id=omni-ae \| role=impl \| report-status=pending \| learnings=0 — Decision 2; behind user-approval gate |
+| Dual-export to the Aspire dashboard (AppHost + ServiceDefaults second exporter / collector fan-out) | pending | omni-ae | agent-id=omni-ae \| role=impl \| report-status=pending \| learnings=0 — Decision 3; behind user-approval gate |
+| e2e telemetry-arrival assertion (extend `RUN_ASPIRE_E2E`; collector series present after traffic) | pending | omni-ae | agent-id=omni-ae \| role=test \| report-status=pending \| learnings=0 — Decision 4 |
+| Stale-collector cleanup + runbook (remove/ignore pre-CS60 duplicate `otel-lgtm` containers) | pending | omni-ae | agent-id=omni-ae \| role=impl \| report-status=pending \| learnings=0 |
+| Docs update (`observability-stack.md`: dual-export, fixed ports, verification) + LRN-014 follow-up close | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=0 |
+| File learning (delivery proven working; persistent+dynamic-port split-brain; missing arrival guard) | pending | omni-ae | agent-id=omni-ae \| role=docs \| report-status=pending \| learnings=1 |
+| Close-out: docs + restart state | pending | omni-ae | Update WORKBOARD + CONTEXT.md after merge so a fresh agent restarts from actual state |
+| Close-out: learnings + follow-ups | pending | omni-ae | Flip the new learning open→applied (record commit/PR); open follow-up CSs for any unresolved gaps |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | omni-ae |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
