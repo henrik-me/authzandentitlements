@@ -77,7 +77,7 @@ deterministic seeder repopulates it on the next boot:
 ```bash
 # 1. Stop `aspire run` (Ctrl+C) if it is still running.
 # 2. Find the Postgres data volume (its name ends in `-postgres-data`):
-docker volume ls | grep postgres-data       # e.g. authzentitlements.apphost-<hash>-postgres-data
+docker volume ls --filter name=postgres-data      # e.g. authzentitlements.apphost-<hash>-postgres-data
 # 3. Remove it (destroys local dev data — see the warning below):
 docker volume rm <the-postgres-data-volume-name>
 # 4. Re-run — Postgres recreates the volume and the seeder repopulates it:
