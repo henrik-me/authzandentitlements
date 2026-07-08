@@ -35,11 +35,36 @@ internal static class LoginReturnUrl
     }
 
     // Mirrors ASP.NET Core's IUrlHelper.IsLocalUrl for the "/rooted" case: a single leading '/'
-    // that is not "//" or "/\" (which browsers treat as protocol-relative / external). Rejects
-    // null/empty, absolute URLs (https://…) and scheme URLs (javascript:…), which do not start
-    // with '/'.
-    private static bool IsLocalUrl(string? url) =>
-        !string.IsNullOrEmpty(url)
-        && url[0] == '/'
-        && (url.Length == 1 || (url[1] != '/' && url[1] != '\\'));
+    // that is not "//" or "/\" (which browsers treat as protocol-relative / external), and whose
+    // remainder holds no ASCII control characters — a browser can strip tabs/newlines from a
+    // Location header and re-interpret e.g. "/\t/evil.com" as the protocol-relative "//evil.com".
+    // Rejects null/empty, absolute URLs (https://…) and scheme URLs (javascript:…), which do not
+    // start with '/'.
+    private static bool IsLocalUrl(string? url)
+    {
+        if (string.IsNullOrEmpty(url) || url[0] != '/')
+        {
+            return false;
+        }
+
+        if (url.Length == 1)
+        {
+            return true;
+        }
+
+        if (url[1] == '/' || url[1] == '\\')
+        {
+            return false;
+        }
+
+        foreach (var c in url.AsSpan(1))
+        {
+            if (char.IsControl(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

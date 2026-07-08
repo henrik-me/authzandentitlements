@@ -27,6 +27,9 @@ public sealed class LoginReturnUrlTests
     [InlineData("javascript:alert(1)")]  // scheme URL
     [InlineData("accounts")]             // no leading slash (relative/ambiguous)
     [InlineData("  /accounts")]          // leading whitespace -> does not start with '/'
+    [InlineData("/\t/evil.com")]         // tab control char — browsers strip it -> "//evil.com"
+    [InlineData("/\n//evil.com")]        // newline control char
+    [InlineData("/\r/evil.com")]         // carriage-return control char
     public void Non_local_or_empty_falls_back_to_home(string? returnUrl) =>
         Assert.Equal("/", LoginReturnUrl.SafeLocalReturnUrl(returnUrl));
 
