@@ -144,9 +144,9 @@ app.MapRazorComponents<App>()
 
 // OIDC login/logout endpoints. The OIDC middleware owns /signin-oidc and
 // /signout-callback-oidc (the CallbackPath/SignedOutCallbackPath above).
-app.MapGet("/login", () =>
+app.MapGet("/login", (string? returnUrl) =>
     Results.Challenge(
-        new AuthenticationProperties { RedirectUri = "/" },
+        new AuthenticationProperties { RedirectUri = LoginReturnUrl.SafeLocalReturnUrl(returnUrl) },
         [OidcScheme]));
 
 app.MapGet("/logout", async (HttpContext httpContext) =>

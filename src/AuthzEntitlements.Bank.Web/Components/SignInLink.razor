@@ -1,0 +1,29 @@
+@* Sign-in link that returns the user to the CURRENT page after authenticating. The current
+   relative path+query is passed to /login as a returnUrl; Program.cs sanitizes it with
+   LoginReturnUrl.SafeLocalReturnUrl (local-only + no auth-endpoint loop) before using it as the
+   OIDC challenge RedirectUri. Used by every sign-in entry point so the "return to where you
+   were" behavior and its encoding live in one place. Works in static SSR, where
+   NavigationManager.Uri is the current request URL. *@
+@inject NavigationManager Nav
+
+<a class="@Class" href="@Href">@ChildContent</a>
+
+@code {
+    // CSS class for the anchor ("button" for page prompts, "nav-link" in the nav bar).
+    [Parameter] public string Class { get; set; } = "button";
+
+    // The link content (e.g. "Sign in again", "Log in").
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string Href
+    {
+        get
+        {
+            // ToBaseRelativePath drops the base and keeps the path + query with no leading slash;
+            // prepend "/" to form a local path (e.g. "/accounts/{id}?tab=tx"), then encode it as a
+            // single query-parameter value.
+            var here = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+            return $"login?returnUrl={Uri.EscapeDataString(here)}";
+        }
+    }
+}
