@@ -1,9 +1,9 @@
 # CS62 — Postgres data-volume corruption hardening: ephemeral e2e DB + recovery runbook + LRN
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** omni-ae-c2
+**Branch:** cs62/content
+**Started:** 2026-07-08
 **Closed:** —
 **Filed by:** omni-ae-c2 on 2026-07-07 — maintainer request after a live `dotnet test` (RUN_ASPIRE_E2E=1) run failed 4 of 5 e2e tests with an opaque `TaskCanceledException` at `StartAsync`. Root-caused to a **corrupted persistent Postgres data volume** (WAL PANIC "could not locate a valid checkpoint record") left by a force-killed prior run. A prototype fix (ephemeral e2e Postgres) is on branch `fix/e2e-postgres-ephemeral-volume` and is validated (full e2e 5/5). This CS lands that fix properly and closes the durable-tracking gaps (LEARNINGS entry + `aspire run` recovery runbook).
 **Depends on:** none (builds on the CS57/58/61 e2e; independent of CS55)
@@ -66,11 +66,24 @@ Eliminate the persistent-Postgres-data-volume corruption failure mode as a sourc
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Implement ephemeral-e2e-Postgres fix (fail-closed `E2EStack` volume strip + route the 5 e2e tests + `e2e-smoke.md` note) | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=impl \| report-status=pending \| learnings=0 |
+| Add `aspire run` recovery runbook (`docs/demo/local-demo-runbook.md`) | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=docs \| report-status=pending \| learnings=0 |
+| File LEARNINGS entry (LRN-094, `source_cs: CS62`) | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=docs \| report-status=pending \| learnings=1 |
+| Close-out: docs + restart state | pending | omni-ae-c2 | Update WORKBOARD + CONTEXT.md after merge so a fresh agent restarts from actual state |
+| Close-out: learnings + follow-ups | pending | omni-ae-c2 | File/disposition learnings in LEARNINGS.md; open follow-up CSs for any unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | omni-ae-c2 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
