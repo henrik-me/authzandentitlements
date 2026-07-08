@@ -1,10 +1,10 @@
 # CS62 — Postgres data-volume corruption hardening: ephemeral e2e DB + recovery runbook + LRN
 
-**Status:** active
+**Status:** done
 **Owner:** omni-ae-c2
 **Branch:** cs62/content
 **Started:** 2026-07-08
-**Closed:** —
+**Closed:** 2026-07-08
 **Filed by:** omni-ae-c2 on 2026-07-07 — maintainer request after a live `dotnet test` (RUN_ASPIRE_E2E=1) run failed 4 of 5 e2e tests with an opaque `TaskCanceledException` at `StartAsync`. Root-caused to a **corrupted persistent Postgres data volume** (WAL PANIC "could not locate a valid checkpoint record") left by a force-killed prior run. A prototype fix (ephemeral e2e Postgres) is on branch `fix/e2e-postgres-ephemeral-volume` and is validated (full e2e 5/5). This CS lands that fix properly and closes the durable-tracking gaps (LEARNINGS entry + `aspire run` recovery runbook).
 **Depends on:** none (builds on the CS57/58/61 e2e; independent of CS55)
 
