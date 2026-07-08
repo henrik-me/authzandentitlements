@@ -1,10 +1,10 @@
 # CS62 — Postgres data-volume corruption hardening: ephemeral e2e DB + recovery runbook + LRN
 
-**Status:** active
+**Status:** done
 **Owner:** omni-ae-c2
 **Branch:** cs62/content
 **Started:** 2026-07-08
-**Closed:** —
+**Closed:** 2026-07-08
 **Filed by:** omni-ae-c2 on 2026-07-07 — maintainer request after a live `dotnet test` (RUN_ASPIRE_E2E=1) run failed 4 of 5 e2e tests with an opaque `TaskCanceledException` at `StartAsync`. Root-caused to a **corrupted persistent Postgres data volume** (WAL PANIC "could not locate a valid checkpoint record") left by a force-killed prior run. A prototype fix (ephemeral e2e Postgres) is on branch `fix/e2e-postgres-ephemeral-volume` and is validated (full e2e 5/5). This CS lands that fix properly and closes the durable-tracking gaps (LEARNINGS entry + `aspire run` recovery runbook).
 **Depends on:** none (builds on the CS57/58/61 e2e; independent of CS55)
 
@@ -87,4 +87,25 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-08T21:05:00Z
+**Outcome:** GO
+
+Independent GPT-5.5 rubber-duck reviewed the CS62 plan (deliverables + exit criteria) against the merged implementation (`git diff 63b0243..3ff537a`) and the orchestrator validation (build 0/0; e2e 5/5 twice under `RUN_ASPIRE_E2E=1`, each on a fresh anonymous Postgres volume; harness lint 23/0).
+
+### Per-deliverable outcome
+
+| Deliverable | Outcome | Notes |
+|---|---|---|
+| `E2EStack.cs` — shared `CreateBuilderAsync` strips the Postgres data-volume fail-closed | match | Finds `postgres`, asserts exactly one `Type == Volume` `ContainerMountAnnotation`, throws clear errors (with source→target) for missing/ambiguous mounts, removes only that mount. |
+| Route all 5 e2e tests through `E2EStack.CreateBuilderAsync`; remove stale comment | match | All five test files route through `E2EStack`; no direct `DistributedApplicationTestingBuilder.CreateAsync<…>` calls remain; the stale "DB accumulates across runs" comment was corrected. |
+| `docs/testing/e2e-smoke.md` — document the ephemeral e2e Postgres | match | States the e2e strips the persistent data volume and starts clean from the seeded baseline. |
+| `docs/demo/local-demo-runbook.md` — `aspire run` WAL-corruption recovery runbook | match | WAL PANIC symptom, `docker volume ls --filter`/`rm` + re-seed, explicit data-loss warning; Decision #3 (dev stays persistent) preserved. |
+| `LEARNINGS.md` — LRN-094 | match | `source_cs: CS62`; captures the failure mode, diagnosis path, fix, validation, and recovery. |
+| Validation — e2e 5/5 fresh anonymous volume, build/lint green, LF/no-BOM | match | build 0/0; e2e 5/5 twice (no `*-postgres-data` named volume created by the run); harness lint 23/0; `git diff --check` clean. |
+
+### Test-coverage assessment
+
+**sufficient** — all five e2e tests exercise the real full-stack path through `E2EStack`; the repeated fresh-volume validation confirms the runtime behavior; the fail-closed exact-one strip is structurally verified in code. `AppHost.cs` is untouched (dev Postgres keeps `.WithDataVolume()`); observability `/data` remains untouched.
+
+No blocking plan-vs-implementation gaps found.
