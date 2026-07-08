@@ -55,6 +55,23 @@ public sealed class SessionExpiredNoticeTests
     }
 
     [Fact]
+    public async Task Account_detail_shows_session_expired_when_transactions_call_returns_401()
+    {
+        // The account read succeeds (200) but the follow-up transactions read returns 401
+        // invalid_token; the page must still surface the session-expired notice (the captured
+        // challenge wins over the loaded account), not silently render the account grid.
+        using var factory = new SessionExpiredFactory(
+            bankApiHandler: () => new AccountOkTransactions401Handler());
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync($"/accounts/{Guid.NewGuid()}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Your session has expired", html);
+    }
+
+    [Fact]
     public async Task Server_error_detail_is_hidden_outside_development()
     {
         using var factory = new SessionExpiredFactory("Production");
@@ -71,7 +88,9 @@ public sealed class SessionExpiredNoticeTests
         Assert.DoesNotContain("The token expired at", html);
     }
 
-    private sealed class SessionExpiredFactory(string environment = "Development") : WebApplicationFactory<Program>
+    private sealed class SessionExpiredFactory(
+        string environment = "Development",
+        Func<HttpMessageHandler>? bankApiHandler = null) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -102,7 +121,8 @@ public sealed class SessionExpiredNoticeTests
                 // (bypassing Aspire service discovery / resilience), sharing the request-scoped
                 // AuthChallengeState the page reads — so the actual WWW-Authenticate capture runs.
                 services.AddScoped<IBankApiClient>(sp => new BankApiClient(
-                    new HttpClient(new ExpiredTokenHandler()) { BaseAddress = new Uri("http://bank-api.test") },
+                    new HttpClient((bankApiHandler ?? (() => new ExpiredTokenHandler())).Invoke())
+                    { BaseAddress = new Uri("http://bank-api.test") },
                     sp.GetRequiredService<AuthChallengeState>()));
             });
         }
@@ -114,6 +134,33 @@ public sealed class SessionExpiredNoticeTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            var response = new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            response.Headers.TryAddWithoutValidation(
+                "WWW-Authenticate",
+                "Bearer error=\"invalid_token\", error_description=\"The token expired at '01/01/2026 00:00:00'\"");
+            return Task.FromResult(response);
+        }
+    }
+
+    // Account read succeeds (200) but the transactions read 401s with invalid_token — exercises
+    // the "session expired mid-page" branch where _account is non-null but a challenge was captured.
+    private sealed class AccountOkTransactions401Handler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri!.AbsolutePath.StartsWith("/api/accounts/", StringComparison.Ordinal))
+            {
+                var account = new AccountDto(
+                    Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "ACC-1", "Test Customer",
+                    AccountType.Checking, 100m, "USD", AccountStatus.Active);
+                var json = System.Text.Json.JsonSerializer.Serialize(account, BankJson.Options);
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json"),
+                });
+            }
+
             var response = new HttpResponseMessage(HttpStatusCode.Unauthorized);
             response.Headers.TryAddWithoutValidation(
                 "WWW-Authenticate",

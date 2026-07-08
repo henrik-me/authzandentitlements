@@ -11,7 +11,7 @@
 
 <p><a href="accounts">&larr; Back to accounts</a></p>
 
-@if (_loaded && _account is null && AuthChallenge.Current?.IsInvalidToken == true)
+@if (_loaded && AuthChallenge.Current?.IsInvalidToken == true)
 {
     <h1>Account detail</h1>
     <SessionExpiredNotice />
