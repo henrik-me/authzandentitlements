@@ -56,19 +56,26 @@ public sealed class ApprovalsAntiforgeryTests
             response.StatusCode == HttpStatusCode.OK,
             $"GET /approvals should render 200 for an authenticated user but was {(int)response.StatusCode}.");
 
-        // The page renders one EditForm to approve and one to reject when a pending item exists.
-        var formCount = Regex.Matches(html, "<form\\b").Count;
-        Assert.True(formCount >= 2, $"the approvals page should render the approve + reject forms but had {formCount} <form> element(s). HTML:\n{html}");
-
-        // Blazor's EditForm auto-emits the antiforgery hidden field; there must be exactly one
-        // per form. Two per form is the duplicate-token bug (explicit <AntiforgeryToken /> plus
-        // the framework-injected one) that breaks the POST.
-        var tokenCount = Regex.Matches(html, "name=\"__RequestVerificationToken\"").Count;
+        // Assert PER FORM (not page totals): each Blazor EditForm — identified by its FormName
+        // `_handler` hidden field — must carry EXACTLY ONE __RequestVerificationToken. A page-total
+        // comparison (tokenCount == formCount) could pass falsely if one form had two tokens and
+        // another had none; the duplicate-<AntiforgeryToken /> regression yields two per form.
+        var editForms = Regex.Matches(html, "<form\\b.*?</form>", RegexOptions.Singleline)
+            .Select(m => m.Value)
+            .Where(f => f.Contains("name=\"_handler\""))
+            .ToList();
         Assert.True(
-            tokenCount == formCount,
-            $"each of the {formCount} EditForm(s) must carry exactly one __RequestVerificationToken " +
-            $"(EditForm injects it automatically), but the page had {tokenCount}. More than one per form " +
-            "is the duplicate-<AntiforgeryToken /> regression that fails the POST antiforgery check.");
+            editForms.Count >= 2,
+            $"the approvals page should render the approve + reject Blazor EditForms but had {editForms.Count}. HTML:\n{html}");
+        foreach (var form in editForms)
+        {
+            var perFormTokens = Regex.Matches(form, "name=\"__RequestVerificationToken\"").Count;
+            Assert.True(
+                perFormTokens == 1,
+                $"each Blazor EditForm must carry exactly one __RequestVerificationToken (EditForm injects it " +
+                $"automatically), but one form had {perFormTokens}. More than one per form is the " +
+                $"duplicate-<AntiforgeryToken /> regression that fails the POST antiforgery check. Form:\n{form}");
+        }
     }
 
     [Fact]

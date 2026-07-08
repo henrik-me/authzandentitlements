@@ -146,13 +146,24 @@ public sealed class ApprovalsAntiforgeryE2ETests
             $"GET /approvals should render 200 for the signed-in teller but was {(int)approvalsResp.StatusCode}.");
         Assert.Contains(pendingTransactionId, approvalsHtml);
 
-        var formCount = Regex.Matches(approvalsHtml, "<form\\b").Count;
-        var tokenCount = Regex.Matches(approvalsHtml, "name=\"__RequestVerificationToken\"").Count;
-        Assert.True(formCount >= 2, $"the approvals page should render the approve + reject forms but had {formCount}.");
+        // Assert PER FORM (not page totals): each Blazor EditForm — identified by its FormName
+        // `_handler` hidden field — must carry EXACTLY ONE __RequestVerificationToken. A page-total
+        // comparison could pass falsely if one form had two tokens and another had none.
+        var editForms = Regex.Matches(approvalsHtml, "<form\\b.*?</form>", RegexOptions.Singleline)
+            .Select(m => m.Value)
+            .Where(f => f.Contains("name=\"_handler\""))
+            .ToList();
         Assert.True(
-            tokenCount == formCount,
-            $"each of the {formCount} EditForm(s) must carry exactly one __RequestVerificationToken (EditForm injects " +
-            $"it automatically), but the page had {tokenCount} — more than one per form is the duplicate-token regression.");
+            editForms.Count >= 2,
+            $"the approvals page should render the approve + reject Blazor EditForms but had {editForms.Count}.");
+        foreach (var form in editForms)
+        {
+            var perFormTokens = Regex.Matches(form, "name=\"__RequestVerificationToken\"").Count;
+            Assert.True(
+                perFormTokens == 1,
+                $"each Blazor EditForm must carry exactly one __RequestVerificationToken (EditForm injects it " +
+                $"automatically), but one form had {perFormTokens} — more than one per form is the duplicate-token regression.");
+        }
 
         // (4) POST the approve form as the teller. The teller is not a checker, so the server denies
         // (403). The point is that the POST is NOT rejected by antiforgery first: the page must render
