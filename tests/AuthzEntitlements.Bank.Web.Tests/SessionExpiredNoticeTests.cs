@@ -40,6 +40,21 @@ public sealed class SessionExpiredNoticeTests
     }
 
     [Fact]
+    public async Task Account_detail_page_shows_session_expired_notice_on_401_invalid_token()
+    {
+        using var factory = new SessionExpiredFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync($"/accounts/{Guid.NewGuid()}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Your session has expired", html);
+        // The generic fail-closed "unavailable / not authorized" copy must NOT be shown for an expiry.
+        Assert.DoesNotContain("not authorized to read it", html);
+    }
+
+    [Fact]
     public async Task Server_error_detail_is_hidden_outside_development()
     {
         using var factory = new SessionExpiredFactory("Production");
