@@ -81,8 +81,7 @@ public sealed class AuthenticatedFlowE2ETests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
 
-        var appHost = await DistributedApplicationTestingBuilder
-            .CreateAsync<Projects.AuthzEntitlements_AppHost>(cts.Token);
+        var appHost = await E2EStack.CreateBuilderAsync(cts.Token);
 
         // (Decision #5 / R5) Pin host ports so Keycloak binds its declared 8088, matching the
         // `http://localhost:8088` Keycloak__Authority the AppHost injects into edge-gateway /
@@ -171,7 +170,7 @@ public sealed class AuthenticatedFlowE2ETests
         }
 
         // (4) GET /api/transactions → 200 with at least the 3 seeded transactions. Lower-bound (the
-        // DB is a persistent volume that accumulates across runs), never an exact count.
+        // test itself also creates transactions during the run), never an exact count.
         foreach (var u in users)
         {
             using var resp = await GetUntilOkAsync(u.Gateway, "/api/transactions", TimeSpan.FromSeconds(60), cts.Token);

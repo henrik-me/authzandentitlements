@@ -63,8 +63,7 @@ public sealed class AspireStackSmokeE2ETests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
 
-        var appHost = await DistributedApplicationTestingBuilder
-            .CreateAsync<Projects.AuthzEntitlements_AppHost>(cts.Token);
+        var appHost = await E2EStack.CreateBuilderAsync(cts.Token);
 
         await using var app = await appHost.BuildAsync(cts.Token);
         await app.StartAsync(cts.Token);

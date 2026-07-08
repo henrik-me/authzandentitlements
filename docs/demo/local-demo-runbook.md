@@ -52,3 +52,44 @@ Grafana (linked from the dashboard) and in the Aspire dashboard's live trace/con
 
 Stop the `aspire run` process (Ctrl+C). Persistent dev containers (Postgres/Keycloak/observability)
 may keep running by design; remove them with `docker rm -f <name>` if you want a clean slate.
+
+## Troubleshooting
+
+### `aspire run` Postgres fails to start after a hard kill (WAL corruption)
+
+`aspire run` mounts a **persistent** Postgres data volume by design, so local bank data survives
+dev restarts. A normal Ctrl+C shutdown is graceful, but a **hard kill** of the AppHost (an OS
+crash, a force-stop, or a `kill -9` mid-write) can leave a corrupted write-ahead log in that
+volume. On the **next** `aspire run`, Postgres then PANICs on startup and never reaches healthy —
+so every Postgres-dependent service stays unhealthy and the stack hangs while booting.
+
+**Symptom.** `postgres` never reports healthy; `docker logs` for the Postgres container shows a
+PANIC such as:
+
+```
+PANIC:  could not locate a valid checkpoint record
+... startup process (PID ...) was terminated by signal 6: Aborted
+```
+
+**Recovery.** Remove the corrupted persistent volume and re-run — Postgres recreates it and the
+deterministic seeder repopulates it on the next boot:
+
+```bash
+# 1. Stop `aspire run` (Ctrl+C) if it is still running.
+# 2. Find the Postgres data volume (its name ends in `-postgres-data`):
+docker volume ls | grep postgres-data       # e.g. authzentitlements.apphost-<hash>-postgres-data
+# 3. Remove it (destroys local dev data — see the warning below):
+docker volume rm <the-postgres-data-volume-name>
+# 4. Re-run — Postgres recreates the volume and the seeder repopulates it:
+aspire run
+```
+
+> ⚠️ **Data loss.** `docker volume rm` **permanently discards all local dev bank data** in that
+> volume (tenants, accounts, transactions, approvals). This is safe for a demo/lab — the seeder
+> recreates the full seed dataset on the next boot — but do not run it if you have local data you
+> need to keep.
+
+> **Note:** the **e2e** suite is immune to this failure mode: it boots against an **ephemeral**
+> Postgres (the data volume is stripped by `tests/AuthzEntitlements.E2E.Tests/E2EStack.cs`), so a
+> force-killed test run can never corrupt a reused volume. This runbook applies only to the
+> persistent `aspire run` dev volume.
