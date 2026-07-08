@@ -3,6 +3,7 @@
 @using AuthzEntitlements.Bank.Web.ViewModels
 @inject IBankApiClient BankApi
 @inject ICurrentUser CurrentUser
+@inject AuthChallengeState AuthChallenge
 
 @* Static SSR (no @rendermode): deciding an approval calls Bank.Api through the edge
    gateway with the user's bearer token, which the AccessTokenHandler reads from the
@@ -24,14 +25,14 @@
     is denied with <strong>403</strong>; and once an approval is decided a second decision
     is rejected (decide-once).</p>
 
-@if (!_isEligible)
+@if (!_isEligible && AuthChallenge.Current?.IsInvalidToken != true)
 {
     <p class="notice" role="note">You are signed in as a role that cannot decide approvals;
         the server will deny with 403. The attempt is still sent so the fail-closed server
         response is visible (defense in depth — the UI hint is not the security boundary).</p>
 }
 
-@if (_result is not null)
+@if (_result is not null && AuthChallenge.Current?.IsInvalidToken != true)
 {
     @if (_result.IsSuccess && _result.Value is { } txn)
     {
@@ -63,7 +64,11 @@
     }
 }
 
-@if (_pending.Count == 0)
+@if (AuthChallenge.Current?.IsInvalidToken == true)
+{
+    <SessionExpiredNotice />
+}
+else if (_pending.Count == 0)
 {
     <p class="notice">No transactions are awaiting approval. This can also mean the service
         is unavailable, or your token is not authorized to read transactions (fail-closed).</p>
@@ -95,8 +100,9 @@ else
     </table>
 
     <div class="decide">
+        @* EditForm with a FormName auto-emits the antiforgery token in static SSR; do NOT add an
+           explicit <AntiforgeryToken /> — a duplicate hidden field breaks the POST antiforgery check. *@
         <EditForm Model="ApproveForm" FormName="approve" OnValidSubmit="ApproveAsync" method="post">
-            <AntiforgeryToken />
             <h2>Approve</h2>
             <p>
                 <label>Transaction<br />
@@ -118,7 +124,6 @@ else
         </EditForm>
 
         <EditForm Model="RejectForm" FormName="reject" OnValidSubmit="RejectAsync" method="post">
-            <AntiforgeryToken />
             <h2>Reject</h2>
             <p>
                 <label>Transaction<br />
@@ -140,6 +145,8 @@ else
         </EditForm>
     </div>
 }
+
+<AuthFlowDiagram Flow="DataFlowDiagrams.Approvals" />
 
 @code {
     // BL0008 forbids a property initializer on a [SupplyParameterFromForm] property under

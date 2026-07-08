@@ -3,6 +3,7 @@
 @using AuthzEntitlements.Bank.Web.ViewModels
 @inject IBankApiClient BankApi
 @inject ICurrentUser CurrentUser
+@inject AuthChallengeState AuthChallenge
 
 @* Static SSR (no @rendermode): submitting a transaction calls Bank.Api through the edge
    gateway with the user's bearer token, which the AccessTokenHandler reads from the
@@ -17,11 +18,11 @@
 
 <p class="hint">As a <strong>maker</strong>, submit a transaction against one of your
     tenant's accounts. The request travels AuthN → coarse edge gateway → fine Bank.Api
-    authorization → commercial entitlement. Small amounts post immediately; amounts at or
+    authorization → commercial licensing. Small amounts post immediately; amounts at or
     above the approval threshold are routed to <a href="approvals">maker-checker
     approval</a>.</p>
 
-@if (_result is not null)
+@if (_result is not null && AuthChallenge.Current?.IsInvalidToken != true)
 {
     @if (_result.IsSuccess && _result.Value is { } txn)
     {
@@ -55,7 +56,11 @@
     }
 }
 
-@if (_accounts.Count == 0)
+@if (AuthChallenge.Current?.IsInvalidToken == true)
+{
+    <SessionExpiredNotice />
+}
+else if (_accounts.Count == 0)
 {
     <p class="notice">No accounts are available to transact against. This can mean the
         service is unavailable, or your token is not authorized to read accounts
@@ -63,8 +68,9 @@
 }
 else
 {
+    @* EditForm with a FormName auto-emits the antiforgery token in static SSR; do NOT add an
+       explicit <AntiforgeryToken /> — a duplicate hidden field breaks the POST antiforgery check. *@
     <EditForm Model="Input" FormName="new-transaction" OnValidSubmit="SubmitAsync" method="post">
-        <AntiforgeryToken />
         <DataAnnotationsValidator />
         <ValidationSummary />
 
@@ -109,6 +115,8 @@ else
     </EditForm>
 }
 
+<AuthFlowDiagram Flow="DataFlowDiagrams.NewTransaction" />
+
 @code {
     [SupplyParameterFromForm]
     private NewTransactionInput Input { get; set; } = default!;
@@ -140,7 +148,7 @@ else
     private static string StatusLabel(int statusCode) => statusCode switch
     {
         403 => "403 Forbidden (coarse gateway / fine authorization)",
-        400 => "400 Bad Request (validation or commercial entitlement)",
+        400 => "400 Bad Request (validation or commercial licensing)",
         503 => "503 Service Unavailable (fail-closed)",
         _ => $"{statusCode}",
     };

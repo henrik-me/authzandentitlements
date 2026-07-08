@@ -1,0 +1,71 @@
+@* Renders a page's data-flow overview (a DataFlowDiagrams.* value) BELOW the page's main content
+   and clearly separated from it, as a compact collapsible vertical box-and-arrow diagram that
+   colour-codes each annotation: AuthN (authentication — token/forwarding/WWW-Authenticate),
+   AuthZ (what validates what), License (commercial plan/features), and Data. Pure render fed by
+   static data — no DI, no backend. *@
+
+@if (Flow is not null)
+{
+    <section class="flow-section" aria-label="Data flow and authorization">
+    <h2 class="flow-section-title">Data flow &amp; authorization</h2>
+    <details class="flow" open>
+        <summary>@Flow.Caption</summary>
+        <div class="flow-body">
+            @for (var i = 0; i < Flow.Nodes.Count; i++)
+            {
+                var node = Flow.Nodes[i];
+                @if (node.Call is not null)
+                {
+                    <div class="flow-arrow"><span class="flow-arrow-glyph" aria-hidden="true">▼</span> @node.Call</div>
+                }
+                <div class="flow-node">
+                    <div class="flow-node-head">
+                        <span class="flow-node-name">@node.Name</span>
+                        <span class="flow-node-role">@node.Role</span>
+                    </div>
+                    @if (node.Notes.Count > 0)
+                    {
+                        <ul class="flow-notes">
+                            @foreach (var note in node.Notes)
+                            {
+                                <li>
+                                    <span class="flow-badge @Css(note.Aspect)">@Label(note.Aspect)</span>
+                                    <span class="flow-note-text">@note.Text</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+        </div>
+        <p class="flow-legend">
+            <span class="flow-badge authn">AuthN</span> authentication (token, WWW-Authenticate)
+            <span class="flow-badge authz">AuthZ</span> authorization (what validates what)
+            <span class="flow-badge license">License</span> commercial plan / features
+            <span class="flow-badge data">Data</span> payload / outcome
+        </p>
+    </details>
+    </section>
+}
+
+@code {
+    [Parameter]
+    [EditorRequired]
+    public DataFlow Flow { get; set; } = default!;
+
+    private static string Css(FlowAspect aspect) => aspect switch
+    {
+        FlowAspect.AuthN => "authn",
+        FlowAspect.AuthZ => "authz",
+        FlowAspect.License => "license",
+        _ => "data",
+    };
+
+    private static string Label(FlowAspect aspect) => aspect switch
+    {
+        FlowAspect.AuthN => "AuthN",
+        FlowAspect.AuthZ => "AuthZ",
+        FlowAspect.License => "License",
+        _ => "Data",
+    };
+}

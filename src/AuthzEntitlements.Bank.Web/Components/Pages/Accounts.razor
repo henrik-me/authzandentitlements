@@ -1,6 +1,7 @@
 @page "/accounts"
 @attribute [Authorize]
 @inject IBankApiClient BankApi
+@inject AuthChallengeState AuthChallenge
 
 @* Static SSR (no @rendermode): this page calls Bank.Api through the edge gateway with
    the user's bearer token, which the AccessTokenHandler reads from the current
@@ -18,6 +19,10 @@
 @if (_accounts is null)
 {
     <p>Loading…</p>
+}
+else if (AuthChallenge.Current?.IsInvalidToken == true)
+{
+    <SessionExpiredNotice />
 }
 else if (_accounts.Count == 0)
 {
@@ -54,6 +59,8 @@ else
         </tbody>
     </table>
 }
+
+<AuthFlowDiagram Flow="DataFlowDiagrams.Accounts" />
 
 @code {
     private IReadOnlyList<AccountDto>? _accounts;

@@ -52,7 +52,7 @@ public interface IGovernanceClient
         Guid id, RevokeDelegationRequest body, CancellationToken ct = default);
 }
 
-public sealed class GovernanceClient(HttpClient http) : IGovernanceClient
+public sealed class GovernanceClient(HttpClient http, AuthChallengeState authChallenge) : IGovernanceClient
 {
     public Task<IReadOnlyList<AccessPackageResponse>> GetAccessPackagesAsync(CancellationToken ct = default) =>
         GetListAsync<AccessPackageResponse>("/api/governance/access-packages", ct);
@@ -120,6 +120,7 @@ public sealed class GovernanceClient(HttpClient http) : IGovernanceClient
             using var response = await http.GetAsync(uri, ct);
             if (!response.IsSuccessStatusCode)
             {
+                authChallenge.Capture(response);
                 return [];
             }
 
@@ -148,6 +149,7 @@ public sealed class GovernanceClient(HttpClient http) : IGovernanceClient
             using var response = await http.GetAsync(uri, ct);
             if (!response.IsSuccessStatusCode)
             {
+                authChallenge.Capture(response);
                 return null;
             }
 
@@ -183,9 +185,9 @@ public sealed class GovernanceClient(HttpClient http) : IGovernanceClient
             }
 
             var error = await response.Content.ReadAsStringAsync(ct);
-            return ApiResult<TResponse>.Failure(status, string.IsNullOrWhiteSpace(error)
-                ? response.ReasonPhrase ?? "The request was denied."
-                : error);
+            var challenge = authChallenge.Capture(response);
+            return ApiResult<TResponse>.Failure(
+                status, AuthChallengeState.DescribeFailure(challenge, error, response.ReasonPhrase));
         }
         catch (HttpRequestException ex)
         {

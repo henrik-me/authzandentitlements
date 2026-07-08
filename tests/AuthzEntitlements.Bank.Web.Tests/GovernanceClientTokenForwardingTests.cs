@@ -47,7 +47,7 @@ public sealed class GovernanceClientTokenForwardingTests
     {
         var handler = new AccessTokenHandler(AccessorWithToken(token)) { InnerHandler = stub };
         var http = new HttpClient(handler) { BaseAddress = new Uri("http://governance-service") };
-        return new GovernanceClient(http);
+        return new GovernanceClient(http, new AuthChallengeState());
     }
 
     private static IHttpContextAccessor AccessorWithToken(string? token)

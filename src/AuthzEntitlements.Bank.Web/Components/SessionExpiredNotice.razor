@@ -1,0 +1,33 @@
+@using Microsoft.Extensions.Hosting
+@inject AuthChallengeState AuthChallenge
+@inject IHostEnvironment Env
+
+@* Renders a distinct "sign in again" notice when a downstream API rejected this request's access
+   token (401 invalid_token) — e.g. an EXPIRED token — captured by AuthChallengeState. Renders
+   nothing otherwise, so pages can drop it in place of (or above) their generic denial/empty notice
+   to tell the user their session lapsed rather than implying they lack permission. Read at render
+   time, after the page's OnInitializedAsync has made its API call and populated the state. *@
+
+@if (AuthChallenge.Current?.IsInvalidToken == true)
+{
+    <div class="notice" role="alert">
+        @if (AuthChallenge.Current.IsTokenExpired)
+        {
+            <p><strong>Your session has expired.</strong> The server rejected your access token as
+                expired (<code>401 invalid_token</code>). Sign in again to continue.</p>
+        }
+        else
+        {
+            <p><strong>Your session is no longer valid.</strong> The server rejected your access
+                token (<code>401 invalid_token</code>). Sign in again to continue.</p>
+        }
+        @* SECURITY: the raw server-supplied error_description (from the WWW-Authenticate challenge)
+           can leak token-validation internals and is attacker-influenceable, so surface it only in
+           Development for debugging — never to end users in Production. *@
+        @if (Env.IsDevelopment() && !string.IsNullOrWhiteSpace(AuthChallenge.Current.ErrorDescription))
+        {
+            <p class="hint">Server detail: @AuthChallenge.Current.ErrorDescription</p>
+        }
+        <p><a class="button" href="login">Sign in again</a></p>
+    </div>
+}

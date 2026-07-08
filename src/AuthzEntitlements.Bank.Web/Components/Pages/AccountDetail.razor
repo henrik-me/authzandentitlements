@@ -1,6 +1,7 @@
 @page "/accounts/{Id:guid}"
 @attribute [Authorize]
 @inject IBankApiClient BankApi
+@inject AuthChallengeState AuthChallenge
 
 @* Static SSR (no @rendermode): calls Bank.Api through the edge gateway with the user's
    bearer token, which the AccessTokenHandler reads from the current HttpContext (only
@@ -10,7 +11,12 @@
 
 <p><a href="accounts">&larr; Back to accounts</a></p>
 
-@if (_loaded && _account is null)
+@if (_loaded && AuthChallenge.Current?.IsInvalidToken == true)
+{
+    <h1>Account detail</h1>
+    <SessionExpiredNotice />
+}
+else if (_loaded && _account is null)
 {
     <h1>Account detail</h1>
     <p class="notice">
@@ -70,6 +76,8 @@ else
         </table>
     }
 }
+
+<AuthFlowDiagram Flow="DataFlowDiagrams.AccountDetail" />
 
 @code {
     [Parameter]
