@@ -40,5 +40,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
 | CS52 | CS52 — Product-wide implementation evaluation: refactoring catalog + path to 95% test coverage | ⏸ Paused | yoga-ae-c4 | cs52/content | 2026-07-05 | ⛔ HELD by maintainer — explicit "go" required before continuing Waves 0b/A/B/C; NOT time-reclaimable (see LRN-085 + CS Hold/claim gate) |
+| CS65 | CS65 — Preserve the originating page through sign-in (OIDC return-URL) | 🟢 Active | omni-ae-c2 | cs65/content | 2026-07-08 | — |
 
 > **Note:** WORKBOARD shows live coordination state only — active orchestrators and their active work. The queue lives in `project/clickstops/planned/` (priority order via filename + per-file `**Depends on:**`); historical record lives in `project/clickstops/done/`. Do not duplicate either here.

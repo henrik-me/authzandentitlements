@@ -1,9 +1,9 @@
 # CS65 — Preserve the originating page through sign-in (OIDC return-URL)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** omni-ae-c2
+**Branch:** cs65/content
+**Started:** 2026-07-08
 **Closed:** —
 **Filed by:** omni-ae-c2 on 2026-07-08 — maintainer report: after an access-token expiry on a page (e.g. an account page), clicking "Sign in again" re-authenticates but drops the user on the home page instead of returning to the page they were on. The originating page/state is not preserved across the OIDC round-trip.
 **Depends on:** none (builds on the CS03 OIDC login + CS59/#219 expired-token UX; independent of other in-flight CSs)
@@ -75,11 +75,24 @@ None — the maintainer selected the all-four-entry-points scope at filing time.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Implement /login returnUrl + `SafeLocalReturnUrl` helper (open-redirect + loop guard) | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=impl \| report-status=pending \| learnings=0 |
+| Shared `SignInLink` component + wire all 4 sign-in links | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=impl \| report-status=pending \| learnings=0 |
+| Tests: `SafeLocalReturnUrl` unit + 4-entry-point returnUrl link coverage | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=test \| report-status=pending \| learnings=0 |
+| Close-out: docs + restart state | pending | omni-ae-c2 | Update WORKBOARD + CONTEXT.md after merge so a fresh agent restarts from actual state |
+| Close-out: learnings + follow-ups | pending | omni-ae-c2 | File/disposition learnings in LEARNINGS.md; open follow-up CSs for any unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | omni-ae-c2 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
