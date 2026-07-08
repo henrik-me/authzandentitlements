@@ -31,7 +31,7 @@ id: LRN-094
 date: 2026-07-08
 category: operational
 source_cs: CS62
-status: open
+status: applied
 tags: [e2e, postgres, aspire, volume, wal-corruption, testing, flakiness]
 claim_area: e2e
 ```
@@ -42,7 +42,7 @@ claim_area: e2e
 
 **Evidence:** `tests/AuthzEntitlements.E2E.Tests/E2EStack.cs` (fail-closed strip) routed by all 5 e2e tests; full e2e suite **5/5** under `RUN_ASPIRE_E2E=1`, each run on a fresh anonymous Postgres volume (no `*-postgres-data` named volume created); `dotnet build` 0/0; `harness lint` green. Recovery runbook in `docs/demo/local-demo-runbook.md` (`docker volume rm` + re-seed, with a data-loss warning); ephemeral note in `docs/testing/e2e-smoke.md`.
 
-**Disposition:** **Applied by CS62** — the ephemeral-e2e-Postgres fix + `aspire run` recovery runbook land in the CS62 content PR (this entry flips to `applied` at CS62 close-out). Reusable rule: an opaque `TaskCanceledException` at Aspire `StartAsync` with a Postgres-dependent stack usually means **Postgres never reached Healthy**, not slowness — check `docker logs <postgres-*>` for a WAL PANIC (`could not locate a valid checkpoint record`) and strip/rebuild the data volume before touching timeouts.
+**Disposition:** **Applied by CS62** — the ephemeral-e2e-Postgres fix + `aspire run` recovery runbook shipped in the CS62 content PR #222 (squash-merged 2026-07-08 as `3ff537a`). Reusable rule: an opaque `TaskCanceledException` at Aspire `StartAsync` with a Postgres-dependent stack usually means **Postgres never reached Healthy**, not slowness — check `docker logs <postgres-*>` for a WAL PANIC (`could not locate a valid checkpoint record`) and strip/rebuild the data volume before touching timeouts.
 
 ### LRN-093
 
