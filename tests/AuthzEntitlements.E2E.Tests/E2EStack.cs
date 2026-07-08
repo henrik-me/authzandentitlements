@@ -70,9 +70,12 @@ internal static class E2EStack
 
         if (dataVolumes.Count != 1)
         {
+            var found = dataVolumes.Count == 0
+                ? "none"
+                : string.Join(", ", dataVolumes.Select(m => $"{m.Source}->{m.Target}"));
             throw new InvalidOperationException(
                 $"E2E setup expected exactly one volume-type mount on the '{PostgresResourceName}' " +
-                $"resource (the WithDataVolume() data volume) but found {dataVolumes.Count}. " +
+                $"resource (the WithDataVolume() data volume) but found {dataVolumes.Count} ({found}). " +
                 "Refusing to strip an ambiguous mount set — update E2EStack to match the current " +
                 "AppHost Postgres volume configuration.");
         }

@@ -169,8 +169,9 @@ public sealed class AuthenticatedFlowE2ETests
             Assert.DoesNotContain("FABRIKAM-CHK-0001", numbers);
         }
 
-        // (4) GET /api/transactions → 200 with at least the 3 seeded transactions. Lower-bound (the
-        // test itself also creates transactions during the run), never an exact count.
+        // (4) GET /api/transactions → 200 with at least the 3 seeded transactions. This is a
+        // lower-bound check (the test itself also creates transactions during the run), never an
+        // exact count.
         foreach (var u in users)
         {
             using var resp = await GetUntilOkAsync(u.Gateway, "/api/transactions", TimeSpan.FromSeconds(60), cts.Token);
