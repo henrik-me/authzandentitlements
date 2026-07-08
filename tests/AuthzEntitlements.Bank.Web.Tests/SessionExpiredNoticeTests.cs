@@ -32,6 +32,8 @@ public sealed class SessionExpiredNoticeTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Your session has expired", html);
         Assert.Contains("Sign in again", html);
+        // CS65: the "Sign in again" link returns the user to this page (/accounts) after re-auth.
+        Assert.Contains("login?returnUrl=%2Faccounts", html);
         // In Development the raw server-supplied WWW-Authenticate detail is surfaced for debugging.
         Assert.Contains("Server detail", html);
         Assert.Contains("The token expired at", html);
