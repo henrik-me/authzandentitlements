@@ -61,8 +61,7 @@ public sealed class ExpiredTokenE2ETests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
 
-        var appHost = await DistributedApplicationTestingBuilder
-            .CreateAsync<Projects.AuthzEntitlements_AppHost>(cts.Token);
+        var appHost = await E2EStack.CreateBuilderAsync(cts.Token);
         appHost.Configuration["DcpPublisher:RandomizePorts"] = "false";
 
         await using var app = await appHost.BuildAsync(cts.Token);

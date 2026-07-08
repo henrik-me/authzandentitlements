@@ -73,8 +73,7 @@ public sealed class ApprovalsAntiforgeryE2ETests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
 
-        var appHost = await DistributedApplicationTestingBuilder
-            .CreateAsync<Projects.AuthzEntitlements_AppHost>(cts.Token);
+        var appHost = await E2EStack.CreateBuilderAsync(cts.Token);
 
         // Pin host ports so Keycloak binds its declared 8088, matching the http://localhost:8088
         // Keycloak__Authority the AppHost injects (Decision #5) — otherwise the token issuer/JWKS

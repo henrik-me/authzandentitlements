@@ -24,6 +24,26 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-094
+
+```yaml
+id: LRN-094
+date: 2026-07-08
+category: operational
+source_cs: CS62
+status: open
+tags: [e2e, postgres, aspire, volume, wal-corruption, testing, flakiness]
+claim_area: e2e
+```
+
+**Problem:** A live `dotnet test` (`RUN_ASPIRE_E2E=1`) run failed **4 of 5** e2e tests with an opaque `TaskCanceledException` at `StartAsync` (~5–6 min timeout caps). The tempting misdiagnosis is "the boot is too slow — bump the timeouts," which masks the real fault and slows every genuine failure.
+
+**Finding:** Root cause was a **corrupted persistent Postgres data volume**, not slowness. `AppHost.cs` boots Postgres with `.WithDataVolume()` (a persistent named volume); when a prior run is force-killed mid-write (a timeout teardown, the node wrapper's SIGKILL, or a DCP force-stop), Postgres leaves a corrupted write-ahead log, and the **next** run reuses the volume and PANICs on startup (`could not locate a valid checkpoint record ... startup process was terminated by signal 6: Aborted`), exits, and the five Postgres-dependent services never reach Healthy — so `StartAsync` blocks to the CTS cap and surfaces as the opaque `TaskCanceledException`. Diagnosis path: `docker logs <postgres-*>` shows the WAL PANIC; **deleting the `*-postgres-data` volume** made the smoke test pass in **1m13s**, proving the boot is fast and the timeout was never the cause (instantaneous CPU was ~12%). The real tell is the WAL PANIC in `docker logs` with Postgres never reaching Healthy — not slowness or host load. The fix makes the **e2e** Postgres ephemeral: a shared `E2EStack.CreateBuilderAsync` strips the `postgres` resource's single volume-type `ContainerMountAnnotation` (**fail-closed**: throws on a missing resource or a not-exactly-one mount set) so each run uses a fresh anonymous volume and a force-killed run can never corrupt a reused one. `aspire run`'s dev volume stays persistent by design (Decision #3); a recovery runbook covers the hard-kill case.
+
+**Evidence:** `tests/AuthzEntitlements.E2E.Tests/E2EStack.cs` (fail-closed strip) routed by all 5 e2e tests; full e2e suite **5/5** under `RUN_ASPIRE_E2E=1`, each run on a fresh anonymous Postgres volume (no `*-postgres-data` named volume created); `dotnet build` 0/0; `harness lint` green. Recovery runbook in `docs/demo/local-demo-runbook.md` (`docker volume rm` + re-seed, with a data-loss warning); ephemeral note in `docs/testing/e2e-smoke.md`.
+
+**Disposition:** **Applied by CS62** — the ephemeral-e2e-Postgres fix + `aspire run` recovery runbook land in the CS62 content PR (this entry flips to `applied` at CS62 close-out). Reusable rule: an opaque `TaskCanceledException` at Aspire `StartAsync` with a Postgres-dependent stack usually means **Postgres never reached Healthy**, not slowness — check `docker logs <postgres-*>` for a WAL PANIC (`could not locate a valid checkpoint record`) and strip/rebuild the data volume before touching timeouts.
+
 ### LRN-093
 
 ```yaml

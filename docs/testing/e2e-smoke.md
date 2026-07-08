@@ -73,9 +73,11 @@ services' authority + the reachable JWKS all agree, exactly as under `aspire run
 tests boot the full stack (and this one needs a free 8088), assembly-level test parallelization is
 disabled (`E2ECollectionBehavior.cs`) so the two never boot concurrently.
 
-Data assertions are **lower-bound + seeded-present** (Decision #6): Postgres uses a persistent data
-volume, so the DB accumulates across runs — the test uses unique per-run account numbers and
-below-threshold amounts and never asserts an exact total.
+Data assertions are **lower-bound + seeded-present** (Decision #6): the e2e boots against an
+**ephemeral** Postgres — its persistent data volume is stripped for the test run (see
+`tests/AuthzEntitlements.E2E.Tests/E2EStack.cs`), so each run starts clean from the seeded
+baseline and a force-killed prior run can never corrupt a reused volume. The test still uses
+unique per-run account numbers and below-threshold amounts and never asserts an exact total.
 
 The stack is torn down deterministically by the `await using` on the built application.
 
