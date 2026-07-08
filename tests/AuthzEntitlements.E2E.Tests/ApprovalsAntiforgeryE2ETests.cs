@@ -532,7 +532,18 @@ public sealed class ApprovalsAntiforgeryE2ETests
             try
             {
                 using var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-                return await client.PostAsync(url, content, ct);
+                var response = await client.PostAsync(url, content, ct);
+                // The gateway/Bank.Api JWT handlers warm their JWKS on first use, so a freshly-booted
+                // stack can briefly 401 an otherwise-valid bearer (the same warm-up race the other e2e
+                // tests guard against). A 401 is rejected by the auth middleware BEFORE the endpoint
+                // runs, so no transaction is created — retrying until a non-401 status (or the deadline)
+                // is duplicate-safe and keeps the seed step from flaking on a cold JWKS.
+                if (response.StatusCode != HttpStatusCode.Unauthorized || DateTime.UtcNow >= deadline)
+                {
+                    return response;
+                }
+
+                response.Dispose();
             }
             catch (HttpRequestException) when (DateTime.UtcNow < deadline)
             {
