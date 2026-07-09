@@ -1,10 +1,10 @@
 # CS68 — E2E test for sign-in return-URL (+ shared OIDC-login helper)
 
-**Status:** active
+**Status:** done
 **Owner:** omni-ae-c2
 **Branch:** cs68/content
 **Started:** 2026-07-08
-**Closed:** —
+**Closed:** 2026-07-09
 **Filed by:** omni-ae-c2 on 2026-07-08 — maintainer request: add an e2e test case validating the CS65 sign-in return-URL behavior (after a token expiry on a page, signing in returns you to that page). CS65's in-process tests cover the sanitizer, the `/login` endpoint, and link rendering, but no test drives the **real interactive OIDC flow** end to end to prove the `returnUrl` survives the Keycloak round-trip.
 **Depends on:** none (builds on CS65 return-URL behavior + the CS57/58/60 e2e stack; independent of other in-flight CSs)
 
