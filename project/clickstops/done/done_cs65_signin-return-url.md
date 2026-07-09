@@ -1,10 +1,10 @@
 # CS65 — Preserve the originating page through sign-in (OIDC return-URL)
 
-**Status:** active
+**Status:** done
 **Owner:** omni-ae-c2
 **Branch:** cs65/content
 **Started:** 2026-07-08
-**Closed:** —
+**Closed:** 2026-07-08
 **Filed by:** omni-ae-c2 on 2026-07-08 — maintainer report: after an access-token expiry on a page (e.g. an account page), clicking "Sign in again" re-authenticates but drops the user on the home page instead of returning to the page they were on. The originating page/state is not preserved across the OIDC round-trip.
 **Depends on:** none (builds on the CS03 OIDC login + CS59/#219 expired-token UX; independent of other in-flight CSs)
 
