@@ -25,6 +25,7 @@ public sealed class LoginEndpointReturnUrlTests
     [InlineData("https://evil.com", "/")]      // absolute URL -> home
     [InlineData("/login", "/")]                // auth-endpoint loop -> home
     [InlineData("/logout", "/")]               // auth-endpoint loop -> home
+    [InlineData("", "/")]                       // present-but-empty returnUrl -> home
     public async Task Login_challenge_redirectUri_is_the_sanitized_returnUrl(string returnUrl, string expected)
     {
         using var factory = new LoginCaptureFactory();
