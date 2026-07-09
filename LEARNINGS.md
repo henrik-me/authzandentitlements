@@ -29,10 +29,10 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 ```yaml
 id: LRN-095
 date: 2026-07-08
-category: security
+category: operational
 source_cs: CS65
 status: applied
-tags: [open-redirect, url-validation, aspnet, oidc, returnurl, bank-web]
+tags: [security, open-redirect, url-validation, aspnet, oidc, bank-web]
 claim_area: bank-web
 ```
 
