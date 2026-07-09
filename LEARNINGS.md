@@ -24,6 +24,26 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-095
+
+```yaml
+id: LRN-095
+date: 2026-07-08
+category: operational
+source_cs: CS65
+status: applied
+tags: [security, open-redirect, url-validation, aspnet, oidc, bank-web]
+claim_area: bank-web
+```
+
+**Problem:** A hand-rolled "is this a local URL?" guard for an OIDC post-login `returnUrl` (Bank.Web `/login`) checked only that the value starts with a single `/` (not `//` or `/\`). That looks sufficient but is an **open-redirect bypass**: a `returnUrl` like `/\t/evil.com` (a tab after the slash) passes, and browsers **strip tabs/newlines from a `Location` header** before navigating, re-interpreting it as the protocol-relative `//evil.com` → an attacker origin. The value is attacker-influenceable via a crafted `…/login?returnUrl=…` link.
+
+**Finding:** A local-URL guard used as a redirect target MUST also **reject ASCII control characters** (`char.IsControl`) after the leading `/`, exactly as ASP.NET Core's `SharedUrlHelper.IsLocalUrl` does — not just the `//`/`/\` prefixes. The faithful check: non-empty, `url[0]=='/'`, and either length 1 or (`url[1]` is not `/`/`\` AND no `char.IsControl` in `url.AsSpan(1)`). Prefer the framework's `IsLocalUrl`/`LocalRedirect`; when hand-rolling (e.g. in a minimal-API `MapGet` with no `IUrlHelper`), mirror it exactly and unit-test the bypass vectors (tab/CR/LF, `//`, `/\`, absolute, scheme, null/empty) plus a loop guard for the auth endpoints. Caught by the independent GPT-5.5 content review (R2 Block → fix → R4 Go).
+
+**Evidence:** `src/AuthzEntitlements.Bank.Web/Clients/LoginReturnUrl.cs` (`SafeLocalReturnUrl` + control-char-aware `IsLocalUrl`); `tests/AuthzEntitlements.Bank.Web.Tests/LoginReturnUrlTests.cs` (tab/CR/LF + `//`/`/\`/absolute/scheme/null → `/`) and `LoginEndpointReturnUrlTests.cs` (the same vectors asserted on the `/login` challenge `RedirectUri`). Bank.Web.Tests 237/237.
+
+**Disposition:** **Applied by CS65** — the control-char-aware local-URL guard shipped in content PR #227 (`42255bd`) + endpoint test #228 (`9d6802d`). Reusable rule: never treat "starts with `/` and not `//`" as a sufficient local-URL / open-redirect check — reject control chars too (mirror `IUrlHelper.IsLocalUrl`), or use the framework helper.
+
 ### LRN-094
 
 ```yaml

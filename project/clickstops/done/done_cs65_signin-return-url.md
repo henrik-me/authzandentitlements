@@ -1,10 +1,10 @@
 # CS65 — Preserve the originating page through sign-in (OIDC return-URL)
 
-**Status:** active
+**Status:** done
 **Owner:** omni-ae-c2
 **Branch:** cs65/content
 **Started:** 2026-07-08
-**Closed:** —
+**Closed:** 2026-07-08
 **Filed by:** omni-ae-c2 on 2026-07-08 — maintainer report: after an access-token expiry on a page (e.g. an account page), clicking "Sign in again" re-authenticates but drops the user on the home page instead of returning to the page they were on. The originating page/state is not preserved across the OIDC round-trip.
 **Depends on:** none (builds on the CS03 OIDC login + CS59/#219 expired-token UX; independent of other in-flight CSs)
 
@@ -96,4 +96,26 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-09T00:35:00Z
+**Outcome:** GO
+
+Independent GPT-5.5 rubber-duck reviewed the CS65 plan (Decisions + Deliverables + Exit criteria) against the merged implementation (content PR #227 `42255bd` + endpoint-test follow-up #228 `9d6802d`) and the validation (build 0/0; full-solution test all green — Bank.Web.Tests 237/237; harness lint 23/0). A prior PVI round returned NEEDS-FIX for the missing `/login` endpoint test (deliverable c); that gap was closed by #228 and this re-review is GO.
+
+### Per-deliverable outcome
+
+| Deliverable | Outcome | Notes |
+|---|---|---|
+| `Program.cs` `/login` binds `returnUrl`, challenges with sanitized `RedirectUri` | match | Uses `LoginReturnUrl.SafeLocalReturnUrl(returnUrl)` for `AuthenticationProperties.RedirectUri`. |
+| `Clients/LoginReturnUrl.cs` helper | match | Fail-safe `/`; local-only single-slash guard; rejects `//`, `/\`, absolute/scheme URLs, control chars, and `/login`/`/logout` loops. |
+| `Components/SignInLink.razor` shared component | match | `NavigationManager` path+query via `ToBaseRelativePath`, `Uri.EscapeDataString`-encoded; caller CSS/content. |
+| `SessionExpiredNotice` / `Routes` NotAuthorized / `NavMenu` / `Home` use `<SignInLink>` | match | All four sign-in links use the shared component; Routes NotAuthorized is a defensive fallback (anonymous → challenged to Keycloak), transitively covered. |
+| `Bank.Web.csproj` `InternalsVisibleTo` | added | Enables direct unit-testing of the internal helper; low-risk. |
+| Tests (helper vectors, link rendering, `/login` endpoint) | match | Deliverable (c) met by `LoginEndpointReturnUrlTests.cs` (decorates `IAuthenticationService`, asserts the captured `ChallengeAsync` `RedirectUri` == sanitized `returnUrl`). |
+| Validation — build/test/lint/LF no-BOM | match | build 0/0; Bank.Web.Tests 237/237; harness lint 23/0. |
+
+### Test-coverage assessment
+
+**sufficient** — local return URLs (incl. query), open-redirect vectors (`//`, `/\`, absolute, control-char), `/login`/`/logout` loop guards, empty/null fallback, all four link sites (direct + shared-component), and the `/login` endpoint challenge-`RedirectUri` regression test.
+
+No blocking plan-vs-implementation gaps found.
