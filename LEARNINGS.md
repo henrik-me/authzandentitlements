@@ -24,6 +24,24 @@ Learnings filed during the project. See [`RETROSPECTIVES.md`](RETROSPECTIVES.md)
 
 ## Open
 
+### LRN-096
+
+```yaml
+id: LRN-096
+date: 2026-07-09
+category: operational
+source_cs: CS68
+status: open
+tags: [testing, e2e, aspire, duplication, refactor-candidate, fixture]
+claim_area: e2e-tests
+```
+
+**Problem:** Every full-stack e2e test class (`AuthenticatedFlowE2ETests`, `ExpiredTokenE2ETests`, `ApprovalsAntiforgeryE2ETests`, `AspireStackSmokeE2ETests`, and now `SignInReturnUrlE2ETests`) hand-copies the same boot/port infrastructure: an `IsTcpPortInUse` 8088 fail-fast guard, a `WaitForResourceHealthyAsync` loop over the 7 project services, the `DcpPublisher:RandomizePorts=false` pin, and an OIDC discovery-readiness poll (`GetUntilOkAsync`/`GetWithRetryAsync`). CS68's Copilot review flagged the duplication; it also surfaced pre-existing drift (the port-guard connect timeout is 500 ms in three classes, 1 s in two).
+
+**Finding:** CS68 deliberately scoped its extraction to the fiddly OIDC *login* flow (`E2EOidcLogin`) and left the boot/port infra duplicated to keep the change behavior-preserving and reviewable. The duplication is real maintainability debt: a fixture change (a new required service, a boot-timeout tweak, or fixing the 500 ms/1 s drift) must be applied in five places. A follow-up CS should consolidate the shared boot/port/discovery scaffolding into a single reusable E2E fixture base or helper (alongside the existing `E2EStack.CreateBuilderAsync` + `E2ECollectionBehavior`), then have each test class inherit/compose it — without touching the per-test assertions. This is a test-only refactor validated by re-running the e2e suite 6/6.
+
+**Evidence:** `tests/AuthzEntitlements.E2E.Tests/SignInReturnUrlE2ETests.cs` (`IsTcpPortInUse` + `GetUntilOkAsync` copies); the same helpers in `AuthenticatedFlowE2ETests.cs:483-489`, `ExpiredTokenE2ETests.cs:244`, `ApprovalsAntiforgeryE2ETests.cs`, `AspireStackSmokeE2ETests.cs:153-159`; port-guard timeout drift 500 ms (Approvals/Expired/SignInReturnUrl) vs 1 s (AuthenticatedFlow/AspireStackSmoke). Raised by the Copilot review on content PR #232.
+
 ### LRN-095
 
 ```yaml
