@@ -1,9 +1,9 @@
 # CS68 — E2E test for sign-in return-URL (+ shared OIDC-login helper)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** omni-ae-c2
+**Branch:** cs68/content
+**Started:** 2026-07-08
 **Closed:** —
 **Filed by:** omni-ae-c2 on 2026-07-08 — maintainer request: add an e2e test case validating the CS65 sign-in return-URL behavior (after a token expiry on a page, signing in returns you to that page). CS65's in-process tests cover the sanitizer, the `/login` endpoint, and link rendering, but no test drives the **real interactive OIDC flow** end to end to prove the `returnUrl` survives the Keycloak round-trip.
 **Depends on:** none (builds on CS65 return-URL behavior + the CS57/58/60 e2e stack; independent of other in-flight CSs)
@@ -61,11 +61,24 @@ None.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Extract `E2EOidcLogin` shared helper + refactor `ApprovalsAntiforgeryE2ETests` to use it | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=impl \| report-status=pending \| learnings=0 |
+| Add `SignInReturnUrlE2ETests` (/login?returnUrl=/accounts → lands on /accounts) | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=test \| report-status=pending \| learnings=0 |
+| Validate e2e 6/6 under RUN_ASPIRE_E2E=1 + build/lint | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=test \| report-status=pending \| learnings=0 |
+| Close-out: docs + restart state | pending | omni-ae-c2 | Update WORKBOARD + CONTEXT.md after merge so a fresh agent restarts from actual state |
+| Close-out: learnings + follow-ups | pending | omni-ae-c2 | File/disposition learnings in LEARNINGS.md; open follow-up CSs for any unresolved issues |
 
 ## Notes / Learnings
 
 _None yet — populated during implementation and close-out._
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | omni-ae-c2 |
+| Reviewer agent | rubber-duck |
 
 ## Plan-vs-implementation review
 
