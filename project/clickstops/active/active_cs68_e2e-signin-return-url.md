@@ -61,15 +61,17 @@ None.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Extract `E2EOidcLogin` shared helper + refactor `ApprovalsAntiforgeryE2ETests` to use it | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=impl \| report-status=pending \| learnings=0 |
-| Add `SignInReturnUrlE2ETests` (/login?returnUrl=/accounts → lands on /accounts) | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=test \| report-status=pending \| learnings=0 |
-| Validate e2e 6/6 under RUN_ASPIRE_E2E=1 + build/lint | pending | omni-ae-c2 | agent-id=omni-ae-c2 \| role=test \| report-status=pending \| learnings=0 |
-| Close-out: docs + restart state | pending | omni-ae-c2 | Update WORKBOARD + CONTEXT.md after merge so a fresh agent restarts from actual state |
-| Close-out: learnings + follow-ups | pending | omni-ae-c2 | File/disposition learnings in LEARNINGS.md; open follow-up CSs for any unresolved issues |
+| Extract `E2EOidcLogin` shared helper + refactor `ApprovalsAntiforgeryE2ETests` to use it | done | omni-ae-c2 | agent-id=omni-ae-c2 \| role=impl \| report-status=complete \| learnings=1 |
+| Add `SignInReturnUrlE2ETests` (/login?returnUrl=/accounts → lands on /accounts) | done | omni-ae-c2 | agent-id=omni-ae-c2 \| role=test \| report-status=complete \| learnings=0 |
+| Validate e2e 6/6 under RUN_ASPIRE_E2E=1 + build/lint | done | omni-ae-c2 | agent-id=omni-ae-c2 \| role=test \| report-status=complete \| learnings=0 |
+| Close-out: docs + restart state | done | omni-ae-c2 | WORKBOARD row removed by close-out; CONTEXT.md updated |
+| Close-out: learnings + follow-ups | done | omni-ae-c2 | Filed LRN for the per-class e2e boot/port helper duplication (consolidation follow-up candidate) |
 
 ## Notes / Learnings
 
-_None yet — populated during implementation and close-out._
+- **Extraction is behavior-preserving.** The refactored `ApprovalsAntiforgeryE2ETests` re-ran green (50 s) alongside the new test in the same 6/6 e2e run — the strongest acceptance signal that moving the login flow into `E2EOidcLogin` changed no behavior.
+- **Per-class e2e infra duplication (LRN filed).** The Copilot review flagged that `IsTcpPortInUse` and the OIDC discovery-readiness poll are copied into every e2e test class. CS68 intentionally scoped the extraction to the fiddly OIDC *login* flow only; consolidating the boot/port infra into a shared E2E fixture base is a worthwhile separate refactor (see LEARNINGS.md).
+- **Nit dispositions (content PR #232).** Copilot's three comments were non-blocking: (1) 500 ms port-guard timeout — kept to match the extraction source (`ApprovalsAntiforgeryE2ETests`/`ExpiredTokenE2ETests`); pre-existing 500 ms/1 s drift across the suite. (2) helper duplication — see above. (3) `_ = await` explicit discard — kept as an intent signal (no IDE0058 enforcement in this repo). GPT-5.5 rubber-duck verdict was an unconditional Go.
 
 ## Model audit
 
@@ -82,4 +84,18 @@ _None yet — populated during implementation and close-out._
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-07-09T05:16:00Z
+**Outcome:** GO
+
+Independent GPT-5.5 rubber-duck (agent `cs68-pvi-review`, model distinct from the claude-opus-4.8 implementer) reviewed the CS68 plan (Decisions #1–#4 + Deliverables + Exit criteria) against the merged implementation (content PR #232, `main` at `7cdeedddb92a06a3cd6a7dadc35fb9a419067e85`) and the validation (build 0/0; full e2e suite **6/6** under `RUN_ASPIRE_E2E=1` — new `SignInReturnUrlE2ETests` 49 s + refactored `ApprovalsAntiforgeryE2ETests` 50 s + 4 others; `harness lint` 23/0; LF/no-BOM; no non-test source changes). Outcome **GO** — all four Decisions, all Deliverables, and every Exit criterion met with file:line evidence. The only noted deviation is the OIDC discovery-readiness poll in the new test, a robustness guard consistent with the other authenticated e2e tests (not a scope expansion).
+
+### Per-decision outcome
+
+| Plan item | Outcome | Evidence |
+|---|---|---|
+| Decision #1 — extract `E2EOidcLogin` (parametrized start path, returns landing `Uri`); refactor Approvals to use it | Met | `E2EOidcLogin.LoginAsync(...)->Task<Uri>` (`E2EOidcLogin.cs:22-86`); Approvals calls it with `"/login"` and discards the Uri (`ApprovalsAntiforgeryE2ETests.cs:136,141,182`) |
+| Decision #2 — start `/login?returnUrl=/accounts`, assert landing `/accounts`, then assert a seeded row (not a count) | Met | `SignInReturnUrlE2ETests.cs:115-133` (landing `AbsolutePath == "/accounts"`; seeded `CONTOSO-CHK-0001` / `Alice Anderson`) |
+| Decision #3 — return-URL target `/accounts` | Met | `SignInReturnUrlE2ETests.cs:46-47` |
+| Decision #4 — reuse `E2EStack` + `RandomizePorts=false` + assembly-level no-parallel | Met | `SignInReturnUrlE2ETests.cs:67,72`; `E2ECollectionBehavior.cs` |
+| Deliverables + Exit criteria (3 files; Approvals behavior unchanged; 6/6; build 0/0; lint green; LF/no-BOM; no non-test source) | Met | Full e2e 6/6; commit stat = 3 test files only |
